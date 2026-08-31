@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>動作観察 & 3Dバイオメカニクス解析 (手動補正対応)</title>
+  <title>動作観察 & 3Dバイオメカニクス解析</title>
   <!-- MediaPipe Pose CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
   
@@ -207,6 +207,33 @@
       font-weight: bold;
     }
 
+    .touch-mode-bar {
+      display: flex;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 4px;
+    }
+    .touch-mode-btn {
+      flex: 1;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #ccc;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 4px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+      touch-action: manipulation;
+    }
+    .touch-mode-btn.active {
+      background: #e67700;
+      color: #fff;
+      font-weight: bold;
+      border-color: #ff922b;
+    }
+
     .tab-bar {
       display: flex;
       gap: 6px;
@@ -308,12 +335,12 @@
 
   <div class="compare-viewport mode-split" id="mainViewport">
     <div class="video-pane" id="paneA">
-      <div class="pane-tag tag-a">動画 A (点ドラッグで位置補正)</div>
+      <div class="pane-tag tag-a">動画 A</div>
       <video id="videoA" playsinline webkit-playsinline muted preload="auto" crossorigin="anonymous"></video>
       <canvas id="canvasA"></canvas>
     </div>
     <div class="video-pane" id="paneB">
-      <div class="pane-tag tag-b">動画 B (点ドラッグで位置補正)</div>
+      <div class="pane-tag tag-b">動画 B</div>
       <video id="videoB" playsinline webkit-playsinline muted preload="auto" crossorigin="anonymous"></video>
       <canvas id="canvasB"></canvas>
     </div>
@@ -357,6 +384,12 @@
       <button class="mode-btn" id="btnModeSingle">動画Aのみ</button>
       <button class="mode-btn active" id="btnModeSplit">2画面並列</button>
       <button class="mode-btn" id="btnModeOverlay">重ね合わせ</button>
+    </div>
+
+    <!-- 操作モード切り替え -->
+    <div class="touch-mode-bar">
+      <button class="touch-mode-btn active" id="btnTouchModeZoom">🔍 ズーム / 移動モード</button>
+      <button class="touch-mode-btn" id="btnTouchModeEdit">✏️ ポイント調整モード</button>
     </div>
 
     <div class="tab-bar">
@@ -448,6 +481,8 @@
     };
 
     let currentMode = 'split';
+    let currentTouchMode = 'zoom'; // 'zoom' または 'edit'
+
     const selectedOverlays = new Set(['r_knee']);
     const selectedTrails = new Set(['headTop', 'chin', 'trunkCenter']);
 
@@ -460,11 +495,9 @@
     const trailsA = createTrailBuffer();
     const trailsB = createTrailBuffer();
 
-    // ランドマーク手動補正用オフセットテーブル
     const manualOffsetsA = {};
     const manualOffsetsB = {};
 
-    // 最新のランドマーク結果キャッシュ
     let lastResultsA = null;
     let lastResultsB = null;
 
@@ -486,6 +519,9 @@
     const btnModeSingle = document.getElementById('btnModeSingle');
     const btnModeSplit = document.getElementById('btnModeSplit');
     const btnModeOverlay = document.getElementById('btnModeOverlay');
+    const btnTouchModeZoom = document.getElementById('btnTouchModeZoom');
+    const btnTouchModeEdit = document.getElementById('btnTouchModeEdit');
+
     const rowSeekB = document.getElementById('rowSeekB');
     const togglePanelBtn = document.getElementById('togglePanelBtn');
     const dataPanel = document.getElementById('dataPanel');
@@ -516,17 +552,35 @@
     const angleChipsRow = document.getElementById('angleChipsRow');
     const trailChipsRow = document.getElementById('trailChipsRow');
 
-    // 画面座標 -> Canvas正規化座標(0~1) 変換
-    function getNormalizedCoords(e, canvas) {
+    // モード切替UIイベント
+    btnTouchModeZoom.addEventListener('click', () => {
+      currentTouchMode = 'zoom';
+      btnTouchModeZoom.classList.add('active');
+      btnTouchModeEdit.classList.remove('active');
+    });
+
+    btnTouchModeEdit.addEventListener('click', () => {
+      currentTouchMode = 'edit';
+      btnTouchModeEdit.classList.add('active');
+      btnTouchModeZoom.classList.remove('active');
+    });
+
+    // タッチスクリーン座標 -> 動画Canvas内部正規化座標 (0.0 〜 1.0) 逆算
+    function getCanvasNormalizedCoord(clientX, clientY, canvas, scale, panX, panY) {
       const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      const normX = (clientX - rect.left) / rect.width;
-      const normY = (clientY - rect.top) / rect.height;
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      // 拡大・パンの逆変換
+      const unscaledX = (clientX - centerX - panX) / scale + centerX;
+      const unscaledY = (clientY - centerY - panY) / scale + centerY;
+
+      const normX = (unscaledX - rect.left) / rect.width;
+      const normY = (unscaledY - rect.top) / rect.height;
       return { normX, normY };
     }
 
-    // ポイントドラッグ & ピンチズーム
+    // 操作管理（ピンチズーム・ドラッグ・ポイント補正）
     function setupInteractions(pane, canvas, offsets, getResults, drawCallback) {
       let scale = 1.0;
       let panX = 0, panY = 0;
@@ -535,7 +589,6 @@
       let isPanning = false;
       let startX = 0, startY = 0;
       let lastTapTime = 0;
-
       let draggingLandmarkIdx = null;
 
       function updateTransform() {
@@ -554,13 +607,16 @@
           return;
         }
 
-        const { normX, normY } = getNormalizedCoords(e, canvas);
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        // ポイント調整モード、またはズーム時でもポイント付近をタップした場合はドラッグ判定
+        const { normX, normY } = getCanvasNormalizedCoord(clientX, clientY, canvas, scale, panX, panY);
         const results = getResults();
-        
-        // タッチ位置近傍のランドマークを探索（判定半径: 画面の約4%）
+
         if (results && results.poseLandmarks) {
           const lm = results.poseLandmarks;
-          let minD = 0.045;
+          let minD = currentTouchMode === 'edit' ? 0.08 : 0.035; // 編集モード時はタップ判定を広めに
           let targetIdx = null;
 
           for (let i = 0; i < lm.length; i++) {
@@ -581,19 +637,21 @@
           }
         }
 
-        // ダブルタップでリセット
+        if (currentTouchMode === 'edit') return;
+
+        // ダブルタップでズームリセット
         const now = Date.now();
         if (now - lastTapTime < 300) {
-          scale = 1.0; panX = 0; panY = 0;
+          scale = 1.0;
+          panX = 0;
+          panY = 0;
           updateTransform();
           lastTapTime = 0;
           return;
         }
         lastTapTime = now;
 
-        // ドラッグ移動 (パン)
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        // パン移動の開始
         isPanning = true;
         startX = clientX - panX;
         startY = clientY - panY;
@@ -607,16 +665,18 @@
             e.touches[0].clientY - e.touches[1].clientY
           );
           if (startDist > 0) {
-            scale = Math.min(Math.max(1.0, initialScale * (dist / startDist)), 5.0);
+            scale = Math.min(Math.max(1.0, initialScale * (dist / startDist)), 6.0);
             updateTransform();
           }
           return;
         }
 
-        // 関節ポイントのドラッグ補正中
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
         if (draggingLandmarkIdx !== null) {
           e.preventDefault();
-          const { normX, normY } = getNormalizedCoords(e, canvas);
+          const { normX, normY } = getCanvasNormalizedCoord(clientX, clientY, canvas, scale, panX, panY);
           const results = getResults();
           if (results && results.poseLandmarks && results.poseLandmarks[draggingLandmarkIdx]) {
             const orig = results.poseLandmarks[draggingLandmarkIdx];
@@ -631,18 +691,18 @@
 
         if (isPanning && scale > 1.0) {
           e.preventDefault();
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
           panX = clientX - startX;
           panY = clientY - startY;
           updateTransform();
         }
       }
 
-      function handleEnd() {
-        draggingLandmarkIdx = null;
-        isPanning = false;
-        startDist = 0;
+      function handleEnd(e) {
+        if (e.touches && e.touches.length < 2) startDist = 0;
+        if (!e.touches || e.touches.length === 0) {
+          draggingLandmarkIdx = null;
+          isPanning = false;
+        }
       }
 
       pane.addEventListener('touchstart', handleStart, { passive: false });
@@ -774,22 +834,13 @@
       ctx.drawImage(results.image, 0, 0, w, h);
 
       if (results.poseLandmarks) {
-        // オフセットを適用したランドマーク配列を構築
         const lm = results.poseLandmarks.map((pt, idx) => {
           const off = offsets[idx] || { x: 0, y: 0 };
-          return {
-            ...pt,
-            x: pt.x + off.x,
-            y: pt.y + off.y
-          };
+          return { ...pt, x: pt.x + off.x, y: pt.y + off.y };
         });
         const wlm = results.poseWorldLandmarks ? results.poseWorldLandmarks.map((pt, idx) => {
           const off = offsets[idx] || { x: 0, y: 0 };
-          return {
-            ...pt,
-            x: pt.x + off.x,
-            y: pt.y + off.y
-          };
+          return { ...pt, x: pt.x + off.x, y: pt.y + off.y };
         }) : lm;
 
         const connections = [
@@ -816,11 +867,11 @@
           if (lm[i] && lm[i].visibility > 0.4) {
             ctx.fillStyle = offsets[i] ? "#ffd43b" : (label === "B" && currentMode === 'overlay' ? "#ffa94d" : "#ff0055");
             ctx.beginPath();
-            ctx.arc(lm[i].x * w, lm[i].y * h, Math.max(4, Math.floor(w / 140)), 0, 2 * Math.PI);
+            ctx.arc(lm[i].x * w, lm[i].y * h, Math.max(5, Math.floor(w / 120)), 0, 2 * Math.PI);
             ctx.fill();
             if (offsets[i]) {
               ctx.strokeStyle = "#fff";
-              ctx.lineWidth = 1.5;
+              ctx.lineWidth = 2;
               ctx.stroke();
             }
           }
@@ -967,7 +1018,7 @@
 
       if (p[14] && p[13] && p[16] && p[15]) {
         const rArm = VCalc.normalize(VCalc.sub(p[14], p[12]));
-        const lArm = VCalc.normalize(VCalc.sub(p[13], p[11]));
+        const lArm = VCalc.normalize(VCalc.sub(p[11], p[13]));
         const rShoFlex = Math.asin(Math.min(Math.max(VCalc.dot(rArm, trunkZ), -1), 1)) * (180 / Math.PI);
         const lShoFlex = Math.asin(Math.min(Math.max(VCalc.dot(lArm, trunkZ), -1), 1)) * (180 / Math.PI);
         const rShoAbd = Math.asin(Math.min(Math.max(VCalc.dot(rArm, trunkX), -1), 1)) * (180 / Math.PI);
