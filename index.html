@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>動作観察 & 3Dバイオメカニクス解析</title>
-  <!-- MediaPipe Pose & Camera Utils CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <title>2動画比較 - 動作観察 & 3Dバイオメカニクス解析</title>
+  <!-- MediaPipe Pose CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
   
   <style>
@@ -24,16 +23,32 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    .viewport {
+    /* 2画面動画比較コンテナ */
+    .compare-viewport {
       position: absolute;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100dvh;
       display: flex;
+      flex-direction: row; /* 横画面時は左右並び */
+      background: #000;
+    }
+    @media (orientation: portrait) {
+      .compare-viewport {
+        flex-direction: column; /* 縦画面時は上下並び */
+      }
+    }
+
+    .video-pane {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      display: flex;
       justify-content: center;
       align-items: center;
-      background: #000;
+      border: 1px solid #222;
+      overflow: hidden;
     }
 
     video { display: none; }
@@ -44,63 +59,20 @@
       object-fit: contain;
     }
 
-    /* 上部：全体データ表示パネル */
-    .data-panel {
+    .pane-tag {
       position: absolute;
-      top: env(safe-area-inset-top, 8px);
+      top: 8px;
       left: 8px;
-      right: 8px;
-      max-height: 40dvh;
-      background: rgba(15, 15, 15, 0.88);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 10px;
-      padding: 8px 12px;
-      z-index: 30;
-      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 3px 8px;
+      border-radius: 4px;
       font-size: 0.75rem;
-      transition: max-height 0.3s ease;
-    }
-    .data-panel.collapsed {
-      max-height: 36px;
-      overflow: hidden;
-    }
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
       font-weight: bold;
-      color: #4dabf7;
+      z-index: 10;
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    .grid-data {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
-      gap: 4px 10px;
-      margin-top: 6px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      padding-top: 6px;
-    }
-    .data-group-title {
-      grid-column: 1 / -1;
-      font-weight: bold;
-      color: #ffd43b;
-      margin-top: 4px;
-      border-left: 3px solid #ffd43b;
-      padding-left: 4px;
-    }
-    .item {
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 1px dashed rgba(255,255,255,0.1);
-      padding: 1px 0;
-    }
-    .item .val {
-      font-weight: 600;
-      color: #69db7c;
-      font-variant-numeric: tabular-nums;
-    }
+    .pane-tag.tag-a { color: #4dabf7; border-color: #1971c2; }
+    .pane-tag.tag-b { color: #ff922b; border-color: #f76707; }
 
     /* 下部コントローラー & 選択エリア */
     .controls-overlay {
@@ -109,11 +81,11 @@
       left: 0;
       right: 0;
       padding: 6px 10px;
-      padding-bottom: max(10px, env(safe-area-inset-bottom));
-      background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.65) 80%, transparent 100%);
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 80%, transparent 100%);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
       z-index: 20;
     }
 
@@ -121,15 +93,15 @@
       display: flex;
       gap: 6px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-      padding-bottom: 4px;
+      padding-bottom: 3px;
     }
     .tab-btn {
       background: transparent;
       border: none;
       color: #888;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: bold;
-      padding: 2px 8px;
+      padding: 2px 6px;
       cursor: pointer;
     }
     .tab-btn.active {
@@ -151,8 +123,8 @@
       background: rgba(255, 255, 255, 0.12);
       border: 1px solid rgba(255, 255, 255, 0.25);
       border-radius: 12px;
-      padding: 3px 8px;
-      font-size: 0.7rem;
+      padding: 2px 7px;
+      font-size: 0.65rem;
       color: #ccc;
       cursor: pointer;
       user-select: none;
@@ -165,47 +137,58 @@
       font-weight: bold;
     }
     .chip-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       display: inline-block;
     }
-
-    /* 角度用チップの選択時スタイル */
     .chip-angle.active {
       background: #ffd43b !important;
       color: #000 !important;
       border-color: #ffd43b !important;
     }
 
-    .slider-row {
+    /* 各動画の個別シーク行 */
+    .seek-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      font-size: 0.7rem;
     }
+    .seek-label {
+      font-weight: bold;
+      min-width: 48px;
+    }
+    .seek-label.lbl-a { color: #4dabf7; }
+    .seek-label.lbl-b { color: #ff922b; }
     input[type="range"] {
       flex: 1;
-      height: 20px;
-      accent-color: #4dabf7;
+      height: 16px;
+      cursor: pointer;
     }
+    #seekBarA { accent-color: #4dabf7; }
+    #seekBarB { accent-color: #ff922b; }
+
     .time-txt {
-      font-size: 0.75rem;
-      min-width: 48px;
+      font-size: 0.7rem;
+      min-width: 42px;
       text-align: right;
       font-variant-numeric: tabular-nums;
     }
+
     .btn-grid {
       display: flex;
-      gap: 6px;
+      gap: 4px;
+      align-items: center;
     }
     button, label.btn {
       flex: 1;
       background: rgba(255, 255, 255, 0.15);
       color: #fff;
       border: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 8px 2px;
+      padding: 6px 2px;
       border-radius: 6px;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -214,49 +197,26 @@
       touch-action: manipulation;
     }
     button:active, label.btn:active { background: rgba(255, 255, 255, 0.35); }
-    .btn-primary { background: #1971c2 !important; border-color: #4dabf7 !important; }
-    .btn-circle { flex: 0 0 38px; height: 38px; border-radius: 50%; font-size: 1rem; }
+    .btn-a { background: #1971c2 !important; border-color: #4dabf7 !important; }
+    .btn-b { background: #d9480f !important; border-color: #ff922b !important; }
+    .btn-sync { background: #2f9e44 !important; border-color: #51cf66 !important; font-weight: bold; }
+    .btn-circle { flex: 0 0 32px; height: 32px; border-radius: 50%; font-size: 0.85rem; }
     input[type="file"] { display: none; }
   </style>
 </head>
 <body>
 
-  <div class="viewport">
-    <video id="inputVideo" playsinline webkit-playsinline></video>
-    <canvas id="outputCanvas"></canvas>
-  </div>
-
-  <!-- 全体データ表示パネル -->
-  <div class="data-panel collapsed" id="dataPanel">
-    <div class="panel-header" id="togglePanelBtn">
-      <span>📊 全関節運動 & アライメント数値</span>
-      <span id="collapseIcon">▲ タップで開く</span>
+  <!-- 2画面表示エリア -->
+  <div class="compare-viewport">
+    <div class="video-pane" id="paneA">
+      <div class="pane-tag tag-a">動画 A</div>
+      <video id="videoA" playsinline webkit-playsinline muted></video>
+      <canvas id="canvasA"></canvas>
     </div>
-    <div class="grid-data">
-      <div class="data-group-title">体幹 (Trunk)</div>
-      <div class="item"><span>屈曲/伸展:</span><span id="trunk_fe" class="val">--°</span></div>
-      <div class="item"><span>側屈(右/左):</span><span id="trunk_lb" class="val">--°</span></div>
-      <div class="item"><span>回旋(右/左):</span><span id="trunk_rot" class="val">--°</span></div>
-
-      <div class="data-group-title">上肢 (Upper Extremities)</div>
-      <div class="item"><span>右肘 屈曲/伸展:</span><span id="r_elbow_fe" class="val">--°</span></div>
-      <div class="item"><span>左肘 屈曲/伸展:</span><span id="l_elbow_fe" class="val">--°</span></div>
-      <div class="item"><span>右肩 屈伸/外内転:</span><span id="r_sho_fe_aa" class="val">--° / --°</span></div>
-      <div class="item"><span>左肩 屈伸/外内転:</span><span id="l_sho_fe_aa" class="val">--° / --°</span></div>
-      <div class="item"><span>右肩 水平内/外転:</span><span id="r_sho_ha" class="val">--°</span></div>
-      <div class="item"><span>左肩 水平内/外転:</span><span id="l_sho_ha" class="val">--°</span></div>
-      <div class="item"><span>右肩 内旋/外旋:</span><span id="r_sho_rot" class="val">--°</span></div>
-      <div class="item"><span>左肩 内旋/外旋:</span><span id="l_sho_rot" class="val">--°</span></div>
-
-      <div class="data-group-title">下肢 (Lower Extremities)</div>
-      <div class="item"><span>右股 屈伸/外内転:</span><span id="r_hip_fe_aa" class="val">--° / --°</span></div>
-      <div class="item"><span>左股 屈伸/外内転:</span><span id="l_hip_fe_aa" class="val">--° / --°</span></div>
-      <div class="item"><span>右股 内旋/外旋:</span><span id="r_hip_rot" class="val">--°</span></div>
-      <div class="item"><span>左股 内旋/外旋:</span><span id="l_hip_rot" class="val">--°</span></div>
-      <div class="item"><span>右膝 屈曲/伸展:</span><span id="r_knee_fe" class="val">--°</span></div>
-      <div class="item"><span>左膝 屈曲/伸展:</span><span id="l_knee_fe" class="val">--°</span></div>
-      <div class="item"><span>右足 背屈/底屈:</span><span id="r_ank_df" class="val">--°</span></div>
-      <div class="item"><span>左足 背屈/底屈:</span><span id="l_ank_df" class="val">--°</span></div>
+    <div class="video-pane" id="paneB">
+      <div class="pane-tag tag-b">動画 B</div>
+      <video id="videoB" playsinline webkit-playsinline muted></video>
+      <canvas id="canvasB"></canvas>
     </div>
   </div>
 
@@ -286,21 +246,17 @@
       <span class="chip chip-angle" data-joint="l_ank">左足 背底屈</span>
     </div>
 
-    <!-- 2. 軌跡ポイント選択チップ一覧（左右完全分解） -->
+    <!-- 2. 軌跡ポイント選択チップ一覧 -->
     <div class="chip-scroll-row" id="trailChipsRow" style="display: none;">
       <span class="chip chip-trail active" data-trail="headTop"><span class="chip-dot" style="background:#00f0ff;"></span>頭頂部</span>
       <span class="chip chip-trail active" data-trail="chin"><span class="chip-dot" style="background:#ff3399;"></span>顎先</span>
       <span class="chip chip-trail active" data-trail="trunkCenter"><span class="chip-dot" style="background:#51cf66;"></span>体幹中心</span>
-      
-      <!-- 上肢（右・左） -->
       <span class="chip chip-trail" data-trail="rShoulder"><span class="chip-dot" style="background:#ff6b6b;"></span>右肩</span>
       <span class="chip chip-trail" data-trail="lShoulder"><span class="chip-dot" style="background:#339af0;"></span>左肩</span>
       <span class="chip chip-trail" data-trail="rElbow"><span class="chip-dot" style="background:#f76707;"></span>右肘</span>
       <span class="chip chip-trail" data-trail="lElbow"><span class="chip-dot" style="background:#22b8cf;"></span>左肘</span>
       <span class="chip chip-trail" data-trail="rWrist"><span class="chip-dot" style="background:#ff922b;"></span>右手首</span>
       <span class="chip chip-trail" data-trail="lWrist"><span class="chip-dot" style="background:#20c997;"></span>左手首</span>
-
-      <!-- 下肢（右・左） -->
       <span class="chip chip-trail" data-trail="rHip"><span class="chip-dot" style="background:#e8590c;"></span>右股</span>
       <span class="chip chip-trail" data-trail="lHip"><span class="chip-dot" style="background:#4263eb;"></span>左股</span>
       <span class="chip chip-trail" data-trail="rKnee"><span class="chip-dot" style="background:#fcc419;"></span>右膝</span>
@@ -309,93 +265,84 @@
       <span class="chip chip-trail" data-trail="lAnkle"><span class="chip-dot" style="background:#94d82d;"></span>左足首</span>
     </div>
 
-    <!-- 再生シークバー -->
-    <div class="slider-row">
-      <input type="range" id="seekBar" value="0" min="0" step="0.033" disabled>
-      <span id="timeDisplay" class="time-txt">0.00s</span>
+    <!-- シークバー A -->
+    <div class="seek-row">
+      <span class="seek-label lbl-a">A コマ送り</span>
+      <button id="btnPrevA" style="flex:0 0 26px; padding:2px;">◀</button>
+      <input type="range" id="seekBarA" value="0" min="0" step="0.033" disabled>
+      <button id="btnNextA" style="flex:0 0 26px; padding:2px;">▶</button>
+      <span id="timeDisplayA" class="time-txt">0.00s</span>
     </div>
 
-    <!-- 操作ボタン列 -->
+    <!-- シークバー B -->
+    <div class="seek-row">
+      <span class="seek-label lbl-b">B コマ送り</span>
+      <button id="btnPrevB" style="flex:0 0 26px; padding:2px;">◀</button>
+      <input type="range" id="seekBarB" value="0" min="0" step="0.033" disabled>
+      <button id="btnNextB" style="flex:0 0 26px; padding:2px;">▶</button>
+      <span id="timeDisplayB" class="time-txt">0.00s</span>
+    </div>
+
+    <!-- 動画読み込み & 同期再生ボタン列 -->
     <div class="btn-grid">
-      <label class="btn btn-primary" style="flex: 1.1;">
-        📁 動画選択
-        <input type="file" id="videoUploader" accept="video/*">
+      <label class="btn btn-a" style="flex: 1;">
+        📁 動画A
+        <input type="file" id="uploaderA" accept="video/*">
       </label>
-      <button id="btnCamera" style="flex: 0.9;">📷 カメラ</button>
-      <button id="btnPrevFrame" class="btn-circle" disabled>◀</button>
-      <button id="btnPlayPause" class="btn-circle btn-primary" disabled>▶</button>
-      <button id="btnNextFrame" class="btn-circle" disabled>▶</button>
-      <button id="btnClearTrail" style="flex: 0.7;">軌跡消去</button>
+      <label class="btn btn-b" style="flex: 1;">
+        📁 動画B
+        <input type="file" id="uploaderB" accept="video/*">
+      </label>
+      <button id="btnSyncPlay" class="btn btn-sync" style="flex: 1.3;" disabled>▶ 同期再生</button>
+      <button id="btnClearTrail" style="flex: 0.8;">軌跡消去</button>
     </div>
   </div>
 
   <script>
-    const videoElement = document.getElementById('inputVideo');
-    const canvasElement = document.getElementById('outputCanvas');
-    const canvasCtx = canvasElement.getContext('2d');
-    const seekBar = document.getElementById('seekBar');
-    const timeDisplay = document.getElementById('timeDisplay');
-    const btnPlayPause = document.getElementById('btnPlayPause');
-    const btnPrevFrame = document.getElementById('btnPrevFrame');
-    const btnNextFrame = document.getElementById('btnNextFrame');
-    const btnCamera = document.getElementById('btnCamera');
-    const uploader = document.getElementById('videoUploader');
-    const btnClearTrail = document.getElementById('btnClearTrail');
-    const togglePanelBtn = document.getElementById('togglePanelBtn');
-    const dataPanel = document.getElementById('dataPanel');
+    const videoA = document.getElementById('videoA');
+    const canvasA = document.getElementById('canvasA');
+    const ctxA = canvasA.getContext('2d');
+    const seekBarA = document.getElementById('seekBarA');
+    const timeDisplayA = document.getElementById('timeDisplayA');
+    const btnPrevA = document.getElementById('btnPrevA');
+    const btnNextA = document.getElementById('btnNextA');
+    const uploaderA = document.getElementById('uploaderA');
 
+    const videoB = document.getElementById('videoB');
+    const canvasB = document.getElementById('canvasB');
+    const ctxB = canvasB.getContext('2d');
+    const seekBarB = document.getElementById('seekBarB');
+    const timeDisplayB = document.getElementById('timeDisplayB');
+    const btnPrevB = document.getElementById('btnPrevB');
+    const btnNextB = document.getElementById('btnNextB');
+    const uploaderB = document.getElementById('uploaderB');
+
+    const btnSyncPlay = document.getElementById('btnSyncPlay');
+    const btnClearTrail = document.getElementById('btnClearTrail');
     const tabAngle = document.getElementById('tabAngle');
     const tabTrail = document.getElementById('tabTrail');
     const angleChipsRow = document.getElementById('angleChipsRow');
     const trailChipsRow = document.getElementById('trailChipsRow');
 
-    let isLiveCamera = false;
-    let cameraUtil = null;
-
-    // 選択中の角度ピン留め
     const selectedOverlays = new Set(['r_knee']);
-
-    // 選択中の軌跡ポイント（初期値: 頭頂、顎、体幹中心）
     const selectedTrails = new Set(['headTop', 'chin', 'trunkCenter']);
 
-    // 左右完全分解の軌跡バッファ
-    const trails = {
-      headTop: [],
-      chin: [],
-      trunkCenter: [],
-      rShoulder: [],
-      lShoulder: [],
-      rElbow: [],
-      lElbow: [],
-      rWrist: [],
-      lWrist: [],
-      rHip: [],
-      lHip: [],
-      rKnee: [],
-      lKnee: [],
-      rAnkle: [],
-      lAnkle: []
-    };
+    const createTrailBuffer = () => ({
+      headTop: [], chin: [], trunkCenter: [],
+      rShoulder: [], lShoulder: [], rElbow: [], lElbow: [], rWrist: [], lWrist: [],
+      rHip: [], lHip: [], rKnee: [], lKnee: [], rAnkle: [], lAnkle: []
+    });
 
-    // 左右識別カラーリング（右: 暖色系, 左: 寒色系）
+    const trailsA = createTrailBuffer();
+    const trailsB = createTrailBuffer();
+
     const trailColors = {
-      headTop: "#00f0ff",
-      chin: "#ff3399",
-      trunkCenter: "#51cf66",
-      rShoulder: "#ff6b6b",
-      lShoulder: "#339af0",
-      rElbow: "#f76707",
-      lElbow: "#22b8cf",
-      rWrist: "#ff922b",
-      lWrist: "#20c997",
-      rHip: "#e8590c",
-      lHip: "#4263eb",
-      rKnee: "#fcc419",
-      lKnee: "#748ffc",
-      rAnkle: "#ffd43b",
-      lAnkle: "#94d82d"
+      headTop: "#00f0ff", chin: "#ff3399", trunkCenter: "#51cf66",
+      rShoulder: "#ff6b6b", lShoulder: "#339af0", rElbow: "#f76707", lElbow: "#22b8cf",
+      rWrist: "#ff922b", lWrist: "#20c997", rHip: "#e8590c", lHip: "#4263eb",
+      rKnee: "#fcc419", lKnee: "#748ffc", rAnkle: "#ffd43b", lAnkle: "#94d82d"
     };
-    const MAX_TRAIL_LENGTH = 150;
+    const MAX_TRAIL_LENGTH = 120;
 
     // タブ切り替え
     tabAngle.addEventListener('click', () => {
@@ -404,7 +351,6 @@
       angleChipsRow.style.display = 'flex';
       trailChipsRow.style.display = 'none';
     });
-
     tabTrail.addEventListener('click', () => {
       tabTrail.classList.add('active');
       tabAngle.classList.remove('active');
@@ -412,70 +358,48 @@
       angleChipsRow.style.display = 'none';
     });
 
-    // 角度チップ選択
     document.querySelectorAll('.chip-angle').forEach(chip => {
       chip.addEventListener('click', () => {
-        const jointKey = chip.getAttribute('data-joint');
-        if (selectedOverlays.has(jointKey)) {
-          selectedOverlays.delete(jointKey);
-          chip.classList.remove('active');
-        } else {
-          selectedOverlays.add(jointKey);
-          chip.classList.add('active');
-        }
-        renderCurrentFrame();
+        const k = chip.getAttribute('data-joint');
+        selectedOverlays.has(k) ? selectedOverlays.delete(k) : selectedOverlays.add(k);
+        chip.classList.toggle('active');
+        renderAll();
       });
     });
 
-    // 軌跡チップ選択
     document.querySelectorAll('.chip-trail').forEach(chip => {
       chip.addEventListener('click', () => {
-        const trailKey = chip.getAttribute('data-trail');
-        if (selectedTrails.has(trailKey)) {
-          selectedTrails.delete(trailKey);
-          chip.classList.remove('active');
-        } else {
-          selectedTrails.add(trailKey);
-          chip.classList.add('active');
-        }
-        renderCurrentFrame();
+        const k = chip.getAttribute('data-trail');
+        selectedTrails.has(k) ? selectedTrails.delete(k) : selectedTrails.add(k);
+        chip.classList.toggle('active');
+        renderAll();
       });
     });
 
-    // 軌跡消去
     btnClearTrail.addEventListener('click', () => {
-      Object.keys(trails).forEach(k => trails[k].length = 0);
-      renderCurrentFrame();
+      Object.keys(trailsA).forEach(k => trailsA[k].length = 0);
+      Object.keys(trailsB).forEach(k => trailsB[k].length = 0);
+      renderAll();
     });
 
-    togglePanelBtn.addEventListener('click', () => {
-      dataPanel.classList.toggle('collapsed');
-      document.getElementById('collapseIcon').innerText = dataPanel.classList.contains('collapsed') ? '▲ タップで開く' : '▼ タップで閉じる';
-    });
+    // 2つのMediaPipe Poseインスタンスを初期化
+    const poseA = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
+    poseA.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    
+    const poseB = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
+    poseB.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
-    // MediaPipe Pose 初期化
-    const pose = new Pose({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
-    });
+    let currentResultsA = null;
+    let currentResultsB = null;
 
-    pose.setOptions({
-      modelComplexity: 1,
-      smoothLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
-    });
-
-    pose.onResults(onResults);
+    poseA.onResults(res => { currentResultsA = res; drawFrame(canvasA, ctxA, videoA, res, trailsA); });
+    poseB.onResults(res => { currentResultsB = res; drawFrame(canvasB, ctxB, videoB, res, trailsB); });
 
     const V = {
       sub: (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: (a.z || 0) - (b.z || 0) }),
       mid: (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: ((a.z || 0) + (b.z || 0)) / 2 }),
       dot: (a, b) => a.x * b.x + a.y * b.y + a.z * b.z,
-      cross: (a, b) => ({
-        x: a.y * b.z - a.z * b.y,
-        y: a.z * b.x - a.x * b.z,
-        z: a.x * b.y - a.y * b.x
-      }),
+      cross: (a, b) => ({ x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x }),
       normalize: (a) => {
         const n = Math.hypot(a.x, a.y, a.z) || 1;
         return { x: a.x / n, y: a.y / n, z: a.z / n };
@@ -488,69 +412,63 @@
       }
     };
 
-    function addTrailPoint(key, pt) {
-      trails[key].push(pt);
-      if (trails[key].length > MAX_TRAIL_LENGTH) trails[key].shift();
+    function addPt(tb, key, pt) {
+      tb[key].push(pt);
+      if (tb[key].length > MAX_TRAIL_LENGTH) tb[key].shift();
     }
 
-    function onResults(results) {
-      canvasElement.width = videoElement.videoWidth || 640;
-      canvasElement.height = videoElement.videoHeight || 360;
-      const w = canvasElement.width;
-      const h = canvasElement.height;
+    function drawFrame(canvas, ctx, video, results, trailBuf) {
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 360;
+      const w = canvas.width;
+      const h = canvas.height;
 
-      canvasCtx.save();
-      canvasCtx.clearRect(0, 0, w, h);
-      canvasCtx.drawImage(results.image, 0, 0, w, h);
+      ctx.save();
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(results.image, 0, 0, w, h);
 
       if (results.poseLandmarks) {
         const lm = results.poseLandmarks;
         const wlm = results.poseWorldLandmarks || lm;
 
-        // 骨格ライン（顔・手先除外）
         const connections = [
-          [11, 12],
-          [11, 13], [13, 15],
-          [12, 14], [14, 16],
+          [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
           [11, 23], [12, 24], [23, 24],
           [23, 25], [25, 27], [27, 31],
           [24, 26], [26, 28], [28, 32],
           [27, 29], [28, 30]
         ];
 
-        canvasCtx.strokeStyle = "#00e5ff";
-        canvasCtx.lineWidth = Math.max(2, Math.floor(w / 220));
+        ctx.strokeStyle = "#00e5ff";
+        ctx.lineWidth = Math.max(2, Math.floor(w / 220));
         connections.forEach(([i, j]) => {
           if (lm[i].visibility > 0.4 && lm[j].visibility > 0.4) {
-            canvasCtx.beginPath();
-            canvasCtx.moveTo(lm[i].x * w, lm[i].y * h);
-            canvasCtx.lineTo(lm[j].x * w, lm[j].y * h);
-            canvasCtx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(lm[i].x * w, lm[i].y * h);
+            ctx.lineTo(lm[j].x * w, lm[j].y * h);
+            ctx.stroke();
           }
         });
 
-        // 関節点
         const validJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
-        canvasCtx.fillStyle = "#ff0055";
+        ctx.fillStyle = "#ff0055";
         validJoints.forEach(i => {
           if (lm[i] && lm[i].visibility > 0.4) {
-            canvasCtx.beginPath();
-            canvasCtx.arc(lm[i].x * w, lm[i].y * h, Math.max(3, Math.floor(w / 160)), 0, 2 * Math.PI);
-            canvasCtx.fill();
+            ctx.beginPath();
+            ctx.arc(lm[i].x * w, lm[i].y * h, Math.max(3, Math.floor(w / 160)), 0, 2 * Math.PI);
+            ctx.fill();
           }
         });
 
-        // --- 全関節・部位の軌跡ポイント抽出 ---
-        // 1. 体幹中心
+        // 軌跡点抽出
         let trunkCenter = null;
         if (lm[11].visibility > 0.4 && lm[12].visibility > 0.4 && lm[23].visibility > 0.4 && lm[24].visibility > 0.4) {
           const shoMid = { x: (lm[11].x + lm[12].x) / 2, y: (lm[11].y + lm[12].y) / 2 };
           const hipMid = { x: (lm[23].x + lm[24].x) / 2, y: (lm[23].y + lm[24].y) / 2 };
           trunkCenter = { x: (shoMid.x + hipMid.x) / 2 * w, y: (shoMid.y + hipMid.y) / 2 * h };
-          addTrailPoint('trunkCenter', trunkCenter);
+          addPt(trailBuf, 'trunkCenter', trunkCenter);
         }
 
-        // 2. 頭頂 & 顎
         if (lm[0] && lm[0].visibility > 0.4 && lm[11].visibility > 0.4 && lm[12].visibility > 0.4) {
           const shoMid = { x: (lm[11].x + lm[12].x) / 2, y: (lm[11].y + lm[12].y) / 2 };
           const headUpVec = { x: lm[0].x - shoMid.x, y: lm[0].y - shoMid.y };
@@ -560,7 +478,6 @@
             x: (lm[0].x + (headUpVec.x / headDist) * headDist * 0.65) * w,
             y: (lm[0].y + (headUpVec.y / headDist) * headDist * 0.65) * h
           };
-
           let mouthMid = lm[0];
           if (lm[9] && lm[10] && lm[9].visibility > 0.3 && lm[10].visibility > 0.3) {
             mouthMid = { x: (lm[9].x + lm[10].x) / 2, y: (lm[9].y + lm[10].y) / 2 };
@@ -569,87 +486,74 @@
             x: (mouthMid.x - (headUpVec.x / headDist) * headDist * 0.2) * w,
             y: (mouthMid.y - (headUpVec.y / headDist) * headDist * 0.2) * h
           };
-
-          addTrailPoint('headTop', headTop);
-          addTrailPoint('chin', chin);
+          addPt(trailBuf, 'headTop', headTop);
+          addPt(trailBuf, 'chin', chin);
         }
 
-        // 3. 肩・肘・手首（左右個別）
-        if (lm[12] && lm[12].visibility > 0.4) addTrailPoint('rShoulder', { x: lm[12].x * w, y: lm[12].y * h });
-        if (lm[11] && lm[11].visibility > 0.4) addTrailPoint('lShoulder', { x: lm[11].x * w, y: lm[11].y * h });
-        if (lm[14] && lm[14].visibility > 0.4) addTrailPoint('rElbow', { x: lm[14].x * w, y: lm[14].y * h });
-        if (lm[13] && lm[13].visibility > 0.4) addTrailPoint('lElbow', { x: lm[13].x * w, y: lm[13].y * h });
-        if (lm[16] && lm[16].visibility > 0.4) addTrailPoint('rWrist', { x: lm[16].x * w, y: lm[16].y * h });
-        if (lm[15] && lm[15].visibility > 0.4) addTrailPoint('lWrist', { x: lm[15].x * w, y: lm[15].y * h });
+        if (lm[12] && lm[12].visibility > 0.4) addPt(trailBuf, 'rShoulder', { x: lm[12].x * w, y: lm[12].y * h });
+        if (lm[11] && lm[11].visibility > 0.4) addPt(trailBuf, 'lShoulder', { x: lm[11].x * w, y: lm[11].y * h });
+        if (lm[14] && lm[14].visibility > 0.4) addPt(trailBuf, 'rElbow', { x: lm[14].x * w, y: lm[14].y * h });
+        if (lm[13] && lm[13].visibility > 0.4) addPt(trailBuf, 'lElbow', { x: lm[13].x * w, y: lm[13].y * h });
+        if (lm[16] && lm[16].visibility > 0.4) addPt(trailBuf, 'rWrist', { x: lm[16].x * w, y: lm[16].y * h });
+        if (lm[15] && lm[15].visibility > 0.4) addPt(trailBuf, 'lWrist', { x: lm[15].x * w, y: lm[15].y * h });
+        if (lm[24] && lm[24].visibility > 0.4) addPt(trailBuf, 'rHip', { x: lm[24].x * w, y: lm[24].y * h });
+        if (lm[23] && lm[23].visibility > 0.4) addPt(trailBuf, 'lHip', { x: lm[23].x * w, y: lm[23].y * h });
+        if (lm[26] && lm[26].visibility > 0.4) addPt(trailBuf, 'rKnee', { x: lm[26].x * w, y: lm[26].y * h });
+        if (lm[25] && lm[25].visibility > 0.4) addPt(trailBuf, 'lKnee', { x: lm[25].x * w, y: lm[25].y * h });
+        if (lm[28] && lm[28].visibility > 0.4) addPt(trailBuf, 'rAnkle', { x: lm[28].x * w, y: lm[28].y * h });
+        if (lm[27] && lm[27].visibility > 0.4) addPt(trailBuf, 'lAnkle', { x: lm[27].x * w, y: lm[27].y * h });
 
-        // 4. 股・膝・足首（左右個別）
-        if (lm[24] && lm[24].visibility > 0.4) addTrailPoint('rHip', { x: lm[24].x * w, y: lm[24].y * h });
-        if (lm[23] && lm[23].visibility > 0.4) addTrailPoint('lHip', { x: lm[23].x * w, y: lm[23].y * h });
-        if (lm[26] && lm[26].visibility > 0.4) addTrailPoint('rKnee', { x: lm[26].x * w, y: lm[26].y * h });
-        if (lm[25] && lm[25].visibility > 0.4) addTrailPoint('lKnee', { x: lm[25].x * w, y: lm[25].y * h });
-        if (lm[28] && lm[28].visibility > 0.4) addTrailPoint('rAnkle', { x: lm[28].x * w, y: lm[28].y * h });
-        if (lm[27] && lm[27].visibility > 0.4) addTrailPoint('lAnkle', { x: lm[27].x * w, y: lm[27].y * h });
-
-        // 選択された軌跡とマーカーの描画
+        // 軌跡描画
         selectedTrails.forEach(key => {
-          if (trails[key] && trails[key].length > 0) {
-            drawTrail(canvasCtx, trails[key], trailColors[key]);
-            const lastPt = trails[key][trails[key].length - 1];
-            canvasCtx.fillStyle = trailColors[key];
-            canvasCtx.beginPath();
-            canvasCtx.arc(lastPt.x, lastPt.y, 5, 0, 2 * Math.PI);
-            canvasCtx.fill();
+          if (trailBuf[key] && trailBuf[key].length > 0) {
+            const pts = trailBuf[key];
+            for (let i = 1; i < pts.length; i++) {
+              ctx.strokeStyle = trailColors[key];
+              ctx.globalAlpha = (i / pts.length) * 0.85;
+              ctx.lineWidth = Math.max(2, Math.floor(w / 240));
+              ctx.beginPath();
+              ctx.moveTo(pts[i - 1].x, pts[i - 1].y);
+              ctx.lineTo(pts[i].x, pts[i].y);
+              ctx.stroke();
+            }
+            const last = pts[pts.length - 1];
+            ctx.fillStyle = trailColors[key];
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, 4, 0, 2 * Math.PI);
+            ctx.fill();
           }
         });
 
-        // 角度計算と選択されたバブルの描画
-        calculateKinematicsAndOverlay(lm, wlm, w, h, trunkCenter);
-      }
-      canvasCtx.restore();
-    }
-
-    function drawTrail(ctx, points, color) {
-      if (points.length < 2) return;
-      ctx.save();
-      for (let i = 1; i < points.length; i++) {
-        ctx.strokeStyle = color;
-        ctx.globalAlpha = (i / points.length) * 0.85;
-        ctx.lineWidth = Math.max(2, Math.floor(canvasElement.width / 240));
-        ctx.beginPath();
-        ctx.moveTo(points[i - 1].x, points[i - 1].y);
-        ctx.lineTo(points[i].x, points[i].y);
-        ctx.stroke();
+        // 角度オーバーレイ描画
+        drawAngles(ctx, lm, wlm, w, h, trunkCenter);
       }
       ctx.restore();
     }
 
-    function drawJointBadge(ctx, pos, text) {
+    function drawBadge(ctx, pos, text) {
       ctx.save();
-      const fontSize = Math.max(12, Math.floor(canvasElement.width / 36));
+      const fontSize = Math.max(11, Math.floor(ctx.canvas.width / 38));
       ctx.font = `bold ${fontSize}px sans-serif`;
-      const paddingX = 6;
-      const paddingY = 4;
       const metrics = ctx.measureText(text);
-      const bgW = metrics.width + paddingX * 2;
-      const bgH = fontSize + paddingY * 2;
-      const x = pos.x + 8;
+      const bgW = metrics.width + 10;
+      const bgH = fontSize + 6;
+      const x = pos.x + 6;
       const y = pos.y - bgH / 2;
 
       ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
       ctx.strokeStyle = "#ffd43b";
-      ctx.lineWidth = 1.5;
-      
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.roundRect(x, y, bgW, bgH, 4);
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = "#ffd43b";
-      ctx.fillText(text, x + paddingX, y + fontSize);
+      ctx.fillText(text, x + 5, y + fontSize);
       ctx.restore();
     }
 
-    function calculateKinematicsAndOverlay(lm, p, w, h, trunkCenter) {
+    function drawAngles(ctx, lm, p, w, h, trunkCenter) {
       const shoMid = V.mid(p[11], p[12]);
       const hipMid = V.mid(p[23], p[24]);
       const trunkVec = V.sub(shoMid, hipMid);
@@ -658,204 +562,174 @@
 
       const trunkZ = V.normalize(V.cross(shoulderLine, trunkVec));
       const trunkX = V.normalize(shoulderLine);
-      const trunkY = V.normalize(trunkVec);
 
-      // 体幹
-      const trunkFlex = Math.atan2(trunkVec.z, -trunkVec.y) * (180 / Math.PI);
-      const trunkFlexStr = `${trunkFlex >= 0 ? '屈 ' : '伸 '}${Math.abs(trunkFlex).toFixed(1)}°`;
-      document.getElementById('trunk_fe').innerText = trunkFlexStr;
       if (selectedOverlays.has('trunk_fe') && trunkCenter) {
-        drawJointBadge(canvasCtx, trunkCenter, `体幹:${trunkFlexStr}`);
+        const flex = Math.atan2(trunkVec.z, -trunkVec.y) * (180 / Math.PI);
+        drawBadge(ctx, trunkCenter, `体幹:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
       }
-
-      const trunkLat = Math.atan2(trunkVec.x, -trunkVec.y) * (180 / Math.PI);
-      const trunkLatStr = `${trunkLat >= 0 ? '右 ' : '左 '}${Math.abs(trunkLat).toFixed(1)}°`;
-      document.getElementById('trunk_lb').innerText = trunkLatStr;
       if (selectedOverlays.has('trunk_lb') && trunkCenter) {
-        drawJointBadge(canvasCtx, trunkCenter, `側屈:${trunkLatStr}`);
+        const lat = Math.atan2(trunkVec.x, -trunkVec.y) * (180 / Math.PI);
+        drawBadge(ctx, trunkCenter, `側屈:${lat >= 0 ? '右' : '左'}${Math.abs(lat).toFixed(0)}°`);
       }
-
-      const rotAngle = (Math.atan2(shoulderLine.z, shoulderLine.x) - Math.atan2(pelvisLine.z, pelvisLine.x)) * (180 / Math.PI);
-      const rotStr = `${rotAngle >= 0 ? '右 ' : '左 '}${Math.abs(rotAngle).toFixed(1)}°`;
-      document.getElementById('trunk_rot').innerText = rotStr;
       if (selectedOverlays.has('trunk_rot') && trunkCenter) {
-        drawJointBadge(canvasCtx, trunkCenter, `回旋:${rotStr}`);
+        const rot = (Math.atan2(shoulderLine.z, shoulderLine.x) - Math.atan2(pelvisLine.z, pelvisLine.x)) * (180 / Math.PI);
+        drawBadge(ctx, trunkCenter, `回旋:${rot >= 0 ? '右' : '左'}${Math.abs(rot).toFixed(0)}°`);
       }
 
-      // 肘
-      const rElbowAngle = 180 - V.angleDeg(V.sub(p[12], p[14]), V.sub(p[16], p[14]));
-      const lElbowAngle = 180 - V.angleDeg(V.sub(p[11], p[13]), V.sub(p[15], p[13]));
-      document.getElementById('r_elbow_fe').innerText = `屈 ${Math.max(0, rElbowAngle).toFixed(1)}°`;
-      document.getElementById('l_elbow_fe').innerText = `屈 ${Math.max(0, lElbowAngle).toFixed(1)}°`;
       if (selectedOverlays.has('r_elbow') && lm[14].visibility > 0.4) {
-        drawJointBadge(canvasCtx, { x: lm[14].x * w, y: lm[14].y * h }, `右肘:${Math.max(0, rElbowAngle).toFixed(0)}°`);
+        const a = 180 - V.angleDeg(V.sub(p[12], p[14]), V.sub(p[16], p[14]));
+        drawBadge(ctx, { x: lm[14].x * w, y: lm[14].y * h }, `右肘:${Math.max(0, a).toFixed(0)}°`);
       }
       if (selectedOverlays.has('l_elbow') && lm[13].visibility > 0.4) {
-        drawJointBadge(canvasCtx, { x: lm[13].x * w, y: lm[13].y * h }, `左肘:${Math.max(0, lElbowAngle).toFixed(0)}°`);
+        const a = 180 - V.angleDeg(V.sub(p[11], p[13]), V.sub(p[15], p[13]));
+        drawBadge(ctx, { x: lm[13].x * w, y: lm[13].y * h }, `左肘:${Math.max(0, a).toFixed(0)}°`);
       }
 
-      // 肩
-      computeShoulder(lm, p[12], p[14], p[16], trunkX, trunkY, trunkZ, 'r', w, h);
-      computeShoulder(lm, p[11], p[13], p[15], trunkX, trunkY, trunkZ, 'l', w, h);
-
-      // 股関節
-      computeHip(lm, p[24], p[26], p[28], trunkX, trunkY, trunkZ, 'r', w, h);
-      computeHip(lm, p[23], p[25], p[27], trunkX, trunkY, trunkZ, 'l', w, h);
-
-      // 膝
-      const rKneeFlex = 180 - V.angleDeg(V.sub(p[24], p[26]), V.sub(p[28], p[26]));
-      const lKneeFlex = 180 - V.angleDeg(V.sub(p[23], p[25]), V.sub(p[27], p[25]));
-      document.getElementById('r_knee_fe').innerText = `屈 ${Math.max(0, rKneeFlex).toFixed(1)}°`;
-      document.getElementById('l_knee_fe').innerText = `屈 ${Math.max(0, lKneeFlex).toFixed(1)}°`;
       if (selectedOverlays.has('r_knee') && lm[26].visibility > 0.4) {
-        drawJointBadge(canvasCtx, { x: lm[26].x * w, y: lm[26].y * h }, `右膝:${Math.max(0, rKneeFlex).toFixed(0)}°`);
+        const a = 180 - V.angleDeg(V.sub(p[24], p[26]), V.sub(p[28], p[26]));
+        drawBadge(ctx, { x: lm[26].x * w, y: lm[26].y * h }, `右膝:${Math.max(0, a).toFixed(0)}°`);
       }
       if (selectedOverlays.has('l_knee') && lm[25].visibility > 0.4) {
-        drawJointBadge(canvasCtx, { x: lm[25].x * w, y: lm[25].y * h }, `左膝:${Math.max(0, lKneeFlex).toFixed(0)}°`);
+        const a = 180 - V.angleDeg(V.sub(p[23], p[25]), V.sub(p[27], p[25]));
+        drawBadge(ctx, { x: lm[25].x * w, y: lm[25].y * h }, `左膝:${Math.max(0, a).toFixed(0)}°`);
       }
 
-      // 足関節
-      const rAnkleAngle = V.angleDeg(V.sub(p[26], p[28]), V.sub(p[32], p[28])) - 90;
-      const lAnkleAngle = V.angleDeg(V.sub(p[25], p[27]), V.sub(p[31], p[27])) - 90;
-      const rAnkStr = `${rAnkleAngle >= 0 ? '背' : '底'}${Math.abs(rAnkleAngle).toFixed(0)}°`;
-      const lAnkStr = `${lAnkleAngle >= 0 ? '背' : '底'}${Math.abs(lAnkleAngle).toFixed(0)}°`;
-      document.getElementById('r_ank_df').innerText = `${rAnkleAngle >= 0 ? '背 ' : '底 '}${Math.abs(rAnkleAngle).toFixed(1)}°`;
-      document.getElementById('l_ank_df').innerText = `${lAnkleAngle >= 0 ? '背 ' : '底 '}${Math.abs(lAnkleAngle).toFixed(1)}°`;
+      if (selectedOverlays.has('r_hip') && lm[24].visibility > 0.4) {
+        const thigh = V.normalize(V.sub(p[26], p[24]));
+        const flex = Math.asin(Math.min(Math.max(V.dot(thigh, trunkZ), -1), 1)) * (180 / Math.PI);
+        drawBadge(ctx, { x: lm[24].x * w, y: lm[24].y * h }, `右股:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
+      }
+      if (selectedOverlays.has('l_hip') && lm[23].visibility > 0.4) {
+        const thigh = V.normalize(V.sub(p[25], p[23]));
+        const flex = Math.asin(Math.min(Math.max(V.dot(thigh, trunkZ), -1), 1)) * (180 / Math.PI);
+        drawBadge(ctx, { x: lm[23].x * w, y: lm[23].y * h }, `左股:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
+      }
+
+      if (selectedOverlays.has('r_sho') && lm[12].visibility > 0.4) {
+        const arm = V.normalize(V.sub(p[14], p[12]));
+        const flex = Math.asin(Math.min(Math.max(V.dot(arm, trunkZ), -1), 1)) * (180 / Math.PI);
+        drawBadge(ctx, { x: lm[12].x * w, y: lm[12].y * h }, `右肩:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
+      }
+      if (selectedOverlays.has('l_sho') && lm[11].visibility > 0.4) {
+        const arm = V.normalize(V.sub(p[13], p[11]));
+        const flex = Math.asin(Math.min(Math.max(V.dot(arm, trunkZ), -1), 1)) * (180 / Math.PI);
+        drawBadge(ctx, { x: lm[11].x * w, y: lm[11].y * h }, `左肩:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
+      }
+
       if (selectedOverlays.has('r_ank') && lm[28].visibility > 0.4) {
-        drawJointBadge(canvasCtx, { x: lm[28].x * w, y: lm[28].y * h }, `右足:${rAnkStr}`);
+        const a = V.angleDeg(V.sub(p[26], p[28]), V.sub(p[32], p[28])) - 90;
+        drawBadge(ctx, { x: lm[28].x * w, y: lm[28].y * h }, `右足:${a >= 0 ? '背' : '底'}${Math.abs(a).toFixed(0)}°`);
       }
       if (selectedOverlays.has('l_ank') && lm[27].visibility > 0.4) {
-        drawJointBadge(canvasCtx, { x: lm[27].x * w, y: lm[27].y * h }, `左足:${lAnkStr}`);
+        const a = V.angleDeg(V.sub(p[25], p[27]), V.sub(p[31], p[27])) - 90;
+        drawBadge(ctx, { x: lm[27].x * w, y: lm[27].y * h }, `左足:${a >= 0 ? '背' : '底'}${Math.abs(a).toFixed(0)}°`);
       }
     }
 
-    function computeShoulder(lm, sho, elb, wrs, tx, ty, tz, side, w, h) {
-      const arm = V.normalize(V.sub(elb, sho));
-      const foreArm = V.normalize(V.sub(wrs, elb));
-      
-      const flex = Math.asin(Math.min(Math.max(V.dot(arm, tz), -1), 1)) * (180 / Math.PI);
-      const abd = Math.asin(Math.min(Math.max(side === 'r' ? V.dot(arm, tx) : -V.dot(arm, tx), -1), 1)) * (180 / Math.PI);
-      document.getElementById(`${side}_sho_fe_aa`).innerText = `${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}° / ${abd >= 0 ? '外' : '内'}${Math.abs(abd).toFixed(0)}°`;
-
-      const horiz = Math.atan2(V.dot(arm, tz), side === 'r' ? V.dot(arm, tx) : -V.dot(arm, tx)) * (180 / Math.PI);
-      document.getElementById(`${side}_sho_ha`).innerText = `${horiz >= 0 ? '水内 ' : '水外 '}${Math.abs(horiz).toFixed(1)}°`;
-
-      const rot = (Math.asin(Math.min(Math.max(V.dot(foreArm, tz), -1), 1)) * (180 / Math.PI));
-      document.getElementById(`${side}_sho_rot`).innerText = `${(side === 'r' ? rot : -rot) >= 0 ? '内旋 ' : '外旋 '}${Math.abs(rot).toFixed(1)}°`;
-
-      const idx = side === 'r' ? 12 : 11;
-      if (selectedOverlays.has(`${side}_sho`) && lm[idx].visibility > 0.4) {
-        drawJointBadge(canvasCtx, { x: lm[idx].x * w, y: lm[idx].y * h }, `${side === 'r' ? '右肩' : '左肩'}:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
+    async function renderFrameA() {
+      if (videoA.readyState >= 2) {
+        await poseA.send({ image: videoA });
+        seekBarA.value = videoA.currentTime;
+        timeDisplayA.innerText = `${videoA.currentTime.toFixed(2)}s`;
       }
     }
 
-    function computeHip(lm, hip, knee, ank, tx, ty, tz, side, w, h) {
-      const thigh = V.normalize(V.sub(knee, hip));
-      const shank = V.normalize(V.sub(ank, knee));
-
-      const flex = Math.asin(Math.min(Math.max(V.dot(thigh, tz), -1), 1)) * (180 / Math.PI);
-      const abd = Math.asin(Math.min(Math.max(side === 'r' ? V.dot(thigh, tx) : -V.dot(thigh, tx), -1), 1)) * (180 / Math.PI);
-      document.getElementById(`${side}_hip_fe_aa`).innerText = `${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}° / ${abd >= 0 ? '外' : '内'}${Math.abs(abd).toFixed(0)}°`;
-
-      const rot = Math.asin(Math.min(Math.max(side === 'r' ? V.dot(shank, tx) : -V.dot(shank, tx), -1), 1)) * (180 / Math.PI);
-      document.getElementById(`${side}_hip_rot`).innerText = `${rot >= 0 ? '外旋 ' : '内旋 '}${Math.abs(rot).toFixed(1)}°`;
-
-      const idx = side === 'r' ? 24 : 23;
-      if (selectedOverlays.has(`${side}_hip`) && lm[idx].visibility > 0.4) {
-        drawJointBadge(canvasCtx, { x: lm[idx].x * w, y: lm[idx].y * h }, `${side === 'r' ? '右股' : '左股'}:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
+    async function renderFrameB() {
+      if (videoB.readyState >= 2) {
+        await poseB.send({ image: videoB });
+        seekBarB.value = videoB.currentTime;
+        timeDisplayB.innerText = `${videoB.currentTime.toFixed(2)}s`;
       }
     }
 
-    // --- 動画・カメラ制御とフレーム描画 ---
-    async function renderCurrentFrame() {
-      if (videoElement.readyState >= 2) {
-        await pose.send({ image: videoElement });
-        seekBar.value = videoElement.currentTime;
-        timeDisplay.innerText = `${videoElement.currentTime.toFixed(2)}s`;
+    async function renderAll() {
+      await renderFrameA();
+      await renderFrameB();
+    }
+
+    async function syncPlayLoop() {
+      if (!videoA.paused || !videoB.paused) {
+        if (!videoA.paused && !videoA.ended) await renderFrameA();
+        if (!videoB.paused && !videoB.ended) await renderFrameB();
+        requestAnimationFrame(syncPlayLoop);
       }
     }
 
-    async function playLoop() {
-      if (!videoElement.paused && !videoElement.ended) {
-        await renderCurrentFrame();
-        requestAnimationFrame(playLoop);
-      }
-    }
-
-    videoElement.onseeked = () => {
-      if (videoElement.paused) {
-        renderCurrentFrame();
-      }
-    };
-
-    uploader.addEventListener('change', (e) => {
+    // 動画読み込み A
+    uploaderA.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
-      if (cameraUtil) { cameraUtil.stop(); isLiveCamera = false; }
-      Object.keys(trails).forEach(k => trails[k].length = 0);
-
-      videoElement.src = URL.createObjectURL(file);
-      videoElement.load();
-
-      videoElement.onloadedmetadata = () => {
-        seekBar.max = videoElement.duration;
-        seekBar.value = 0;
-        seekBar.disabled = false;
-        btnPlayPause.disabled = false;
-        btnPrevFrame.disabled = false;
-        btnNextFrame.disabled = false;
-        timeDisplay.innerText = "0.00s";
-        videoElement.currentTime = 0.001;
+      Object.keys(trailsA).forEach(k => trailsA[k].length = 0);
+      videoA.src = URL.createObjectURL(file);
+      videoA.load();
+      videoA.onloadedmetadata = () => {
+        seekBarA.max = videoA.duration;
+        seekBarA.value = 0;
+        seekBarA.disabled = false;
+        btnSyncPlay.disabled = false;
+        videoA.currentTime = 0.001;
       };
     });
+    videoA.onseeked = () => { if (videoA.paused) renderFrameA(); };
 
-    btnCamera.addEventListener('click', async () => {
-      if (isLiveCamera) return;
-      isLiveCamera = true;
-      videoElement.pause();
-      btnPlayPause.innerText = '▶';
-      Object.keys(trails).forEach(k => trails[k].length = 0);
-      
-      cameraUtil = new Camera(videoElement, {
-        onFrame: async () => { await pose.send({ image: videoElement }); },
-        facingMode: 'environment',
-        width: 1280,
-        height: 720
-      });
-      cameraUtil.start();
-      
-      seekBar.disabled = true;
-      btnPlayPause.disabled = true;
-      btnPrevFrame.disabled = true;
-      btnNextFrame.disabled = true;
+    // 動画読み込み B
+    uploaderB.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      Object.keys(trailsB).forEach(k => trailsB[k].length = 0);
+      videoB.src = URL.createObjectURL(file);
+      videoB.load();
+      videoB.onloadedmetadata = () => {
+        seekBarB.max = videoB.duration;
+        seekBarB.value = 0;
+        seekBarB.disabled = false;
+        btnSyncPlay.disabled = false;
+        videoB.currentTime = 0.001;
+      };
     });
+    videoB.onseeked = () => { if (videoB.paused) renderFrameB(); };
 
-    btnPlayPause.addEventListener('click', () => {
-      if (videoElement.paused) {
-        videoElement.play();
-        btnPlayPause.innerText = '⏸';
-        playLoop();
+    // 同期再生ボタン
+    btnSyncPlay.addEventListener('click', () => {
+      const isPlaying = !videoA.paused || !videoB.paused;
+      if (isPlaying) {
+        videoA.pause();
+        videoB.pause();
+        btnSyncPlay.innerText = '▶ 同期再生';
       } else {
-        videoElement.pause();
-        btnPlayPause.innerText = '▶';
+        if (videoA.src) videoA.play();
+        if (videoB.src) videoB.play();
+        btnSyncPlay.innerText = '⏸ 一時停止';
+        syncPlayLoop();
       }
     });
 
-    seekBar.addEventListener('input', () => {
-      videoElement.currentTime = parseFloat(seekBar.value);
+    // シークバー A / B
+    seekBarA.addEventListener('input', () => { videoA.currentTime = parseFloat(seekBarA.value); });
+    seekBarB.addEventListener('input', () => { videoB.currentTime = parseFloat(seekBarB.value); });
+
+    // コマ送り A
+    btnPrevA.addEventListener('click', () => {
+      videoA.pause();
+      btnSyncPlay.innerText = '▶ 同期再生';
+      videoA.currentTime = Math.max(0, videoA.currentTime - 0.033);
+    });
+    btnNextA.addEventListener('click', () => {
+      videoA.pause();
+      btnSyncPlay.innerText = '▶ 同期再生';
+      videoA.currentTime = Math.min(videoA.duration, videoA.currentTime + 0.033);
     });
 
-    btnPrevFrame.addEventListener('click', () => {
-      videoElement.pause();
-      btnPlayPause.innerText = '▶';
-      videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
+    // コマ送り B
+    btnPrevB.addEventListener('click', () => {
+      videoB.pause();
+      btnSyncPlay.innerText = '▶ 同期再生';
+      videoB.currentTime = Math.max(0, videoB.currentTime - 0.033);
     });
-
-    btnNextFrame.addEventListener('click', () => {
-      videoElement.pause();
-      btnPlayPause.innerText = '▶';
-      videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 0.033);
+    btnNextB.addEventListener('click', () => {
+      videoB.pause();
+      btnSyncPlay.innerText = '▶ 同期再生';
+      videoB.currentTime = Math.min(videoB.duration, videoB.currentTime + 0.033);
     });
   </script>
 </body>
