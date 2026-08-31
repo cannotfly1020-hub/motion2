@@ -488,9 +488,15 @@
     let currentMode = 'split';
     let currentTouchMode = 'zoom'; // 'zoom' | 'edit' | 'target'
 
-    // 指定対象（ターゲット）の中心座標 { x, y }
-    let lockedTargetA = null;
-    let lockedTargetB = null;
+    // フォーカスROI管理: { cx, cy, boxSize: 0.65 }
+    let targetRoiA = null;
+    let targetRoiB = null;
+
+    // ROIクロップ推論用オフスクリーンCanvas
+    const cropCanvasA = document.createElement('canvas');
+    const cropCtxA = cropCanvasA.getContext('2d');
+    const cropCanvasB = document.createElement('canvas');
+    const cropCtxB = cropCanvasB.getContext('2d');
 
     const selectedOverlays = new Set(['r_knee']);
     const selectedTrails = new Set(['headTop', 'chin', 'trunkCenter']);
@@ -507,8 +513,10 @@
     const manualOffsetsA = {};
     const manualOffsetsB = {};
 
-    let lastResultsA = null;
-    let lastResultsB = null;
+    let lastMappedLandmarksA = null;
+    let lastMappedWorldLandmarksA = null;
+    let lastMappedLandmarksB = null;
+    let lastMappedWorldLandmarksB = null;
 
     const trailColors = {
       headTop: "#00f0ff", chin: "#ff3399", trunkCenter: "#51cf66",
@@ -608,21 +616,7 @@
       return { normX, normY };
     }
 
-    function calculateCenter(lm) {
-      if (!lm) return null;
-      let sx = 0, sy = 0, count = 0;
-      const coreJoints = [0, 11, 12, 23, 24];
-      coreJoints.forEach(i => {
-        if (lm[i] && lm[i].visibility > 0.3) {
-          sx += lm[i].x;
-          sy += lm[i].y;
-          count++;
-        }
-      });
-      return count > 0 ? { x: sx / count, y: sy / count } : null;
-    }
-
-    function setupInteractions(pane, canvas, offsets, getResults, drawCallback, isPaneA) {
+    function setupInteractions(pane, canvas, offsets, getLmFunc, drawCallback, isPaneA) {
       let scale = 1.0;
       let panX = 0, panY = 0;
       let startDist = 0;
@@ -651,18 +645,19 @@
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        // 【対象指定モード】タップした位置に対象ターゲットを設定
+        // 【対象選手指定モード】タップした選手を中心に対象領域を固定
         if (currentTouchMode === 'target') {
           const { normX, normY } = getNormalizedVideoCoord(clientX, clientY, pane, canvas, scale, panX, panY);
           if (normX >= 0 && normX <= 1 && normY >= 0 && normY <= 1) {
+            const newRoi = { cx: normX, cy: normY, boxSize: 0.65 };
             if (isPaneA) {
-              lockedTargetA = { x: normX, y: normY };
+              targetRoiA = newRoi;
+              processFrameA();
             } else {
-              lockedTargetB = { x: normX, y: normY };
+              targetRoiB = newRoi;
+              processFrameB();
             }
-            // 指定完了後はズームモードに自動移行
             setTouchMode('zoom');
-            drawCallback();
           }
           return;
         }
@@ -670,10 +665,9 @@
         // 【ポイント調整モード】
         if (currentTouchMode === 'edit') {
           const { normX, normY } = getNormalizedVideoCoord(clientX, clientY, pane, canvas, scale, panX, panY);
-          const results = getResults();
+          const lm = getLmFunc();
 
-          if (results && results.poseLandmarks) {
-            const lm = results.poseLandmarks;
+          if (lm) {
             const minD = 0.07 / Math.sqrt(scale);
             let targetIdx = null;
             let closestDist = minD;
@@ -735,9 +729,9 @@
         if (draggingLandmarkIdx !== null && currentTouchMode === 'edit') {
           e.preventDefault();
           const { normX, normY } = getNormalizedVideoCoord(clientX, clientY, pane, canvas, scale, panX, panY);
-          const results = getResults();
-          if (results && results.poseLandmarks && results.poseLandmarks[draggingLandmarkIdx]) {
-            const orig = results.poseLandmarks[draggingLandmarkIdx];
+          const lm = getLmFunc();
+          if (lm && lm[draggingLandmarkIdx]) {
+            const orig = lm[draggingLandmarkIdx];
             offsets[draggingLandmarkIdx] = {
               x: normX - orig.x,
               y: normY - orig.y
@@ -771,12 +765,12 @@
       window.addEventListener('mouseup', handleEnd);
     }
 
-    setupInteractions(paneA, canvasA, manualOffsetsA, () => lastResultsA, () => {
-      if (lastResultsA) drawFrame(canvasA, ctxA, videoA, lastResultsA, trailsA, "#00e5ff", "A", manualOffsetsA, lockedTargetA);
+    setupInteractions(paneA, canvasA, manualOffsetsA, () => lastMappedLandmarksA, () => {
+      if (lastMappedLandmarksA) drawFrame(canvasA, ctxA, videoA, lastMappedLandmarksA, lastMappedWorldLandmarksA, trailsA, "#00e5ff", "A", manualOffsetsA, targetRoiA);
     }, true);
 
-    setupInteractions(paneB, canvasB, manualOffsetsB, () => lastResultsB, () => {
-      if (lastResultsB) drawFrame(canvasB, ctxB, videoB, lastResultsB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, lockedTargetB);
+    setupInteractions(paneB, canvasB, manualOffsetsB, () => lastMappedLandmarksB, () => {
+      if (lastMappedLandmarksB) drawFrame(canvasB, ctxB, videoB, lastMappedLandmarksB, lastMappedWorldLandmarksB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, targetRoiB);
     }, false);
 
     togglePanelBtn.addEventListener('click', () => {
@@ -840,8 +834,8 @@
     btnResetAdjust.addEventListener('click', () => {
       Object.keys(manualOffsetsA).forEach(k => delete manualOffsetsA[k]);
       Object.keys(manualOffsetsB).forEach(k => delete manualOffsetsB[k]);
-      lockedTargetA = null;
-      lockedTargetB = null;
+      targetRoiA = null;
+      targetRoiB = null;
       renderSafe();
     });
 
@@ -851,66 +845,90 @@
       renderSafe();
     });
 
+    // ROI領域の境界計算（0.0〜1.0正規化座標）
+    function getRoiBox(roi, vw, vh) {
+      if (!roi) return { x: 0, y: 0, w: vw, h: vh, normX: 0, normY: 0, normW: 1, normH: 1 };
+      const aspect = vw / vh;
+      let bw = roi.boxSize;
+      let bh = roi.boxSize * aspect;
+      if (bh > 0.95) {
+        bh = 0.95;
+        bw = bh / aspect;
+      }
+      let minX = Math.max(0, Math.min(1 - bw, roi.cx - bw / 2));
+      let minY = Math.max(0, Math.min(1 - bh, roi.cy - bh / 2));
+      return {
+        x: minX * vw,
+        y: minY * vh,
+        w: bw * vw,
+        h: bh * vh,
+        normX: minX,
+        normY: minY,
+        normW: bw,
+        normH: bh
+      };
+    }
+
+    // MediaPipe Pose 初期化
     const poseA = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
     poseA.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     poseA.onResults(results => {
-      // ターゲットロック判定：対象から大きく離れた検出（他人）はフィルタリング
       if (results.poseLandmarks) {
-        const center = calculateCenter(results.poseLandmarks);
-        if (center) {
-          if (!lockedTargetA) {
-            lockedTargetA = center;
-          } else {
-            const dist = Math.hypot(center.x - lockedTargetA.x, center.y - lockedTargetA.y);
-            if (dist < 0.35) { // 許容移動距離内なら更新
-              lockedTargetA = center;
-            } else {
-              // ターゲットが他人に飛んだ場合は以前の描画を維持
-              isPoseA_Busy = false;
-              return;
-            }
-          }
+        const roiBox = getRoiBox(targetRoiA, videoA.videoWidth, videoA.videoHeight);
+        
+        // クロップ座標系から元動画座標系への逆マッピング
+        lastMappedLandmarksA = results.poseLandmarks.map(pt => ({
+          x: roiBox.normX + pt.x * roiBox.normW,
+          y: roiBox.normY + pt.y * roiBox.normH,
+          z: pt.z,
+          visibility: pt.visibility
+        }));
+        lastMappedWorldLandmarksA = results.poseWorldLandmarks || lastMappedLandmarksA;
+
+        // 追従更新（体幹中心が動いたらROIボックスも滑らかに追従）
+        if (targetRoiA && lastMappedLandmarksA[11] && lastMappedLandmarksA[12] && lastMappedLandmarksA[23] && lastMappedLandmarksA[24]) {
+          const cx = (lastMappedLandmarksA[11].x + lastMappedLandmarksA[12].x + lastMappedLandmarksA[23].x + lastMappedLandmarksA[24].x) / 4;
+          const cy = (lastMappedLandmarksA[11].y + lastMappedLandmarksA[12].y + lastMappedLandmarksA[23].y + lastMappedLandmarksA[24].y) / 4;
+          targetRoiA.cx = targetRoiA.cx * 0.7 + cx * 0.3;
+          targetRoiA.cy = targetRoiA.cy * 0.7 + cy * 0.3;
+        }
+
+        try {
+          drawFrame(canvasA, ctxA, videoA, lastMappedLandmarksA, lastMappedWorldLandmarksA, trailsA, "#00e5ff", "A", manualOffsetsA, targetRoiA);
+        } catch (err) {
+          console.warn("PoseA draw error:", err);
         }
       }
-
-      lastResultsA = results;
-      try {
-        drawFrame(canvasA, ctxA, videoA, results, trailsA, "#00e5ff", "A", manualOffsetsA, lockedTargetA);
-      } catch (err) {
-        console.warn("PoseA draw error:", err);
-      } finally {
-        isPoseA_Busy = false;
-      }
+      isPoseA_Busy = false;
     });
 
     const poseB = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
     poseB.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     poseB.onResults(results => {
       if (results.poseLandmarks) {
-        const center = calculateCenter(results.poseLandmarks);
-        if (center) {
-          if (!lockedTargetB) {
-            lockedTargetB = center;
-          } else {
-            const dist = Math.hypot(center.x - lockedTargetB.x, center.y - lockedTargetB.y);
-            if (dist < 0.35) {
-              lockedTargetB = center;
-            } else {
-              isPoseB_Busy = false;
-              return;
-            }
-          }
+        const roiBox = getRoiBox(targetRoiB, videoB.videoWidth, videoB.videoHeight);
+        lastMappedLandmarksB = results.poseLandmarks.map(pt => ({
+          x: roiBox.normX + pt.x * roiBox.normW,
+          y: roiBox.normY + pt.y * roiBox.normH,
+          z: pt.z,
+          visibility: pt.visibility
+        }));
+        lastMappedWorldLandmarksB = results.poseWorldLandmarks || lastMappedLandmarksB;
+
+        if (targetRoiB && lastMappedLandmarksB[11] && lastMappedLandmarksB[12] && lastMappedLandmarksB[23] && lastMappedLandmarksB[24]) {
+          const cx = (lastMappedLandmarksB[11].x + lastMappedLandmarksB[12].x + lastMappedLandmarksB[23].x + lastMappedLandmarksB[24].x) / 4;
+          const cy = (lastMappedLandmarksB[11].y + lastMappedLandmarksB[12].y + lastMappedLandmarksB[23].y + lastMappedLandmarksB[24].y) / 4;
+          targetRoiB.cx = targetRoiB.cx * 0.7 + cx * 0.3;
+          targetRoiB.cy = targetRoiB.cy * 0.7 + cy * 0.3;
+        }
+
+        try {
+          drawFrame(canvasB, ctxB, videoB, lastMappedLandmarksB, lastMappedWorldLandmarksB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, targetRoiB);
+        } catch (err) {
+          console.warn("PoseB draw error:", err);
         }
       }
-
-      lastResultsB = results;
-      try {
-        drawFrame(canvasB, ctxB, videoB, results, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, lockedTargetB);
-      } catch (err) {
-        console.warn("PoseB draw error:", err);
-      } finally {
-        isPoseB_Busy = false;
-      }
+      isPoseB_Busy = false;
     });
 
     function addPt(tb, key, pt) {
@@ -918,7 +936,7 @@
       if (tb[key].length > MAX_TRAIL_LENGTH) tb[key].shift();
     }
 
-    function drawFrame(canvas, ctx, video, results, trailBuf, skeletonColor, label, offsets = {}, targetCenter = null) {
+    function drawFrame(canvas, ctx, video, lmRaw, wlmRaw, trailBuf, skeletonColor, label, offsets = {}, targetRoi = null) {
       if (!video.videoWidth || !video.videoHeight) return;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -927,26 +945,28 @@
 
       ctx.save();
       ctx.clearRect(0, 0, w, h);
-      ctx.drawImage(results.image, 0, 0, w, h);
+      ctx.drawImage(video, 0, 0, w, h);
 
-      // 対象ロック時のターゲットインジケーター（ピンクのターゲット枠）
-      if (targetCenter) {
+      // 指定ターゲット選手を示す枠（ピンクの枠線）
+      if (targetRoi) {
+        const box = getRoiBox(targetRoi, w, h);
         ctx.save();
         ctx.strokeStyle = "rgba(247, 131, 172, 0.85)";
         ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.arc(targetCenter.x * w, targetCenter.y * h, 28, 0, 2 * Math.PI);
-        ctx.stroke();
+        ctx.setLineDash([6, 6]);
+        ctx.strokeRect(box.x, box.y, box.w, box.h);
+        ctx.fillStyle = "rgba(247, 131, 172, 0.85)";
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillText("🎯 追跡中", box.x + 4, Math.max(16, box.y - 4));
         ctx.restore();
       }
 
-      if (results.poseLandmarks) {
-        const lm = results.poseLandmarks.map((pt, idx) => {
+      if (lmRaw) {
+        const lm = lmRaw.map((pt, idx) => {
           const off = offsets[idx] || { x: 0, y: 0 };
           return { ...pt, x: pt.x + off.x, y: pt.y + off.y };
         });
-        const wlm = results.poseWorldLandmarks ? results.poseWorldLandmarks.map((pt, idx) => {
+        const wlm = wlmRaw ? wlmRaw.map((pt, idx) => {
           const off = offsets[idx] || { x: 0, y: 0 };
           return { ...pt, x: pt.x + off.x, y: pt.y + off.y };
         }) : lm;
@@ -1190,7 +1210,15 @@
       if (isPoseA_Busy || videoA.readyState < 2) return;
       isPoseA_Busy = true;
       try {
-        await poseA.send({ image: videoA });
+        const vw = videoA.videoWidth;
+        const vh = videoA.videoHeight;
+        const box = getRoiBox(targetRoiA, vw, vh);
+
+        cropCanvasA.width = 384;
+        cropCanvasA.height = 384;
+        cropCtxA.drawImage(videoA, box.x, box.y, box.w, box.h, 0, 0, 384, 384);
+
+        await poseA.send({ image: cropCanvasA });
       } catch (e) {
         isPoseA_Busy = false;
       }
@@ -1200,7 +1228,15 @@
       if (isPoseB_Busy || videoB.readyState < 2) return;
       isPoseB_Busy = true;
       try {
-        await poseB.send({ image: videoB });
+        const vw = videoB.videoWidth;
+        const vh = videoB.videoHeight;
+        const box = getRoiBox(targetRoiB, vw, vh);
+
+        cropCanvasB.width = 384;
+        cropCanvasB.height = 384;
+        cropCtxB.drawImage(videoB, box.x, box.y, box.w, box.h, 0, 0, 384, 384);
+
+        await poseB.send({ image: cropCanvasB });
       } catch (e) {
         isPoseB_Busy = false;
       }
@@ -1241,7 +1277,8 @@
       if (!file) return;
       Object.keys(trailsA).forEach(k => trailsA[k].length = 0);
       Object.keys(manualOffsetsA).forEach(k => delete manualOffsetsA[k]);
-      lockedTargetA = null;
+      targetRoiA = null;
+      lastMappedLandmarksA = null;
       videoA.src = URL.createObjectURL(file);
       videoA.load();
       videoA.onloadedmetadata = () => {
@@ -1259,7 +1296,8 @@
       if (!file) return;
       Object.keys(trailsB).forEach(k => trailsB[k].length = 0);
       Object.keys(manualOffsetsB).forEach(k => delete manualOffsetsB[k]);
-      lockedTargetB = null;
+      targetRoiB = null;
+      lastMappedLandmarksB = null;
       videoB.src = URL.createObjectURL(file);
       videoB.load();
       videoB.onloadedmetadata = () => {
