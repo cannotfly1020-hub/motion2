@@ -59,7 +59,7 @@
     /* 自動関節選択セレクター */
     .auto-joint-row { display: flex; align-items: center; gap: 4px; width: 100%; overflow-x: auto; scrollbar-width: none; }
     .auto-joint-row::-webkit-scrollbar { display: none; }
-    .joint-chip { background: #2c2c2e; color: #888; border: 1px solid #444; border-radius: 12px; padding: 3px 8px; font-size: 9.5px; font-weight: bold; white-space: nowrap; cursor: pointer; }
+    .joint-chip { background: #2c2c2e; color: #888; border: 1px solid #444; border-radius: 12px; padding: 4px 9px; font-size: 10px; font-weight: bold; white-space: nowrap; cursor: pointer; }
     .joint-chip.active { background: #00ffcc; color: #000; border-color: #00ffcc; }
 
     /* モード選択グリッド */
@@ -81,7 +81,7 @@
     .modal-card h3 { font-size: 15px; margin-bottom: 6px; color: #ff9500; }
     .modal-card p { font-size: 12px; color: #ccc; margin-bottom: 12px; }
     .modal-input-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 14px; }
-    .modal-input-row input { width: 100px; font-size: 16px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid #555; background: #1c1c1e; color: #fff; }
+    .modal-input-row input { width: 100px; font-size: 16px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid #555; background: #1c1c1e; color: #fff; user-select: auto; -webkit-user-select: auto; }
     .modal-btn-row { display: flex; gap: 8px; }
     .modal-btn-row button { -webkit-appearance: none; appearance: none; flex: 1; padding: 8px 0; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; }
     #snapshot-img { max-width: 100%; max-height: 50vh; border-radius: 6px; border: 1px solid #555; margin-bottom: 10px; }
@@ -106,7 +106,7 @@
     <div id="result-box">
         <div class="result-text-area">
             <div id="main-result">動画①を選択してください</div>
-            <div id="sub-result">AIが骨格・角度・重心を自動解析します</div>
+            <div id="sub-result">AIが骨格・関節角度・重心を自動追従します</div>
         </div>
         <button id="btn-confirm-scale" onclick="openScaleModal()">📏 長さ確定</button>
     </div>
@@ -115,13 +115,13 @@
 <div id="stage">
     <div class="video-pane" id="pane1">
         <div class="zoom-target" id="zoom-target-1">
-            <video id="video1" playsinline webkit-playsinline muted crossorigin="anonymous"></video>
+            <video id="video1" playsinline webkit-playsinline muted preload="auto" crossorigin="anonymous"></video>
             <canvas id="canvas1"></canvas>
         </div>
     </div>
     <div class="video-pane" id="pane2">
         <div class="zoom-target" id="zoom-target-2">
-            <video id="video2" playsinline webkit-playsinline muted crossorigin="anonymous"></video>
+            <video id="video2" playsinline webkit-playsinline muted preload="auto" crossorigin="anonymous"></video>
             <canvas id="canvas2"></canvas>
         </div>
     </div>
@@ -141,7 +141,7 @@
 
     <!-- AI自動追従 関節クイックセレクター -->
     <div class="auto-joint-row">
-        <span style="font-size:10px; font-weight:bold; color:#00ffcc; white-space:nowrap;">自動角度:</span>
+        <span style="font-size:10px; font-weight:bold; color:#00ffcc; white-space:nowrap;">自動追従:</span>
         <div class="joint-chip active" id="chip-kneeR" onclick="selectAutoJoint('kneeR')">右膝</div>
         <div class="joint-chip" id="chip-kneeL" onclick="selectAutoJoint('kneeL')">左膝</div>
         <div class="joint-chip" id="chip-elbowR" onclick="selectAutoJoint('elbowR')">右肘</div>
@@ -180,9 +180,9 @@
     </div>
 
     <div class="playback-row">
-        <button class="ctrl-btn" onclick="stepFrame(-1)">◀ -1</button>
+        <button class="ctrl-btn" id="btnStepBack" onclick="stepFrame(-1)">◀ -1</button>
         <button class="ctrl-btn" id="btn-play" onclick="togglePlay()">▶ 再生</button>
-        <button class="ctrl-btn" onclick="stepFrame(1)">+1 ▶</button>
+        <button class="ctrl-btn" id="btnStepForward" onclick="stepFrame(1)">+1 ▶</button>
         <button class="ctrl-btn" id="btn-speed" onclick="togglePlaybackRate()">1.0x</button>
         <button class="ctrl-btn" id="btn-clear" onclick="clearCurrentPoints()">消去</button>
     </div>
@@ -250,30 +250,30 @@
     const scaleInputValue = document.getElementById('scale-input-value');
 
     let compareMode = 0; 
-    let currentMode = 'auto'; // デフォルトでAI完全自動追従
-    let selectedAutoJoint = 'kneeR'; // デフォルトで右膝を自動トラッキング
+    let currentMode = 'auto';
+    let selectedAutoJoint = 'kneeR';
     
     let currentFPS = 30.0;
     const fpsList = [30, 60, 120, 240];
     let fpsIdx = 0;
+
+    let isProcessing = false;
+    let animFrameId = null;
 
     let mediaRecorder = null;
     let recordedChunks = [];
     let isRecording = false;
     let recordCanvas = null;
     let recordCtx = null;
-    let recordAnimId = null;
 
     let latestLandmarks1 = null;
-    let isAiDetecting = false;
 
-    // ピーク自動記録（最大・最小）
     let autoPeakMax = -Infinity;
     let autoPeakMin = Infinity;
 
     const state = {
-        1: { points: [], scalePoints: [], perpPoints: [], cogPoints: [], pxPerCm: null, resultMain: "", resultSub: "" },
-        2: { points: [], scalePoints: [], perpPoints: [], cogPoints: [], pxPerCm: null, resultMain: "", resultSub: "" }
+        1: { points: [], scalePoints: [], perpPoints: [], cogPoints: [], pxPerCm: null, currentCoM: null },
+        2: { points: [], scalePoints: [], perpPoints: [], cogPoints: [], pxPerCm: null }
     };
     
     const viewState = {
@@ -283,7 +283,6 @@
 
     let scaleTarget = 1;
     let lastActiveTarget = 1;
-    let draggingPoint = null;
 
     function toggleFPS() {
         fpsIdx = (fpsIdx + 1) % fpsList.length;
@@ -295,7 +294,6 @@
     const playbackRates = [1.0, 0.5, 0.25];
     let currentRateIdx = 0;
 
-    // 関節選択チップの切り替え
     function selectAutoJoint(jointKey) {
         selectedAutoJoint = jointKey;
         autoPeakMax = -Infinity;
@@ -304,10 +302,13 @@
         const activeChip = document.getElementById(`chip-${jointKey}`);
         if (activeChip) activeChip.classList.add('active');
         if (currentMode !== 'auto') setMode('auto');
+        if (latestLandmarks1) {
+            const box = getVideoRenderRect(video1, canvas1);
+            updateAutoResults(latestLandmarks1, box);
+        }
         redraw();
     }
 
-    // 3点間の角度計算
     function calcAngle(p1, p2, p3) {
         const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
         const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
@@ -317,17 +318,6 @@
         return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
     }
 
-    function simulateJointAngle(p2, p3, deltaDeg) {
-        const rad = deltaDeg * (Math.PI / 180);
-        const dx = p3.x - p2.x;
-        const dy = p3.y - p2.y;
-        return {
-            x: p2.x + (dx * Math.cos(rad) - dy * Math.sin(rad)),
-            y: p2.y + (dx * Math.sin(rad) + dy * Math.cos(rad))
-        };
-    }
-
-    // 自動計算＆手動計算の統合処理
     function updateAutoResults(lm, box) {
         if (!lm) return;
         const toPx = (p) => ({ x: box.x + p.x * box.w, y: box.y + p.y * box.h });
@@ -362,17 +352,17 @@
             if (curAngle < autoPeakMin) autoPeakMin = curAngle;
         }
 
-        // 重心（CoM）位置の算出
         if (shL && shR && hipL && hipR) {
             const pShL = toPx(shL), pShR = toPx(shR), pHipL = toPx(hipL), pHipR = toPx(hipR);
-            const comX = (pShL.x + pShR.x + pHipL.x + pHipR.x) * 0.25;
-            const comY = (pShL.y + pShR.y + pHipL.y + pHipR.y) * 0.25;
-            state[1].currentCoM = { x: comX, y: comY };
+            state[1].currentCoM = {
+                x: (pShL.x + pShR.x + pHipL.x + pHipR.x) * 0.25,
+                y: (pShL.y + pShR.y + pHipL.y + pHipR.y) * 0.25
+            };
         }
 
         if (currentMode === 'auto') {
             mainResult.innerHTML = `🤖 ${jointName}: <span style="color:#00ffcc; font-size:14px;">${curAngle.toFixed(1)}°</span> ｜ 最大: <span style="color:#ffd60a;">${autoPeakMax > -Infinity ? autoPeakMax.toFixed(1) + '°' : '---'}</span> 最小: <span style="color:#ff375f;">${autoPeakMin < Infinity ? autoPeakMin.toFixed(1) + '°' : '---'}</span>`;
-            subResult.innerHTML = "動画再生・コマ送りで自動更新 ｜ 上のボタンで測りたい関節を即座に切替";
+            subResult.innerHTML = "動画再生・コマ送りでリアルタイム更新 ｜ 自動追従中";
         }
     }
 
@@ -421,7 +411,8 @@
         seekbar1.value = 0; 
         autoPeakMax = -Infinity;
         autoPeakMin = Infinity;
-        setMode('auto'); 
+        setMode('auto');
+        loop();
     });
     video2.addEventListener('loadedmetadata', () => { fitCanvases(); seekbar2.max = video2.duration; seekbar2.value = 0; });
 
@@ -472,7 +463,7 @@
 
     let seeking1 = false;
     seekbar1.addEventListener('input', () => { seeking1 = true; video1.currentTime = seekbar1.value; });
-    seekbar1.addEventListener('change', () => { seeking1 = false; redraw(); });
+    seekbar1.addEventListener('change', () => { seeking1 = false; processCurrentFrame(); });
     video1.addEventListener('timeupdate', () => { if (!seeking1) seekbar1.value = video1.currentTime; });
 
     let seeking2 = false;
@@ -483,12 +474,13 @@
     function stepFrame(dir) {
         const stepSec = dir / currentFPS;
         if (video1 && !isNaN(video1.duration) && video1.duration > 0) {
+            video1.pause();
+            btnPlay.innerText = '▶ 再生'; btnPlay.style.background = '#34c759';
             video1.currentTime = Math.max(0, Math.min(video1.duration, video1.currentTime + stepSec));
         }
         if (compareMode > 0 && video2 && !isNaN(video2.duration) && video2.duration > 0) {
             video2.currentTime = Math.max(0, Math.min(video2.duration, video2.currentTime + stepSec));
         }
-        redraw();
     }
 
     function setMode(mode) {
@@ -570,7 +562,6 @@
             if (item.idx === 1 && latestLandmarks1) {
                 const lm = latestLandmarks1;
                 
-                // 骨格ライン描画
                 item.ctx.save();
                 item.ctx.lineWidth = 3;
                 const drawConn = (i, j, col) => {
@@ -580,13 +571,11 @@
                         item.ctx.beginPath(); item.ctx.moveTo(p1.x, p1.y); item.ctx.lineTo(p2.x, p2.y); item.ctx.stroke();
                     }
                 };
-                // 左半身: 水色 / 右半身: 黄色
                 [[11, 13], [13, 15], [23, 25], [25, 27]].forEach(([i, j]) => drawConn(i, j, 'rgba(0, 255, 204, 0.6)'));
                 [[12, 14], [14, 16], [24, 26], [26, 28]].forEach(([i, j]) => drawConn(i, j, 'rgba(255, 214, 10, 0.6)'));
                 drawConn(11, 12, '#ff375f'); drawConn(23, 24, '#007aff');
                 item.ctx.restore();
 
-                // 選択中の自動関節を大きくハイライト
                 const highlightJoint = (pKey, col) => {
                     if (lm[pKey]) {
                         const pt = toPx(lm[pKey]);
@@ -599,8 +588,9 @@
                 if (selectedAutoJoint === 'kneeL') highlightJoint(25, '#00ffcc');
                 if (selectedAutoJoint === 'elbowR') highlightJoint(14, '#ffd60a');
                 if (selectedAutoJoint === 'elbowL') highlightJoint(13, '#00ffcc');
+                if (selectedAutoJoint === 'hipR') highlightJoint(24, '#ffd60a');
+                if (selectedAutoJoint === 'hipL') highlightJoint(23, '#00ffcc');
 
-                // 自動重心（CoM）描画
                 if (s.currentCoM) {
                     item.ctx.fillStyle = '#ff375f';
                     item.ctx.beginPath(); item.ctx.arc(s.currentCoM.x, s.currentCoM.y, 6, 0, Math.PI * 2); item.ctx.fill();
@@ -609,10 +599,9 @@
                 }
             }
 
-            // 物差しライン
             if (s.scalePoints.length > 0) {
                 item.ctx.strokeStyle = '#ff9500'; item.ctx.fillStyle = '#ff9500'; item.ctx.lineWidth = 3;
-                s.scalePoints.forEach((pt, i) => {
+                s.scalePoints.forEach((pt) => {
                     item.ctx.beginPath(); item.ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2); item.ctx.fill();
                 });
                 if (s.scalePoints.length === 2) {
@@ -620,7 +609,6 @@
                 }
             }
 
-            // 手動ポイント
             if (s.points.length > 0) {
                 item.ctx.strokeStyle = '#ffd60a'; item.ctx.fillStyle = '#ffd60a'; item.ctx.lineWidth = 3;
                 s.points.forEach((pt, i) => {
@@ -636,7 +624,6 @@
         });
     }
 
-    // タップイベント処理
     [ {c: canvas1, idx: 1}, {c: canvas2, idx: 2} ].forEach(item => {
         item.c.addEventListener('pointerdown', (e) => {
             const rect = item.c.getBoundingClientRect();
@@ -734,7 +721,7 @@
                 recordCtx.fillStyle = '#1c1c1e'; recordCtx.fillRect(0, canvas1.height, recordCanvas.width, 50);
                 recordCtx.fillStyle = '#00ffcc'; recordCtx.font = 'bold 12px sans-serif';
                 recordCtx.fillText(mainResult.innerText, 12, canvas1.height + 22);
-                recordAnimId = requestAnimationFrame(drawRecordFrame);
+                requestAnimationFrame(drawRecordFrame);
             }
 
             const stream = recordCanvas.captureStream(currentFPS);
@@ -743,7 +730,7 @@
             mediaRecorder.onstop = () => {
                 const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/mp4' });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url;
+                const a = document.createElement('a'); a.style.display = 'none'; a.href = url;
                 a.download = `動作観察_${Date.now()}.mp4`; document.body.appendChild(a); a.click();
                 setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
             };
@@ -751,7 +738,7 @@
             btnRecord.innerText = '⏹ 録画停止'; btnRecord.classList.add('rec-active');
             drawRecordFrame(); if (video1.paused) togglePlay();
         } else {
-            isRecording = false; if (recordAnimId) cancelAnimationFrame(recordAnimId);
+            isRecording = false;
             mediaRecorder.stop(); btnRecord.innerText = '🎥 録画開始'; btnRecord.classList.remove('rec-active');
             if (!video1.paused) togglePlay();
         }
@@ -760,31 +747,36 @@
     const pose = new Pose({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
     pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
     pose.onResults((results) => {
-        if (!results.poseLandmarks) { latestLandmarks1 = null; redraw(); return; }
+        if (!results.poseLandmarks) { 
+            latestLandmarks1 = null; 
+            redraw(); 
+            return; 
+        }
         latestLandmarks1 = results.poseLandmarks;
         const box = getVideoRenderRect(video1, canvas1);
         updateAutoResults(latestLandmarks1, box);
         redraw();
     });
 
-    async function detectFrame() {
-        if (!video1.paused && !video1.ended && video1.readyState >= 2) {
+    async function processCurrentFrame() {
+        if (isProcessing || video1.readyState < 2 || !video1.videoWidth) return;
+        isProcessing = true;
+        try {
             await pose.send({ image: video1 });
-            requestAnimationFrame(detectFrame);
-        } else {
-            isAiDetecting = false;
+        } catch(e) {} finally {
+            isProcessing = false;
         }
     }
 
-    video1.addEventListener('play', () => {
-        if (!isAiDetecting) { isAiDetecting = true; detectFrame(); }
-    });
-    video1.addEventListener('seeked', async () => {
-        if (video1.readyState >= 2 && !isAiDetecting) {
-            isAiDetecting = true;
-            await pose.send({ image: video1 });
-            isAiDetecting = false;
+    async function loop() {
+        if (!video1.paused && !video1.ended) {
+            await processCurrentFrame();
         }
+        animFrameId = requestAnimationFrame(loop);
+    }
+
+    video1.addEventListener('seeked', () => {
+        processCurrentFrame();
     });
 </script>
 </body>
