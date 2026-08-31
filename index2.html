@@ -18,9 +18,10 @@
     #header h1 { font-size: 16px; color: #30d158; margin-bottom: 2px; }
     #guideStep { font-size: 12px; font-weight: bold; color: #00ffcc; padding: 3px 8px; background: #111; border-radius: 6px; display: inline-block; margin-top: 4px; }
     
-    .hdr-row { display: flex; justify-content: center; gap: 8px; margin-top: 6px; }
+    .hdr-row { display: flex; justify-content: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
     .main-btn { background: #007aff; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
-    .main-btn.active { background: #ff9500; color: #000; }
+    .main-btn.active { background: #ff9500; color: #000; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
 
     #stage { width: 100%; position: relative; flex: 1; display: flex; background: #000; overflow: hidden; justify-content: center; align-items: center; min-height: 0; }
     video { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -48,7 +49,7 @@
     #btnPlayPause { background: #007aff; color: #fff; flex: 1.4; }
 
     /* 身長入力モーダル */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(4px); }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(4px); }
     .modal-card { background: #2c2c2e; border: 1px solid #444; border-radius: 12px; width: 90%; max-width: 320px; padding: 16px; text-align: center; }
     .modal-card h3 { font-size: 15px; margin-bottom: 6px; color: #30d158; }
     .modal-card p { font-size: 11px; color: #ccc; margin-bottom: 12px; }
@@ -67,6 +68,7 @@
         <button class="main-btn" onclick="document.getElementById('inputFile').click()">📁 動画をえらぶ</button>
         <input type="file" id="inputFile" accept="video/*" style="display:none;">
         <button class="main-btn" id="btnSetRoi" style="display:none;" onclick="startRoiSelection()">🔲 投手をかこむ</button>
+        <button class="main-btn" id="btnSkipRoi" style="display:none; background:#444;" onclick="skipRoiSelection()">スキップ</button>
         <button class="main-btn" id="btnSetHeight" style="display:none;" onclick="openHeightModal()">📏 身長入力</button>
     </div>
 </div>
@@ -134,12 +136,13 @@ const btnStepForward = document.getElementById('btnStepForward');
 const btnStepBack = document.getElementById('btnStepBack');
 const guideStep = document.getElementById('guideStep');
 const btnSetRoi = document.getElementById('btnSetRoi');
+const btnSkipRoi = document.getElementById('btnSkipRoi');
 const btnSetHeight = document.getElementById('btnSetHeight');
 
 let isProcessing = false;
 let animFrameId = null;
 
-let userHeightCm = 140; // デフォルト140cm
+let userHeightCm = 140;
 let isRoiDrawing = false;
 let isRoiSelectingMode = false;
 let isRoiEnabled = false;
@@ -194,7 +197,6 @@ function getVideoRenderRect(vid, cvs) {
     return { width: renderWidth, height: renderHeight, x: offsetX, y: offsetY };
 }
 
-// 枠描画
 function redrawOverlay() {
     intCtx.clearRect(0, 0, interactionCanvas.width, interactionCanvas.height);
     if (!isRoiEnabled || roiNorm.w < 0.05) return;
@@ -220,7 +222,19 @@ function redrawOverlay() {
 function startRoiSelection() {
     isRoiSelectingMode = true;
     btnSetRoi.classList.add('active');
-    guideStep.innerHTML = "<span style='color:#ffd60a;'>👆 ピッチャーを画面上で四角く囲んでね</span>";
+    guideStep.innerHTML = "<span style='color:#ffd60a;'>👆 ピッチャーを画面上で四角く囲んでね（ドラッグ）</span>";
+}
+
+function skipRoiSelection() {
+    isRoiSelectingMode = false;
+    isRoiEnabled = false;
+    btnSetRoi.classList.remove('active');
+    btnSkipRoi.style.display = 'none';
+    redrawOverlay();
+    
+    guideStep.innerHTML = "STEP 3: 「身長入力」を押してね！";
+    btnSetHeight.style.display = 'inline-block';
+    openHeightModal();
 }
 
 function getPointerNorm(e) {
@@ -243,7 +257,6 @@ interactionCanvas.addEventListener('pointerdown', (e) => {
     isRoiDrawing = true;
     roiStart = getPointerNorm(e);
     roiNorm = { x: roiStart.x, y: roiStart.y, w: 0, h: 0 };
-    isRoiEnabled = true;
     try { interactionCanvas.setPointerCapture(e.pointerId); } catch(err){}
 });
 
@@ -260,14 +273,25 @@ interactionCanvas.addEventListener('pointermove', (e) => {
 interactionCanvas.addEventListener('pointerup', (e) => {
     if (!isRoiDrawing || !isRoiSelectingMode) return;
     isRoiDrawing = false;
-    isRoiSelectingMode = false;
-    btnSetRoi.classList.remove('active');
     try { interactionCanvas.releasePointerCapture(e.pointerId); } catch(err){}
-    
-    // STEP 3: 身長入力へ案内
-    guideStep.innerHTML = "STEP 3: 「身長入力」を押してね！";
-    btnSetHeight.style.display = 'inline-block';
-    openHeightModal();
+
+    // 十分な大きさ（幅・高さ10%以上）で囲まれた場合のみ確定
+    if (roiNorm.w > 0.10 && roiNorm.h > 0.10) {
+        isRoiEnabled = true;
+        isRoiSelectingMode = false;
+        btnSetRoi.classList.remove('active');
+        btnSkipRoi.style.display = 'none';
+        redrawOverlay();
+
+        guideStep.innerHTML = "STEP 3: 「身長入力」を押してね！";
+        btnSetHeight.style.display = 'inline-block';
+        openHeightModal();
+    } else {
+        // 小さすぎる（単なるタップなど）はやり直し
+        isRoiEnabled = false;
+        redrawOverlay();
+        guideStep.innerHTML = "<span style='color:#ff375f;'>⚠️ 指でピッチャーを大きく四角く囲んでね</span>";
+    }
 });
 
 function openHeightModal() {
@@ -294,7 +318,6 @@ pose.onResults((results) => {
         return;
     }
     
-    // ROI座標系から画面全体座標系へマッピング
     const rawLm = results.poseLandmarks;
     const lm = rawLm.map(p => {
         if (isRoiEnabled && roiNorm.w > 0.05 && roiNorm.h > 0.05) {
@@ -368,7 +391,7 @@ function drawAndAnalyze(lm) {
         }
     }
 
-    // 3. 入力された身長（cm）に基づく正確なスケール換算
+    // 3. 入力された身長（cm）に基づくスケール換算
     let personHeightPx = 0;
     const head = lm[0];
     const footR = lm[28] || lm[26], footL = lm[27] || lm[25];
@@ -501,8 +524,8 @@ document.getElementById('inputFile').addEventListener('change', (e) => {
         btnPlayPause.style.background = '#007aff';
         video.currentTime = 0.001;
         
-        // STEP 2 案内
         btnSetRoi.style.display = 'inline-block';
+        btnSkipRoi.style.display = 'inline-block';
         startRoiSelection();
     };
     
