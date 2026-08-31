@@ -79,7 +79,7 @@
     .modal-card h3 { font-size: 15px; margin-bottom: 6px; color: #ff9500; }
     .modal-card p { font-size: 12px; color: #ccc; margin-bottom: 12px; }
     .modal-input-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 14px; }
-    .modal-input-row input { width: 100px; font-size: 16px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid #555; background: #1c1c1e; color: #fff; }
+    .modal-input-row input { width: 100px; font-size: 16px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid #555; background: #1c1c1e; color: #fff; user-select: auto; -webkit-user-select: auto; }
     .modal-btn-row { display: flex; gap: 8px; }
     .modal-btn-row button { -webkit-appearance: none; appearance: none; flex: 1; padding: 8px 0; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; }
     #snapshot-img { max-width: 100%; max-height: 50vh; border-radius: 6px; border: 1px solid #555; margin-bottom: 10px; }
@@ -247,10 +247,6 @@
     const scaleModalTitle = document.getElementById('scale-modal-title');
     const scaleInputValue = document.getElementById('scale-input-value');
 
-    // オフスクリーン画像バッファ（iOSフリーズ防止）
-    const inputBufferCanvas = document.createElement('canvas');
-    const inputBufferCtx = inputBufferCanvas.getContext('2d');
-
     let compareMode = 0; 
     let currentMode = 'auto';
     let selectedAutoJoint = 'kneeR';
@@ -261,6 +257,7 @@
 
     let isProcessing = false;
     let animFrameId = null;
+    let isPoseModelReady = false;
 
     let mediaRecorder = null;
     let recordedChunks = [];
@@ -385,7 +382,7 @@
 
         if (currentMode === 'auto') {
             mainResult.innerHTML = `🤖 ${jointName}: <span style="color:#00ffcc; font-size:14px;">${curAngle.toFixed(1)}°</span> ｜ 最大: <span style="color:#ffd60a;">${autoPeakMax > -Infinity ? autoPeakMax.toFixed(1) + '°' : '---'}</span> 最小: <span style="color:#ff375f;">${autoPeakMin < Infinity ? autoPeakMin.toFixed(1) + '°' : '---'}</span>`;
-            subResult.innerHTML = "再生・コマ送りでリアルタイム自動追従中";
+            subResult.innerHTML = "動画再生・コマ送りでリアルタイム自動更新中";
         }
     }
 
@@ -481,6 +478,7 @@
             if (video1.duration) video1.pause();
             if (compareMode > 0 && video2.duration) video2.pause();
             btnPlay.innerText = '▶ 再生'; btnPlay.style.background = '#34c759';
+            processCurrentFrame();
         }
     }
 
@@ -508,6 +506,7 @@
             video1.pause();
             btnPlay.innerText = '▶ 再生'; btnPlay.style.background = '#34c759';
             video1.currentTime = Math.max(0, Math.min(video1.duration, video1.currentTime + stepSec));
+            processCurrentFrame();
         }
         if (compareMode > 0 && video2 && !isNaN(video2.duration) && video2.duration > 0) {
             video2.currentTime = Math.max(0, Math.min(video2.duration, video2.currentTime + stepSec));
@@ -616,9 +615,14 @@
                         item.ctx.beginPath(); item.ctx.moveTo(p1.x, p1.y); item.ctx.lineTo(p2.x, p2.y); item.ctx.stroke();
                     }
                 };
-                [[11, 13], [13, 15], [23, 25], [25, 27]].forEach(([i, j]) => drawConn(i, j, 'rgba(0, 255, 204, 0.6)'));
-                [[12, 14], [14, 16], [24, 26], [26, 28]].forEach(([i, j]) => drawConn(i, j, 'rgba(255, 214, 10, 0.6)'));
-                drawConn(11, 12, '#ff375f'); drawConn(23, 24, '#007aff');
+                
+                // 四肢と体幹のフルコネクション描画
+                [[11, 13], [13, 15], [23, 25], [25, 27], [27, 31]].forEach(([i, j]) => drawConn(i, j, 'rgba(0, 255, 204, 0.7)'));
+                [[12, 14], [14, 16], [24, 26], [26, 28], [28, 32]].forEach(([i, j]) => drawConn(i, j, 'rgba(255, 214, 10, 0.7)'));
+                drawConn(11, 12, '#ff375f');
+                drawConn(23, 24, '#007aff');
+                drawConn(11, 23, 'rgba(255, 255, 255, 0.4)');
+                drawConn(12, 24, 'rgba(255, 255, 255, 0.4)');
                 item.ctx.restore();
 
                 const highlightJoint = (pKey, col) => {
@@ -897,8 +901,10 @@
     }
 
     const pose = new Pose({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
-    pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+    pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    
     pose.onResults((results) => {
+        isPoseModelReady = true;
         if (!results.poseLandmarks) { 
             latestLandmarks1 = null; 
             redraw(); 
@@ -910,14 +916,12 @@
         redraw();
     });
 
+    // 安定推論フレーム処理
     async function processCurrentFrame() {
         if (isProcessing || video1.readyState < 2 || !video1.videoWidth) return;
         isProcessing = true;
         try {
-            inputBufferCanvas.width = video1.videoWidth;
-            inputBufferCanvas.height = video1.videoHeight;
-            inputBufferCtx.drawImage(video1, 0, 0, video1.videoWidth, video1.videoHeight);
-            await pose.send({ image: inputBufferCanvas });
+            await pose.send({ image: video1 });
         } catch(e) {} finally {
             isProcessing = false;
         }
@@ -926,13 +930,15 @@
     async function loop() {
         if (!video1.paused && !video1.ended) {
             await processCurrentFrame();
+        } else if (!latestLandmarks1 && video1.readyState >= 2) {
+            // 初期フレーム未取得時のリトライ
+            await processCurrentFrame();
         }
         animFrameId = requestAnimationFrame(loop);
     }
 
-    video1.addEventListener('seeked', () => {
-        processCurrentFrame();
-    });
+    // 初回起動
+    loop();
 </script>
 </body>
 </html>
