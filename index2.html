@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析 Ultimate Pro</title>
+  <title>投球フォームAIバイオメカニクス解析 AutoTrack</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -371,10 +371,10 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析 Ultimate Pro</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 AutoTrack</h1>
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. 動画選択</div>
-      <div id="step-nav-2" class="step-pill">2. 枠で調整</div>
+      <div id="step-nav-2" class="step-pill">2. 選手指定</div>
       <div id="step-nav-3" class="step-pill">3. 身長・解析</div>
     </div>
   </header>
@@ -394,11 +394,10 @@
       </div>
     </section>
 
-    <!-- STEP 2: ROI Selection -->
+    <!-- STEP 2: Target Pitcher Anchor Selection -->
     <section id="view-step2" class="view-section">
       <div class="guidance-box">
-        枠の<b>中央をドラッグして移動</b>、<b>四隅の白丸でサイズ調整</b>ができます。<br>
-        ※足や腕が大きく広がるため、<b>投手の全身より広め</b>に囲んでください。
+        解析対象の<b>投手を囲んでください</b>（前後に激しく移動してもAIが自動追従します）。
       </div>
       <div class="screen-wrapper" id="roi-wrapper">
         <canvas id="roi-canvas"></canvas>
@@ -409,22 +408,22 @@
       </div>
       <div class="btn-group">
         <button class="btn btn-secondary" id="btn-roi-reset">🔄 枠リセット</button>
-        <button class="btn btn-secondary" id="btn-roi-skip">スキップ（全体）</button>
-        <button class="btn" id="btn-roi-confirm">✅ この範囲で決定</button>
+        <button class="btn btn-secondary" id="btn-roi-skip">スキップ（全体解析）</button>
+        <button class="btn" id="btn-roi-confirm">✅ この選手を解析</button>
       </div>
     </section>
 
     <!-- STEP 3: Height & Start Analysis -->
     <section id="view-step3" class="view-section">
       <div class="guidance-box">
-        バイオメカニクス計算（cm換算）を行うため、投手の身長を入力してください。
+        バイオメカニクス実寸値（cm換算）を高精度に行うため、投手の身長を入力してください。
       </div>
       <div class="input-group" style="padding: 16px 0;">
         <label for="height-input">選手の身長 (cm)</label>
         <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
       </div>
       <button class="btn" id="btn-start-analysis" style="font-size: 1.1rem; padding: 12px 28px;">
-        🚀 OK！高精度解析スタート
+        🚀 OK！全自動追従解析スタート
       </button>
     </section>
 
@@ -465,7 +464,7 @@
         <div class="zoom-badge" id="zoom-badge">拡大: 1.0x (ピンチ/ホイール可)</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.85rem; color: #fff;">AIモデル初期化中...</div>
+          <div style="font-size: 0.85rem; color: #fff;">AI高精度エンジン起動中...</div>
         </div>
       </div>
 
@@ -512,12 +511,11 @@
     let userHeightCm = 140;
     let videoFileUrl = null;
 
-    // ROI Box [0.0 - 1.0] - Default set wide to avoid clipping stride/cocking
-    let roi = { x: 0.1, y: 0.05, w: 0.8, h: 0.9, isActive: true };
-    let actualCrop = { x: 0, y: 0, w: 1, h: 1 }; // Crop with automatic safety padding
+    // Anchor ROI for Target Selection [0.0 - 1.0]
+    let initialAnchor = { x: 0.15, y: 0.1, w: 0.7, h: 0.8, isActive: false };
     let dragMode = null;
     let dragStartPos = { x: 0, y: 0 };
-    let roiSnapshot = { ...roi };
+    let roiSnapshot = { ...initialAnchor };
     const HANDLE_RADIUS = 14;
 
     // Pinch Zoom & Pan State
@@ -537,9 +535,9 @@
       maxRelease: 0
     };
 
-    // Temporal Smoothing Filter
+    // Temporal Smoothing Filter & Pose Memory
     const smoothLandmarks = new Map();
-    const SMOOTH_ALPHA = 0.55;
+    const SMOOTH_ALPHA = 0.6; // High responsiveness without jitter
 
     // Elements
     const stepViews = {
@@ -592,13 +590,14 @@
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
       });
 
+      // Optimized full-frame tracking configuration
       pose.setOptions({
         modelComplexity: 1,
         smoothLandmarks: false,
         enableSegmentation: false,
         smoothSegmentation: false,
-        minDetectionConfidence: 0.45,
-        minTrackingConfidence: 0.45
+        minDetectionConfidence: 0.35, // High sensitivity to never drop fast extremities
+        minTrackingConfidence: 0.35
       });
 
       pose.onResults(onPoseResults);
@@ -611,7 +610,7 @@
       });
     }
 
-    /* --- Video Frame Extraction --- */
+    /* --- Reliable First Frame Decoder --- */
     function ensureVideoFirstFrame() {
       return new Promise((resolve) => {
         roiLoading.style.display = 'flex';
@@ -685,7 +684,7 @@
       return { x, y, w, h };
     }
 
-    /* --- Step 2: ROI Canvas Handling --- */
+    /* --- Step 2: Pitcher Anchor Box Handling --- */
     function initRoiCanvas() {
       requestAnimationFrame(() => {
         const rect = roiCanvas.parentElement.getBoundingClientRect();
@@ -716,41 +715,39 @@
         }
       }
 
-      if (roi.isActive) {
-        const rx = b.x + roi.x * b.w;
-        const ry = b.y + roi.y * b.h;
-        const rw = roi.w * b.w;
-        const rh = roi.h * b.h;
+      const rx = b.x + initialAnchor.x * b.w;
+      const ry = b.y + initialAnchor.y * b.h;
+      const rw = initialAnchor.w * b.w;
+      const rh = initialAnchor.h * b.h;
 
-        roiCtx.fillStyle = "rgba(0, 0, 0, 0.45)";
-        roiCtx.fillRect(b.x, b.y, b.w, Math.max(0, ry - b.y));
-        roiCtx.fillRect(b.x, ry + rh, b.w, Math.max(0, b.y + b.h - (ry + rh)));
-        roiCtx.fillRect(b.x, ry, Math.max(0, rx - b.x), rh);
-        roiCtx.fillRect(rx + rw, ry, Math.max(0, b.x + b.w - (rx + rw)), rh);
+      roiCtx.fillStyle = "rgba(0, 0, 0, 0.4)";
+      roiCtx.fillRect(b.x, b.y, b.w, Math.max(0, ry - b.y));
+      roiCtx.fillRect(b.x, ry + rh, b.w, Math.max(0, b.y + b.h - (ry + rh)));
+      roiCtx.fillRect(b.x, ry, Math.max(0, rx - b.x), rh);
+      roiCtx.fillRect(rx + rw, ry, Math.max(0, b.x + b.w - (rx + rw)), rh);
 
-        roiCtx.fillStyle = "rgba(56, 189, 248, 0.15)";
-        roiCtx.fillRect(rx, ry, rw, rh);
-        roiCtx.strokeStyle = "#38bdf8";
-        roiCtx.lineWidth = 2.5;
-        roiCtx.strokeRect(rx, ry, rw, rh);
+      roiCtx.fillStyle = "rgba(56, 189, 248, 0.15)";
+      roiCtx.fillRect(rx, ry, rw, rh);
+      roiCtx.strokeStyle = "#38bdf8";
+      roiCtx.lineWidth = 2.5;
+      roiCtx.strokeRect(rx, ry, rw, rh);
 
-        const corners = [
-          { x: rx, y: ry },
-          { x: rx + rw, y: ry },
-          { x: rx, y: ry + rh },
-          { x: rx + rw, y: ry + rh }
-        ];
+      const corners = [
+        { x: rx, y: ry },
+        { x: rx + rw, y: ry },
+        { x: rx, y: ry + rh },
+        { x: rx + rw, y: ry + rh }
+      ];
 
-        corners.forEach(c => {
-          roiCtx.beginPath();
-          roiCtx.arc(c.x, c.y, 8, 0, Math.PI * 2);
-          roiCtx.fillStyle = "#ffffff";
-          roiCtx.fill();
-          roiCtx.strokeStyle = "#0284c7";
-          roiCtx.lineWidth = 3;
-          roiCtx.stroke();
-        });
-      }
+      corners.forEach(c => {
+        roiCtx.beginPath();
+        roiCtx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+        roiCtx.fillStyle = "#ffffff";
+        roiCtx.fill();
+        roiCtx.strokeStyle = "#0284c7";
+        roiCtx.lineWidth = 3;
+        roiCtx.stroke();
+      });
     }
 
     function getRoiCanvasPoint(evt) {
@@ -764,14 +761,13 @@
     }
 
     function hitTestRoi(pt) {
-      if (!roi.isActive) return 'create';
       const vw = videoElement.videoWidth || 640;
       const vh = videoElement.videoHeight || 360;
       const b = getAspectFitBounds(vw, vh, roiCanvas.width, roiCanvas.height);
-      const rx = b.x + roi.x * b.w;
-      const ry = b.y + roi.y * b.h;
-      const rw = roi.w * b.w;
-      const rh = roi.h * b.h;
+      const rx = b.x + initialAnchor.x * b.w;
+      const ry = b.y + initialAnchor.y * b.h;
+      const rw = initialAnchor.w * b.w;
+      const rh = initialAnchor.h * b.h;
       const tol = HANDLE_RADIUS + 10;
 
       if (Math.hypot(pt.x - rx, pt.y - ry) <= tol) return 'nw';
@@ -789,7 +785,7 @@
       const pt = getRoiCanvasPoint(e);
       dragMode = hitTestRoi(pt);
       dragStartPos = pt;
-      roiSnapshot = { ...roi };
+      roiSnapshot = { ...initialAnchor };
 
       if (dragMode === 'create') {
         const vw = videoElement.videoWidth || 640;
@@ -797,7 +793,7 @@
         const b = getAspectFitBounds(vw, vh, roiCanvas.width, roiCanvas.height);
         const normX = Math.max(0, Math.min(1, (pt.x - b.x) / b.w));
         const normY = Math.max(0, Math.min(1, (pt.y - b.y) / b.h));
-        roi = { x: normX, y: normY, w: 0.01, h: 0.01, isActive: true };
+        initialAnchor = { x: normX, y: normY, w: 0.01, h: 0.01, isActive: true };
       }
     }
 
@@ -811,46 +807,46 @@
       const dy = (pt.y - dragStartPos.y) / b.h;
 
       if (dragMode === 'move') {
-        roi.x = Math.max(0, Math.min(1 - roiSnapshot.w, roiSnapshot.x + dx));
-        roi.y = Math.max(0, Math.min(1 - roiSnapshot.h, roiSnapshot.y + dy));
+        initialAnchor.x = Math.max(0, Math.min(1 - roiSnapshot.w, roiSnapshot.x + dx));
+        initialAnchor.y = Math.max(0, Math.min(1 - roiSnapshot.h, roiSnapshot.y + dy));
       } else if (dragMode === 'nw') {
         const right = roiSnapshot.x + roiSnapshot.w;
         const bottom = roiSnapshot.y + roiSnapshot.h;
-        roi.x = Math.max(0, Math.min(right - 0.1, roiSnapshot.x + dx));
-        roi.y = Math.max(0, Math.min(bottom - 0.1, roiSnapshot.y + dy));
-        roi.w = right - roi.x;
-        roi.h = bottom - roi.y;
+        initialAnchor.x = Math.max(0, Math.min(right - 0.1, roiSnapshot.x + dx));
+        initialAnchor.y = Math.max(0, Math.min(bottom - 0.1, roiSnapshot.y + dy));
+        initialAnchor.w = right - initialAnchor.x;
+        initialAnchor.h = bottom - initialAnchor.y;
       } else if (dragMode === 'ne') {
         const bottom = roiSnapshot.y + roiSnapshot.h;
-        roi.y = Math.max(0, Math.min(bottom - 0.1, roiSnapshot.y + dy));
-        roi.w = Math.max(0.1, Math.min(1 - roiSnapshot.x, roiSnapshot.w + dx));
-        roi.h = bottom - roi.y;
+        initialAnchor.y = Math.max(0, Math.min(bottom - 0.1, roiSnapshot.y + dy));
+        initialAnchor.w = Math.max(0.1, Math.min(1 - roiSnapshot.x, roiSnapshot.w + dx));
+        initialAnchor.h = bottom - initialAnchor.y;
       } else if (dragMode === 'sw') {
         const right = roiSnapshot.x + roiSnapshot.w;
-        roi.x = Math.max(0, Math.min(right - 0.1, roiSnapshot.x + dx));
-        roi.w = right - roi.x;
-        roi.h = Math.max(0.1, Math.min(1 - roiSnapshot.y, roiSnapshot.h + dy));
+        initialAnchor.x = Math.max(0, Math.min(right - 0.1, roiSnapshot.x + dx));
+        initialAnchor.w = right - initialAnchor.x;
+        initialAnchor.h = Math.max(0.1, Math.min(1 - roiSnapshot.y, roiSnapshot.h + dy));
       } else if (dragMode === 'se') {
-        roi.w = Math.max(0.1, Math.min(1 - roiSnapshot.x, roiSnapshot.w + dx));
-        roi.h = Math.max(0.1, Math.min(1 - roiSnapshot.y, roiSnapshot.h + dy));
+        initialAnchor.w = Math.max(0.1, Math.min(1 - roiSnapshot.x, roiSnapshot.w + dx));
+        initialAnchor.h = Math.max(0.1, Math.min(1 - roiSnapshot.y, roiSnapshot.h + dy));
       } else if (dragMode === 'create') {
         const pNormX = Math.max(0, Math.min(1, (pt.x - b.x) / b.w));
         const pNormY = Math.max(0, Math.min(1, (pt.y - b.y) / b.h));
         const startNormX = Math.max(0, Math.min(1, (dragStartPos.x - b.x) / b.w));
         const startNormY = Math.max(0, Math.min(1, (dragStartPos.y - b.y) / b.h));
 
-        roi.x = Math.min(startNormX, pNormX);
-        roi.y = Math.min(startNormY, pNormY);
-        roi.w = Math.abs(startNormX - pNormX);
-        roi.h = Math.abs(startNormY - pNormY);
+        initialAnchor.x = Math.min(startNormX, pNormX);
+        initialAnchor.y = Math.min(startNormY, pNormY);
+        initialAnchor.w = Math.abs(startNormX - pNormX);
+        initialAnchor.h = Math.abs(startNormY - pNormY);
       }
 
       drawRoiSetupFrame();
     }
 
     function onRoiPointerUp() {
-      if (dragMode === 'create' && (roi.w < 0.05 || roi.h < 0.05)) {
-        roi = { x: 0.1, y: 0.05, w: 0.8, h: 0.9, isActive: true };
+      if (dragMode === 'create' && (initialAnchor.w < 0.05 || initialAnchor.h < 0.05)) {
+        initialAnchor = { x: 0.15, y: 0.1, w: 0.7, h: 0.8, isActive: true };
       }
       dragMode = null;
       drawRoiSetupFrame();
@@ -865,20 +861,21 @@
     window.addEventListener('touchend', onRoiPointerUp);
 
     document.getElementById('btn-roi-reset').addEventListener('click', () => {
-      roi = { x: 0.1, y: 0.05, w: 0.8, h: 0.9, isActive: true };
+      initialAnchor = { x: 0.15, y: 0.1, w: 0.7, h: 0.8, isActive: true };
       drawRoiSetupFrame();
     });
 
     document.getElementById('btn-roi-skip').addEventListener('click', () => {
-      roi = { x: 0, y: 0, w: 1, h: 1, isActive: false };
+      initialAnchor.isActive = false;
       setStep(3);
     });
 
     document.getElementById('btn-roi-confirm').addEventListener('click', () => {
+      initialAnchor.isActive = true;
       setStep(3);
     });
 
-    /* --- Step 3: Analysis Start --- */
+    /* --- Step 3: Start Analysis --- */
     document.getElementById('btn-start-analysis').addEventListener('click', () => {
       const hVal = parseFloat(document.getElementById('height-input').value);
       userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
@@ -908,7 +905,7 @@
       }
     });
 
-    /* --- Pinch Zoom & Pan Controls --- */
+    /* --- Zoom & Pan --- */
     function updateZoomBadge() {
       zoomBadge.textContent = `拡大: ${zoomScale.toFixed(1)}x ${zoomScale > 1 ? '(ドラッグで移動)' : '(ピンチ/ホイール可)'}`;
     }
@@ -917,10 +914,7 @@
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
       const newScale = Math.max(1.0, Math.min(5.0, zoomScale * zoomFactor));
-      
-      if (newScale === 1.0) {
-        zoomPan = { x: 0, y: 0 };
-      }
+      if (newScale === 1.0) zoomPan = { x: 0, y: 0 };
       zoomScale = newScale;
       updateZoomBadge();
       processSingleFrame();
@@ -974,7 +968,7 @@
       processSingleFrame();
     });
 
-    /* --- Frame Inference Processing with ROI Auto-Padding --- */
+    /* --- Full-Frame Inference Processor (No cropping, Never Lost) --- */
     function processSingleFrame() {
       if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
         renderFrameOnly();
@@ -984,30 +978,10 @@
       const vw = videoElement.videoWidth;
       const vh = videoElement.videoHeight;
 
-      let sx = 0, sy = 0, sw = vw, sh = vh;
-      if (roi.isActive) {
-        // Automatic Safety Padding (+25% in each direction) so extended limbs are never clipped
-        const padX = roi.w * 0.25;
-        const padY = roi.h * 0.20;
-
-        actualCrop.x = Math.max(0, roi.x - padX);
-        actualCrop.y = Math.max(0, roi.y - padY);
-        actualCrop.w = Math.min(1 - actualCrop.x, roi.w + padX * 2);
-        actualCrop.h = Math.min(1 - actualCrop.y, roi.h + padY * 2);
-
-        sx = Math.floor(actualCrop.x * vw);
-        sy = Math.floor(actualCrop.y * vh);
-        sw = Math.floor(actualCrop.w * vw);
-        sh = Math.floor(actualCrop.h * vh);
-      } else {
-        actualCrop = { x: 0, y: 0, w: 1, h: 1 };
-      }
-
-      if (sw <= 0 || sh <= 0) return;
-
-      bufferCanvas.width = sw;
-      bufferCanvas.height = sh;
-      bufferCtx.drawImage(videoElement, sx, sy, sw, sh, 0, 0, sw, sh);
+      // Always pass FULL FRAME to AI so step/throw will NEVER go out of bounds
+      bufferCanvas.width = vw;
+      bufferCanvas.height = vh;
+      bufferCtx.drawImage(videoElement, 0, 0, vw, vh);
 
       isProcessing = true;
       pose.send({ image: bufferCanvas }).catch(err => {
@@ -1036,7 +1010,7 @@
       outputCtx.restore();
     }
 
-    /* --- Biomechanics Math & Robust Extrapolation --- */
+    /* --- Biomechanics Mathematics --- */
     function smoothLandmark(idx, raw) {
       if (!smoothLandmarks.has(idx)) {
         smoothLandmarks.set(idx, { x: raw.x, y: raw.y, z: raw.z, visibility: raw.visibility });
@@ -1077,34 +1051,22 @@
       return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
     }
 
-    function mapCropToVideoCoords(lm) {
-      if (!roi.isActive) return { ...lm };
-      return {
-        x: actualCrop.x + lm.x * actualCrop.w,
-        y: actualCrop.y + lm.y * actualCrop.h,
-        z: lm.z * actualCrop.w,
-        visibility: lm.visibility
-      };
-    }
-
-    // Extrapolate foot if ankle landmark visibility is low or near-border
+    // Dynamic foot fallback for outdoor/low-contrast ground
     function getRobustFootPosition(hip, knee, ankle, heel, toe) {
-      // Pick best foot anchor
-      if (toe && (toe.visibility || 0) > 0.35) return { x: toe.x, y: toe.y, isEstimated: false };
-      if (heel && (heel.visibility || 0) > 0.35) return { x: heel.x, y: heel.y, isEstimated: false };
-      if (ankle && (ankle.visibility || 0) > 0.3) return { x: ankle.x, y: ankle.y, isEstimated: false };
+      if (toe && (toe.visibility || 0) > 0.3) return { x: toe.x, y: toe.y };
+      if (heel && (heel.visibility || 0) > 0.3) return { x: heel.x, y: heel.y };
+      if (ankle && (ankle.visibility || 0) > 0.25) return { x: ankle.x, y: ankle.y };
 
-      // Geometrical bone-extension fallback
+      // Vector extrapolation if ankle is lost in brush
       if (hip && knee) {
-        const dirX = knee.x - hip.x;
-        const dirY = knee.y - hip.y;
+        const dx = knee.x - hip.x;
+        const dy = knee.y - hip.y;
         return {
-          x: knee.x + dirX * 0.95,
-          y: knee.y + dirY * 0.95,
-          isEstimated: true
+          x: knee.x + dx * 0.95,
+          y: knee.y + dy * 0.95
         };
       }
-      return { x: ankle ? ankle.x : 0, y: ankle ? ankle.y : 0, isEstimated: false };
+      return { x: ankle ? ankle.x : 0, y: ankle ? ankle.y : 0 };
     }
 
     /* --- Results & Skeleton Render --- */
@@ -1123,14 +1085,8 @@
       const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
       outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
 
-      if (roi.isActive) {
-        outputCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
-        outputCtx.lineWidth = 1;
-        outputCtx.strokeRect(b.x + roi.x * b.w, b.y + roi.y * b.h, roi.w * b.w, roi.h * b.h);
-      }
-
       if (results.poseLandmarks) {
-        const rawLandmarks = results.poseLandmarks.map(mapCropToVideoCoords);
+        const rawLandmarks = results.poseLandmarks;
         const landmarks = rawLandmarks.map((lm, idx) => smoothLandmark(idx, lm));
 
         const NOSE = landmarks[0];
@@ -1151,7 +1107,7 @@
         const L_TOE = landmarks[31];
         const R_TOE = landmarks[32];
 
-        // Draw Full Connected Skeleton (Including Feet & Toes)
+        // Draw Complete High-Visibility Skeleton
         drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h);
 
         /* --- Biomechanical Dimension Engine --- */
@@ -1176,7 +1132,7 @@
 
         if (pxPerCm < 0.2) pxPerCm = (b.h * 0.75) / userHeightCm;
 
-        // 1. High-Accuracy Stride (FC) using Heel & Robust Foot Position
+        // 1. Full Stride Width (FC)
         const footL = getRobustFootPosition(L_HIP, L_KNEE, L_ANKLE, L_HEEL, L_TOE);
         const footR = getRobustFootPosition(R_HIP, R_KNEE, R_ANKLE, R_HEEL, R_TOE);
 
@@ -1192,7 +1148,7 @@
           }
         }
 
-        // 2. MER Flexion
+        // 2. Arm Cocking (MER Flexion)
         const isRightHandThrow = (R_WRIST.y < L_WRIST.y);
         const throwShoulder = isRightHandThrow ? R_SHOULDER : L_SHOULDER;
         const throwElbow = isRightHandThrow ? R_ELBOW : L_ELBOW;
@@ -1254,7 +1210,7 @@
       connections.forEach(([i, j]) => {
         const p1 = landmarks[i];
         const p2 = landmarks[j];
-        if (p1 && p2 && (p1.visibility || 1) > 0.2 && (p2.visibility || 1) > 0.2) {
+        if (p1 && p2 && (p1.visibility || 1) > 0.15 && (p2.visibility || 1) > 0.15) {
           outputCtx.beginPath();
           outputCtx.moveTo(ox + p1.x * bw, oy + p1.y * bh);
           outputCtx.lineTo(ox + p2.x * bw, oy + p2.y * bh);
@@ -1265,9 +1221,9 @@
       const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
       keyJoints.forEach(idx => {
         const p = landmarks[idx];
-        if (p && (p.visibility || 1) > 0.2) {
+        if (p && (p.visibility || 1) > 0.15) {
           outputCtx.beginPath();
-          outputCtx.arc(ox + p.x * bw, oy + p.y * bh, (idx >= 29 ? 4 : 5.5), 0, Math.PI * 2);
+          outputCtx.arc(ox + p.x * bw, oy + p.y * bh, (idx >= 29 ? 4.5 : 6), 0, Math.PI * 2);
           outputCtx.fillStyle = (idx === 15 || idx === 16) ? "#f59e0b" : "#38bdf8";
           outputCtx.fill();
           outputCtx.strokeStyle = "#ffffff";
@@ -1277,7 +1233,7 @@
       });
     }
 
-    /* --- Video Playback Engine & Controls --- */
+    /* --- Video Playback Engine --- */
     function updatePlayState() {
       if (videoElement.paused) {
         btnPlayPause.textContent = "再生";
