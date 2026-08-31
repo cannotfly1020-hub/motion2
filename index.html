@@ -390,7 +390,6 @@
       <button class="mode-btn" id="btnModeOverlay">重ね合わせ</button>
     </div>
 
-    <!-- 操作モード切り替え -->
     <div class="touch-mode-bar">
       <button class="touch-mode-btn active" id="btnTouchModeZoom">🔍 ズーム / 移動</button>
       <button class="touch-mode-btn" id="btnTouchModeEdit">✏️ 点調整</button>
@@ -486,13 +485,11 @@
     };
 
     let currentMode = 'split';
-    let currentTouchMode = 'zoom'; // 'zoom' | 'edit' | 'target'
+    let currentTouchMode = 'zoom';
 
-    // フォーカスROI管理: { cx, cy, boxSize: 0.65 }
     let targetRoiA = null;
     let targetRoiB = null;
 
-    // ROIクロップ推論用オフスクリーンCanvas
     const cropCanvasA = document.createElement('canvas');
     const cropCtxA = cropCanvasA.getContext('2d');
     const cropCanvasB = document.createElement('canvas');
@@ -645,7 +642,6 @@
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        // 【対象選手指定モード】タップした選手を中心に対象領域を固定
         if (currentTouchMode === 'target') {
           const { normX, normY } = getNormalizedVideoCoord(clientX, clientY, pane, canvas, scale, panX, panY);
           if (normX >= 0 && normX <= 1 && normY >= 0 && normY <= 1) {
@@ -662,7 +658,6 @@
           return;
         }
 
-        // 【ポイント調整モード】
         if (currentTouchMode === 'edit') {
           const { normX, normY } = getNormalizedVideoCoord(clientX, clientY, pane, canvas, scale, panX, panY);
           const lm = getLmFunc();
@@ -692,7 +687,6 @@
           return;
         }
 
-        // 【ズーム/移動モード】
         if (currentTouchMode === 'zoom') {
           const now = Date.now();
           if (now - lastTapTime < 300) {
@@ -766,11 +760,11 @@
     }
 
     setupInteractions(paneA, canvasA, manualOffsetsA, () => lastMappedLandmarksA, () => {
-      if (lastMappedLandmarksA) drawFrame(canvasA, ctxA, videoA, lastMappedLandmarksA, lastMappedWorldLandmarksA, trailsA, "#00e5ff", "A", manualOffsetsA, targetRoiA);
+      drawFrame(canvasA, ctxA, videoA, lastMappedLandmarksA, lastMappedWorldLandmarksA, trailsA, "#00e5ff", "A", manualOffsetsA, targetRoiA);
     }, true);
 
     setupInteractions(paneB, canvasB, manualOffsetsB, () => lastMappedLandmarksB, () => {
-      if (lastMappedLandmarksB) drawFrame(canvasB, ctxB, videoB, lastMappedLandmarksB, lastMappedWorldLandmarksB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, targetRoiB);
+      drawFrame(canvasB, ctxB, videoB, lastMappedLandmarksB, lastMappedWorldLandmarksB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, targetRoiB);
     }, false);
 
     togglePanelBtn.addEventListener('click', () => {
@@ -845,7 +839,6 @@
       renderSafe();
     });
 
-    // ROI領域の境界計算（0.0〜1.0正規化座標）
     function getRoiBox(roi, vw, vh) {
       if (!roi) return { x: 0, y: 0, w: vw, h: vh, normX: 0, normY: 0, normW: 1, normH: 1 };
       const aspect = vw / vh;
@@ -869,14 +862,11 @@
       };
     }
 
-    // MediaPipe Pose 初期化
     const poseA = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
     poseA.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     poseA.onResults(results => {
       if (results.poseLandmarks) {
         const roiBox = getRoiBox(targetRoiA, videoA.videoWidth, videoA.videoHeight);
-        
-        // クロップ座標系から元動画座標系への逆マッピング
         lastMappedLandmarksA = results.poseLandmarks.map(pt => ({
           x: roiBox.normX + pt.x * roiBox.normW,
           y: roiBox.normY + pt.y * roiBox.normH,
@@ -885,20 +875,14 @@
         }));
         lastMappedWorldLandmarksA = results.poseWorldLandmarks || lastMappedLandmarksA;
 
-        // 追従更新（体幹中心が動いたらROIボックスも滑らかに追従）
         if (targetRoiA && lastMappedLandmarksA[11] && lastMappedLandmarksA[12] && lastMappedLandmarksA[23] && lastMappedLandmarksA[24]) {
           const cx = (lastMappedLandmarksA[11].x + lastMappedLandmarksA[12].x + lastMappedLandmarksA[23].x + lastMappedLandmarksA[24].x) / 4;
           const cy = (lastMappedLandmarksA[11].y + lastMappedLandmarksA[12].y + lastMappedLandmarksA[23].y + lastMappedLandmarksA[24].y) / 4;
           targetRoiA.cx = targetRoiA.cx * 0.7 + cx * 0.3;
           targetRoiA.cy = targetRoiA.cy * 0.7 + cy * 0.3;
         }
-
-        try {
-          drawFrame(canvasA, ctxA, videoA, lastMappedLandmarksA, lastMappedWorldLandmarksA, trailsA, "#00e5ff", "A", manualOffsetsA, targetRoiA);
-        } catch (err) {
-          console.warn("PoseA draw error:", err);
-        }
       }
+      drawFrame(canvasA, ctxA, videoA, lastMappedLandmarksA, lastMappedWorldLandmarksA, trailsA, "#00e5ff", "A", manualOffsetsA, targetRoiA);
       isPoseA_Busy = false;
     });
 
@@ -921,13 +905,8 @@
           targetRoiB.cx = targetRoiB.cx * 0.7 + cx * 0.3;
           targetRoiB.cy = targetRoiB.cy * 0.7 + cy * 0.3;
         }
-
-        try {
-          drawFrame(canvasB, ctxB, videoB, lastMappedLandmarksB, lastMappedWorldLandmarksB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, targetRoiB);
-        } catch (err) {
-          console.warn("PoseB draw error:", err);
-        }
       }
+      drawFrame(canvasB, ctxB, videoB, lastMappedLandmarksB, lastMappedWorldLandmarksB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, targetRoiB);
       isPoseB_Busy = false;
     });
 
@@ -938,8 +917,10 @@
 
     function drawFrame(canvas, ctx, video, lmRaw, wlmRaw, trailBuf, skeletonColor, label, offsets = {}, targetRoi = null) {
       if (!video.videoWidth || !video.videoHeight) return;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+      }
       const w = canvas.width;
       const h = canvas.height;
 
@@ -947,7 +928,6 @@
       ctx.clearRect(0, 0, w, h);
       ctx.drawImage(video, 0, 0, w, h);
 
-      // 指定ターゲット選手を示す枠（ピンクの枠線）
       if (targetRoi) {
         const box = getRoiBox(targetRoi, w, h);
         ctx.save();
@@ -1207,11 +1187,15 @@
     }
 
     async function processFrameA() {
-      if (isPoseA_Busy || videoA.readyState < 2) return;
+      if (videoA.readyState < 2) return;
+      drawFrame(canvasA, ctxA, videoA, lastMappedLandmarksA, lastMappedWorldLandmarksA, trailsA, "#00e5ff", "A", manualOffsetsA, targetRoiA);
+
+      if (isPoseA_Busy) return;
       isPoseA_Busy = true;
       try {
         const vw = videoA.videoWidth;
         const vh = videoA.videoHeight;
+        if (!vw || !vh) { isPoseA_Busy = false; return; }
         const box = getRoiBox(targetRoiA, vw, vh);
 
         cropCanvasA.width = 384;
@@ -1225,11 +1209,15 @@
     }
 
     async function processFrameB() {
-      if (isPoseB_Busy || videoB.readyState < 2) return;
+      if (videoB.readyState < 2) return;
+      drawFrame(canvasB, ctxB, videoB, lastMappedLandmarksB, lastMappedWorldLandmarksB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, targetRoiB);
+
+      if (isPoseB_Busy) return;
       isPoseB_Busy = true;
       try {
         const vw = videoB.videoWidth;
         const vh = videoB.videoHeight;
+        if (!vw || !vh) { isPoseB_Busy = false; return; }
         const box = getRoiBox(targetRoiB, vw, vh);
 
         cropCanvasB.width = 384;
@@ -1281,12 +1269,14 @@
       lastMappedLandmarksA = null;
       videoA.src = URL.createObjectURL(file);
       videoA.load();
-      videoA.onloadedmetadata = () => {
+      videoA.onloadeddata = () => {
         seekBarA.max = videoA.duration;
         seekBarA.value = 0;
         seekBarA.disabled = false;
         btnSyncPlay.disabled = false;
         videoA.currentTime = 0.001;
+        drawFrame(canvasA, ctxA, videoA, null, null, trailsA, "#00e5ff", "A", manualOffsetsA, targetRoiA);
+        processFrameA();
       };
     });
     videoA.addEventListener('seeked', () => { if (videoA.paused) processFrameA(); });
@@ -1300,12 +1290,14 @@
       lastMappedLandmarksB = null;
       videoB.src = URL.createObjectURL(file);
       videoB.load();
-      videoB.onloadedmetadata = () => {
+      videoB.onloadeddata = () => {
         seekBarB.max = videoB.duration;
         seekBarB.value = 0;
         seekBarB.disabled = false;
         btnSyncPlay.disabled = false;
         videoB.currentTime = 0.001;
+        drawFrame(canvasB, ctxB, videoB, null, null, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, targetRoiB);
+        processFrameB();
       };
     });
     videoB.addEventListener('seeked', () => { if (videoB.paused) processFrameB(); });
