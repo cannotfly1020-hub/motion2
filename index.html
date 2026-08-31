@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="動作分析Pro">
-<title>動作観察 (AI自動解析) - 動作分析Pro</title>
+<title>動作観察 - 動作分析Pro</title>
 
 <!-- AI解析ライブラリ -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -44,7 +44,7 @@
     .zoom-target { width: 100%; height: 100%; position: relative; transform-origin: center center; }
     #pane2 { display: none; border-left: 2px solid #555; }
     video { width: 100%; height: 100%; object-fit: contain; display: block; }
-    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; pointer-events: auto; }
+    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
     
     #controls { width: 100%; background: #1c1c1e; padding-top: 5px; padding-left: calc(8px + env(safe-area-inset-left)); padding-right: calc(8px + env(safe-area-inset-right)); padding-bottom: calc(6px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #333; flex-shrink: 0; }
     .seek-container { display: flex; flex-direction: column; gap: 2px; width: 100%; }
@@ -56,13 +56,11 @@
     #perp-slider { accent-color: #ff2d55; }
     #sim-slider { accent-color: #30d158; }
 
-    /* 自動関節選択セレクター */
     .auto-joint-row { display: flex; align-items: center; gap: 4px; width: 100%; overflow-x: auto; scrollbar-width: none; }
     .auto-joint-row::-webkit-scrollbar { display: none; }
     .joint-chip { background: #2c2c2e; color: #888; border: 1px solid #444; border-radius: 12px; padding: 4px 9px; font-size: 10px; font-weight: bold; white-space: nowrap; cursor: pointer; }
     .joint-chip.active { background: #00ffcc; color: #000; border-color: #00ffcc; }
 
-    /* モード選択グリッド */
     .mode-grid { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
     button.ctrl-btn { -webkit-appearance: none; appearance: none; width: 100%; padding: 6px 0; background: #2c2c2e; color: #ccc; border: 1px solid #444; border-radius: 6px; font-size: 10.5px; font-weight: 600; cursor: pointer; text-align: center; transition: 0.15s; }
     button.ctrl-btn:active { background: #444; transform: scale(0.97); }
@@ -283,6 +281,7 @@
 
     let scaleTarget = 1;
     let lastActiveTarget = 1;
+    let draggingPoint = null;
 
     function toggleFPS() {
         fpsIdx = (fpsIdx + 1) % fpsList.length;
@@ -316,6 +315,16 @@
         const mag1 = Math.hypot(v1.x, v1.y), mag2 = Math.hypot(v2.x, v2.y);
         if (mag1 === 0 || mag2 === 0) return 0;
         return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI);
+    }
+
+    function simulateJointAngle(p2, p3, deltaDeg) {
+        const rad = deltaDeg * (Math.PI / 180);
+        const dx = p3.x - p2.x;
+        const dy = p3.y - p2.y;
+        return {
+            x: p2.x + (dx * Math.cos(rad) - dy * Math.sin(rad)),
+            y: p2.y + (dx * Math.sin(rad) + dy * Math.cos(rad))
+        };
     }
 
     function updateAutoResults(lm, box) {
@@ -354,15 +363,26 @@
 
         if (shL && shR && hipL && hipR) {
             const pShL = toPx(shL), pShR = toPx(shR), pHipL = toPx(hipL), pHipR = toPx(hipR);
-            state[1].currentCoM = {
+            const comPt = {
                 x: (pShL.x + pShR.x + pHipL.x + pHipR.x) * 0.25,
-                y: (pShL.y + pShR.y + pHipL.y + pHipR.y) * 0.25
+                y: (pShL.y + pShR.y + pHipL.y + pHipR.y) * 0.25,
+                time: video1.currentTime
             };
+            state[1].currentCoM = comPt;
+            
+            // 重心モード時、自動で軌跡配列に追加
+            if (currentMode === 'cog') {
+                const cogs = state[1].cogPoints;
+                if (cogs.length === 0 || Math.hypot(comPt.x - cogs[cogs.length-1].x, comPt.y - cogs[cogs.length-1].y) > 3) {
+                    cogs.push(comPt);
+                    if (cogs.length > 100) cogs.shift();
+                }
+            }
         }
 
         if (currentMode === 'auto') {
             mainResult.innerHTML = `🤖 ${jointName}: <span style="color:#00ffcc; font-size:14px;">${curAngle.toFixed(1)}°</span> ｜ 最大: <span style="color:#ffd60a;">${autoPeakMax > -Infinity ? autoPeakMax.toFixed(1) + '°' : '---'}</span> 最小: <span style="color:#ff375f;">${autoPeakMin < Infinity ? autoPeakMin.toFixed(1) + '°' : '---'}</span>`;
-            subResult.innerHTML = "動画再生・コマ送りでリアルタイム更新 ｜ 自動追従中";
+            subResult.innerHTML = "動画再生・コマ送りでリアルタイム更新中";
         }
     }
 
@@ -464,7 +484,10 @@
     let seeking1 = false;
     seekbar1.addEventListener('input', () => { seeking1 = true; video1.currentTime = seekbar1.value; });
     seekbar1.addEventListener('change', () => { seeking1 = false; processCurrentFrame(); });
-    video1.addEventListener('timeupdate', () => { if (!seeking1) seekbar1.value = video1.currentTime; });
+    video1.addEventListener('timeupdate', () => { 
+        if (!seeking1) seekbar1.value = video1.currentTime; 
+        processCurrentFrame();
+    });
 
     let seeking2 = false;
     seekbar2.addEventListener('input', () => { seeking2 = true; video2.currentTime = seekbar2.value; });
@@ -503,19 +526,25 @@
         if (btnMap[mode]) document.getElementById(btnMap[mode]).classList.add('mode-active');
 
         if (mode === 'scale') {
-            state[1].scalePoints = [];
-            mainResult.innerText = "物差し設定: 基準物の両端（2点）をタップ";
-            subResult.innerText = "タップ後、右上の「長さ確定」ボタンを押してください";
+            mainResult.innerText = "物差し設定: 画面をタップして2点を指定（ドラッグで移動）";
+            subResult.innerText = "位置確定後、右上の「長さ確定」ボタンを押してください";
         } else if (mode === 'distance') {
             state[1].points = [];
             mainResult.innerText = "速度測定: 始点 ➔ コマ送りして終点をタップ";
             subResult.innerText = "2点間の移動距離と時間から速度を算出";
         } else if (mode === 'perp') {
-            mainResult.innerText = "垂直線モード: 基準2点をタップ";
-            subResult.innerText = "スライダーで垂直線を左右に移動できます";
+            mainResult.innerText = "垂直線モード: 画面をタップして基準2点を指定";
+            subResult.innerText = "下のスライダーで垂直線を左右に移動できます";
         } else if (mode === 'cog') {
-            mainResult.innerText = "重心軌跡: AIが身体重心(CoM)を自動プロット";
-            subResult.innerText = "動画を再生すると重心の移動軌跡が自動描画されます";
+            mainResult.innerText = "重心軌跡: AIが身体重心(CoM)を自動プロット中";
+            subResult.innerText = "動画を再生・コマ送りすると重心の移動軌跡が自動描画されます";
+        } else if (mode === 'sim') {
+            mainResult.innerText = "可動域予測: 根元 ➔ 関節中心 ➔ 先端 を3点タップ";
+            subResult.innerText = "下のスライダーで改善後の予測位置（緑点線）が動きます";
+        } else if (mode === 'angle') {
+            state[1].points = [];
+            mainResult.innerText = "手動角度: 3点を順番にタップ";
+            subResult.innerText = "①根元 ➔ ②関節中心(頂点) ➔ ③先端";
         }
         redraw();
     }
@@ -527,6 +556,7 @@
         state[1].cogPoints = [];
         autoPeakMax = -Infinity;
         autoPeakMin = Infinity;
+        btnConfirmScale.style.display = 'none';
         mainResult.innerText = "表示データを消去しました";
         redraw();
     }
@@ -547,6 +577,13 @@
             offsetX = (cvs.width - renderWidth) / 2;
         }
         return { width: renderWidth, height: renderHeight, x: offsetX, y: offsetY };
+    }
+
+    function findHitPoint(pts, pos) {
+        for (let i = 0; i < pts.length; i++) {
+            if (Math.hypot(pts[i].x - pos.x, pts[i].y - pos.y) < 25) return i;
+        }
+        return -1;
     }
 
     function redraw() {
@@ -599,17 +636,66 @@
                 }
             }
 
-            if (s.scalePoints.length > 0) {
-                item.ctx.strokeStyle = '#ff9500'; item.ctx.fillStyle = '#ff9500'; item.ctx.lineWidth = 3;
-                s.scalePoints.forEach((pt) => {
+            // 重心軌跡の描画
+            if (s.cogPoints.length > 0) {
+                item.ctx.save();
+                item.ctx.strokeStyle = '#ff375f';
+                item.ctx.lineWidth = 2;
+                item.ctx.beginPath();
+                s.cogPoints.forEach((pt, i) => {
+                    if (i === 0) item.ctx.moveTo(pt.x, pt.y);
+                    else item.ctx.lineTo(pt.x, pt.y);
+                });
+                item.ctx.stroke();
+
+                s.cogPoints.forEach((pt, i) => {
+                    item.ctx.fillStyle = (i === s.cogPoints.length - 1) ? '#00ffcc' : '#ff375f';
+                    item.ctx.beginPath(); item.ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2); item.ctx.fill();
+                });
+                item.ctx.restore();
+            }
+
+            // 垂直線の描画
+            if (s.perpPoints.length > 0) {
+                item.ctx.save();
+                s.perpPoints.forEach((pt, i) => {
+                    item.ctx.fillStyle = '#ff2d55';
                     item.ctx.beginPath(); item.ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2); item.ctx.fill();
+                });
+                if (s.perpPoints.length === 2) {
+                    const p1 = s.perpPoints[0], p2 = s.perpPoints[1];
+                    item.ctx.strokeStyle = '#00ffcc'; item.ctx.lineWidth = 2;
+                    item.ctx.beginPath(); item.ctx.moveTo(p1.x, p1.y); item.ctx.lineTo(p2.x, p2.y); item.ctx.stroke();
+
+                    const t = parseFloat(perpSlider.value) / 100;
+                    const pmX = p1.x + (p2.x - p1.x) * t, pmY = p1.y + (p2.y - p1.y) * t;
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy);
+                    if (len > 0) {
+                        const nx = -dy / len, ny = dx / len, perpLen = 2000;
+                        item.ctx.strokeStyle = '#ff2d55'; item.ctx.lineWidth = 2; item.ctx.setLineDash([5, 4]);
+                        item.ctx.beginPath(); item.ctx.moveTo(pmX - nx * perpLen, pmY - ny * perpLen); item.ctx.lineTo(pmX + nx * perpLen, pmY + ny * perpLen); item.ctx.stroke();
+                    }
+                }
+                item.ctx.restore();
+            }
+
+            // 物差しラインの描画
+            if (s.scalePoints.length > 0) {
+                item.ctx.save();
+                item.ctx.strokeStyle = '#ff9500'; item.ctx.fillStyle = '#ff9500'; item.ctx.lineWidth = 3;
+                s.scalePoints.forEach((pt, i) => {
+                    item.ctx.beginPath(); item.ctx.arc(pt.x, pt.y, 7, 0, Math.PI * 2); item.ctx.fill();
+                    item.ctx.fillStyle = '#fff'; item.ctx.font = 'bold 10px sans-serif'; item.ctx.fillText(`点${i+1}`, pt.x+9, pt.y-4); item.ctx.fillStyle = '#ff9500';
                 });
                 if (s.scalePoints.length === 2) {
                     item.ctx.beginPath(); item.ctx.moveTo(s.scalePoints[0].x, s.scalePoints[0].y); item.ctx.lineTo(s.scalePoints[1].x, s.scalePoints[1].y); item.ctx.stroke();
                 }
+                item.ctx.restore();
             }
 
+            // 手動ポイント＆可動域予測
             if (s.points.length > 0) {
+                item.ctx.save();
                 item.ctx.strokeStyle = '#ffd60a'; item.ctx.fillStyle = '#ffd60a'; item.ctx.lineWidth = 3;
                 s.points.forEach((pt, i) => {
                     item.ctx.beginPath(); item.ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2); item.ctx.fill();
@@ -620,23 +706,58 @@
                     if (s.points.length === 3) item.ctx.lineTo(s.points[2].x, s.points[2].y);
                     item.ctx.stroke();
                 }
+
+                if (currentMode === 'sim' && s.points.length === 3) {
+                    const p2 = s.points[1], p3 = s.points[2], deltaDeg = parseFloat(simSlider.value), simP3 = simulateJointAngle(p2, p3, deltaDeg);
+                    item.ctx.strokeStyle = '#30d158'; item.ctx.fillStyle = '#30d158'; item.ctx.lineWidth = 3; item.ctx.setLineDash([5, 4]);
+                    item.ctx.beginPath(); item.ctx.moveTo(p2.x, p2.y); item.ctx.lineTo(simP3.x, simP3.y); item.ctx.stroke();
+                    item.ctx.beginPath(); item.ctx.arc(simP3.x, simP3.y, 6, 0, Math.PI * 2); item.ctx.fill();
+                }
+                item.ctx.restore();
             }
         });
     }
 
+    // タップ＆ドラッグ処理（完全実装）
     [ {c: canvas1, idx: 1}, {c: canvas2, idx: 2} ].forEach(item => {
         item.c.addEventListener('pointerdown', (e) => {
             const rect = item.c.getBoundingClientRect();
             const pt = { x: (e.clientX - rect.left) * (item.c.width / rect.width), y: (e.clientY - rect.top) * (item.c.height / rect.height) };
             const s = state[item.idx];
+            lastActiveTarget = item.idx;
 
             if (currentMode === 'scale') {
                 scaleTarget = item.idx;
-                if (s.scalePoints.length >= 2) s.scalePoints = [];
-                s.scalePoints.push(pt);
-                if (s.scalePoints.length === 2) {
-                    btnConfirmScale.style.display = 'inline-block';
+                const hit = findHitPoint(s.scalePoints, pt);
+                if (hit !== -1) {
+                    draggingPoint = { array: s.scalePoints, index: hit };
+                    try { item.c.setPointerCapture(e.pointerId); } catch(err){}
+                } else {
+                    if (s.scalePoints.length >= 2) s.scalePoints = [];
+                    s.scalePoints.push(pt);
+                    if (s.scalePoints.length === 2) btnConfirmScale.style.display = 'inline-block';
                 }
+                redraw();
+                return;
+            }
+
+            if (currentMode === 'perp') {
+                const hit = findHitPoint(s.perpPoints, pt);
+                if (hit !== -1) {
+                    draggingPoint = { array: s.perpPoints, index: hit };
+                    try { item.c.setPointerCapture(e.pointerId); } catch(err){}
+                } else {
+                    if (s.perpPoints.length >= 2) s.perpPoints = [];
+                    s.perpPoints.push(pt);
+                    if (s.perpPoints.length === 2) document.getElementById('perp-controls').style.display = 'flex';
+                }
+                redraw();
+                return;
+            }
+
+            if (currentMode === 'cog') {
+                s.cogPoints.push({ x: pt.x, y: pt.y, time: video1.currentTime });
+                mainResult.innerHTML = `手動重心プロット: <span style="color:#00ffcc;">${s.cogPoints.length}点</span>`;
                 redraw();
                 return;
             }
@@ -655,14 +776,37 @@
                 return;
             }
 
-            if (currentMode === 'angle') {
-                if (s.points.length >= 3) s.points = [];
-                s.points.push(pt);
-                if (s.points.length === 3) {
-                    const angle = calcAngle(s.points[0], s.points[1], s.points[2]);
-                    mainResult.innerHTML = `手動関節角度: <span style="color:#00ffcc;">${angle.toFixed(1)}°</span>`;
+            if (currentMode === 'angle' || currentMode === 'sim') {
+                const hit = findHitPoint(s.points, pt);
+                if (hit !== -1) {
+                    draggingPoint = { array: s.points, index: hit };
+                    try { item.c.setPointerCapture(e.pointerId); } catch(err){}
+                } else {
+                    if (s.points.length >= 3) s.points = [];
+                    s.points.push(pt);
+                    if (s.points.length === 3) {
+                        const angle = calcAngle(s.points[0], s.points[1], s.points[2]);
+                        mainResult.innerHTML = `手動角度: <span style="color:#00ffcc;">${angle.toFixed(1)}°</span>`;
+                    }
                 }
                 redraw();
+            }
+        });
+
+        item.c.addEventListener('pointermove', (e) => {
+            if (draggingPoint) {
+                const rect = item.c.getBoundingClientRect();
+                const pt = { x: (e.clientX - rect.left) * (item.c.width / rect.width), y: (e.clientY - rect.top) * (item.c.height / rect.height) };
+                draggingPoint.array[draggingPoint.index].x = pt.x;
+                draggingPoint.array[draggingPoint.index].y = pt.y;
+                redraw();
+            }
+        });
+
+        item.c.addEventListener('pointerup', (e) => {
+            if (draggingPoint) {
+                try { item.c.releasePointerCapture(e.pointerId); } catch(err){}
+                draggingPoint = null;
             }
         });
     });
