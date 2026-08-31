@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析 MotionBlur Pro</title>
+  <title>投球フォームAIバイオメカニクス解析 Fixed-Arm Pro</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -216,7 +216,7 @@
       align-items: center;
       gap: 6px;
       width: 100%;
-      max-width: 300px;
+      max-width: 320px;
     }
 
     .input-group label {
@@ -234,6 +234,36 @@
       font-size: 1.25rem;
       text-align: center;
       font-weight: 700;
+    }
+
+    /* Hand Toggle Selector */
+    .toggle-group {
+      display: flex;
+      width: 100%;
+      background: #080c14;
+      border-radius: 8px;
+      border: 1px solid var(--surface-light);
+      padding: 3px;
+      gap: 4px;
+    }
+
+    .toggle-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .toggle-btn.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
     }
 
     .dashboard {
@@ -371,17 +401,16 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析 MotionBlur Pro</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 Fixed-Arm Pro</h1>
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. 動画選択</div>
       <div id="step-nav-2" class="step-pill">2. 選手指定</div>
-      <div id="step-nav-3" class="step-pill">3. 身長・解析</div>
+      <div id="step-nav-3" class="step-pill">3. 投球腕・身長</div>
     </div>
   </header>
 
   <main class="app-container">
 
-    <!-- STEP 1: Video File Selection -->
     <section id="view-step1" class="view-section active">
       <div class="guidance-box">
         投球フォーム動画（スロー撮影推奨）を選択してください。
@@ -394,10 +423,9 @@
       </div>
     </section>
 
-    <!-- STEP 2: Target Pitcher Anchor Selection -->
     <section id="view-step2" class="view-section">
       <div class="guidance-box">
-        解析対象の<b>投手を囲んでください</b>（前後に激しく移動してもAIが自動追従します）。
+        解析対象の<b>投手を囲んでください</b>（リリースで激しく前進してもAIが自動追従します）。
       </div>
       <div class="screen-wrapper" id="roi-wrapper">
         <canvas id="roi-canvas"></canvas>
@@ -413,44 +441,49 @@
       </div>
     </section>
 
-    <!-- STEP 3: Height & Start Analysis -->
     <section id="view-step3" class="view-section">
       <div class="guidance-box">
-        バイオメカニクス実寸値（cm換算）を高精度に行うため、投手の身長を入力してください。
+        腕の入れ替わりやロストを防ぐため<b>投球腕（利き腕）</b>を選択し、身長を入力してください。
       </div>
-      <div class="input-group" style="padding: 16px 0;">
-        <label for="height-input">選手の身長 (cm)</label>
-        <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
+      
+      <div class="input-group" style="padding: 10px 0; gap: 12px;">
+        <div style="width: 100%;">
+          <label style="display: block; margin-bottom: 4px; text-align: center;">投球腕（利き腕）</label>
+          <div class="toggle-group">
+            <button type="button" class="toggle-btn active" id="btn-arm-right">右投げ ⚾</button>
+            <button type="button" class="toggle-btn" id="btn-arm-left">左投げ ⚾</button>
+          </div>
+        </div>
+
+        <div style="width: 100%;">
+          <label for="height-input" style="display: block; margin-bottom: 4px; text-align: center;">選手の身長 (cm)</label>
+          <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
+        </div>
       </div>
+
       <button class="btn" id="btn-start-analysis" style="font-size: 1.1rem; padding: 12px 28px;">
-        🚀 OK！高速スイング補正解析スタート
+        🚀 OK！固定腕バイオメカ解析スタート
       </button>
     </section>
 
-    <!-- STEP 4: Main Analysis Workspace -->
     <section id="view-step4" class="view-section">
       
-      <!-- Metrics Dashboard -->
       <div class="dashboard">
-        <!-- 1. Stride (FC) -->
         <div class="card">
           <div class="card-title">🚶 ステップ幅 (FC)</div>
           <div class="card-val" id="val-stride">-- cm</div>
           <div class="card-max" id="max-stride">最大: -- cm (0%身)</div>
         </div>
-        <!-- 2. True MER -->
         <div class="card">
-          <div class="card-title">💪 うでのしなり (肩外旋 MER)</div>
+          <div class="card-title" id="card-mer-title">💪 うでのしなり (右肩外旋)</div>
           <div class="card-val" id="val-elbow">-- °</div>
           <div class="card-max" id="max-mer">最大: -- °</div>
         </div>
-        <!-- 3. Twist X-Factor -->
         <div class="card">
           <div class="card-title">🔄 捻転差 (X-Factor)</div>
           <div class="card-val" id="val-twist">-- °</div>
           <div class="card-max" id="max-twist">最大: -- °</div>
         </div>
-        <!-- 4. Release Height (MotionBlur Compensated) -->
         <div class="card">
           <div class="card-title">⚾ リリース高さ</div>
           <div class="card-val" id="val-release">-- cm</div>
@@ -458,17 +491,15 @@
         </div>
       </div>
 
-      <!-- Main Display Screen with Pinch Zoom -->
       <div class="screen-wrapper" id="main-screen-wrapper">
         <canvas id="output-canvas"></canvas>
         <div class="zoom-badge" id="zoom-badge">拡大: 1.0x (ピンチ/ホイール可)</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.85rem; color: #fff;">AI高速リンク解析中...</div>
+          <div style="font-size: 0.85rem; color: #fff;">キネマティクスエンジン同期中...</div>
         </div>
       </div>
 
-      <!-- Playback Controls -->
       <div class="controls-container">
         <div class="seek-container">
           <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
@@ -492,7 +523,6 @@
   <canvas id="buffer-canvas" style="display: none;"></canvas>
 
   <script>
-    /* --- State & Context Variables --- */
     const videoElement = document.getElementById('hidden-video');
     const bufferCanvas = document.getElementById('buffer-canvas');
     const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
@@ -509,6 +539,7 @@
     let animationFrameId = null;
 
     let userHeightCm = 140;
+    let selectedThrowArm = 'RIGHT'; // 'RIGHT' or 'LEFT'
     let videoFileUrl = null;
 
     let initialAnchor = { x: 0.15, y: 0.1, w: 0.7, h: 0.8, isActive: false };
@@ -533,16 +564,12 @@
     };
 
     let calibratedPxPerCm = null;
+    let stableUpperArmPx = null;
+    let stableForearmPx = null;
 
-    // Temporal Smoothing Filter & Historical Memory
     const smoothLandmarks = new Map();
-    const SMOOTH_ALPHA = 0.65;
+    const SMOOTH_ALPHA = 0.55;
 
-    // Previous Wrist History for Kinematic Velocity Recovery
-    let prevValidWrist = null;
-    let estimatedForearmLengthRatio = 0.85; // Standard anatomical Forearm / UpperArm ratio
-
-    // Elements
     const stepViews = {
       1: document.getElementById('view-step1'),
       2: document.getElementById('view-step2'),
@@ -564,6 +591,7 @@
     const maxTwist = document.getElementById('max-twist');
     const valRelease = document.getElementById('val-release');
     const maxRelease = document.getElementById('max-release');
+    const cardMerTitle = document.getElementById('card-mer-title');
 
     const seekBar = document.getElementById('seek-bar');
     const timeDisp = document.getElementById('time-disp');
@@ -572,7 +600,23 @@
     const aiLoading = document.getElementById('ai-loading');
     const roiLoading = document.getElementById('roi-loading');
 
-    /* --- Navigation --- */
+    const btnArmRight = document.getElementById('btn-arm-right');
+    const btnArmLeft = document.getElementById('btn-arm-left');
+
+    btnArmRight.addEventListener('click', () => {
+      selectedThrowArm = 'RIGHT';
+      btnArmRight.classList.add('active');
+      btnArmLeft.classList.remove('active');
+      cardMerTitle.textContent = "💪 うでのしなり (右肩外旋)";
+    });
+
+    btnArmLeft.addEventListener('click', () => {
+      selectedThrowArm = 'LEFT';
+      btnArmLeft.classList.add('active');
+      btnArmRight.classList.remove('active');
+      cardMerTitle.textContent = "💪 うでのしなり (左肩外旋)";
+    });
+
     function setStep(stepNum) {
       Object.keys(stepViews).forEach(s => stepViews[s].classList.remove('active'));
       if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
@@ -585,7 +629,6 @@
       }
     }
 
-    /* --- MediaPipe Pose Initialization --- */
     function initMediaPipe() {
       if (pose) return;
       aiLoading.style.display = 'flex';
@@ -598,8 +641,8 @@
         smoothLandmarks: false,
         enableSegmentation: false,
         smoothSegmentation: false,
-        minDetectionConfidence: 0.30,
-        minTrackingConfidence: 0.30
+        minDetectionConfidence: 0.25,
+        minTrackingConfidence: 0.25
       });
 
       pose.onResults(onPoseResults);
@@ -607,16 +650,14 @@
         isPoseLoaded = true;
         aiLoading.style.display = 'none';
       }).catch(err => {
-        console.error("MediaPipe Initialization Error:", err);
+        console.error("MediaPipe Load Error:", err);
         aiLoading.style.display = 'none';
       });
     }
 
-    /* --- Video Frame Extraction --- */
     function ensureVideoFirstFrame() {
       return new Promise((resolve) => {
         roiLoading.style.display = 'flex';
-        
         const onFrameReady = () => {
           roiLoading.style.display = 'none';
           initRoiCanvas();
@@ -626,7 +667,6 @@
         const setupPlaybackFrame = () => {
           videoElement.muted = true;
           videoElement.playsInline = true;
-          
           const playPromise = videoElement.play();
           if (playPromise !== undefined) {
             playPromise.then(() => {
@@ -874,13 +914,13 @@
       setStep(3);
     });
 
-    /* --- Step 3: Start Analysis --- */
     document.getElementById('btn-start-analysis').addEventListener('click', () => {
       const hVal = parseFloat(document.getElementById('height-input').value);
       userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
 
       calibratedPxPerCm = null;
-      prevValidWrist = null;
+      stableUpperArmPx = null;
+      stableForearmPx = null;
       initMediaPipe();
       setStep(4);
       setTimeout(() => {
@@ -906,7 +946,6 @@
       }
     });
 
-    /* --- Zoom & Pan --- */
     function updateZoomBadge() {
       zoomBadge.textContent = `拡大: ${zoomScale.toFixed(1)}x ${zoomScale > 1 ? '(ドラッグで移動)' : '(ピンチ/ホイール可)'}`;
     }
@@ -969,7 +1008,6 @@
       processSingleFrame();
     });
 
-    /* --- Frame Inference Processor --- */
     function processSingleFrame() {
       if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
         renderFrameOnly();
@@ -1010,7 +1048,6 @@
       outputCtx.restore();
     }
 
-    /* --- Biomechanics Mathematics --- */
     function smoothLandmark(idx, raw) {
       if (!smoothLandmarks.has(idx)) {
         smoothLandmarks.set(idx, { x: raw.x, y: raw.y, z: raw.z, visibility: raw.visibility });
@@ -1033,45 +1070,43 @@
     }
 
     /* ========================================================
-       KINEMATIC CHAIN ESTIMATOR (MOTION BLUR RECOVERY)
-       Recovers Wrist Position from Proximal Links (Shoulder & Elbow)
+       RIGID KINEMATIC CHAIN RESOLVER WITH DEDICATED THROW ARM
     ======================================================== */
-    function getKinematicCompensatedWrist(shoulder, elbow, rawWrist) {
-      const upperArmLength = Math.hypot(elbow.x - shoulder.x, elbow.y - shoulder.y);
-      
-      // Update expected Forearm Length based on detected frames
-      if (rawWrist && (rawWrist.visibility || 0) > 0.45 && upperArmLength > 0.01) {
-        const measuredForearm = Math.hypot(rawWrist.x - elbow.x, rawWrist.y - elbow.y);
-        estimatedForearmLengthRatio = Math.max(0.75, Math.min(1.05, measuredForearm / upperArmLength));
-      }
-
-      // If Raw Wrist is reliable, use it
-      if (rawWrist && (rawWrist.visibility || 0) > 0.35) {
-        prevValidWrist = { x: rawWrist.x, y: rawWrist.y, isCompensated: false };
-        return prevValidWrist;
-      }
-
-      // If Wrist is BLURRED/LOST: Reconstruct along the kinematic velocity vector
-      if (shoulder && elbow && upperArmLength > 0.01) {
-        const forearmLength = upperArmLength * estimatedForearmLengthRatio;
-        
-        // Direction vector extending from Shoulder through Elbow (Arm swing momentum)
-        const dirX = elbow.x - shoulder.x;
-        const dirY = elbow.y - shoulder.y;
-        const dirMag = Math.hypot(dirX, dirY);
-
-        if (dirMag > 1e-5) {
-          const compX = elbow.x + (dirX / dirMag) * forearmLength;
-          const compY = elbow.y + (dirY / dirMag) * forearmLength;
-          prevValidWrist = { x: compX, y: compY, isCompensated: true };
-          return prevValidWrist;
+    function resolveKinematicArm(shoulder, elbow, wristRaw, b) {
+      const armLengthUpper = Math.hypot((elbow.x - shoulder.x) * b.w, (elbow.y - shoulder.y) * b.h);
+      if (armLengthUpper > 15) {
+        if (!stableUpperArmPx || armLengthUpper > stableUpperArmPx * 0.9) {
+          stableUpperArmPx = armLengthUpper;
+          stableForearmPx = armLengthUpper * 0.88;
         }
       }
 
-      return prevValidWrist || { x: elbow.x, y: elbow.y - 0.1, isCompensated: true };
+      const expectedForearmPx = stableForearmPx || (armLengthUpper * 0.88);
+      const rawForearmPx = wristRaw ? Math.hypot((wristRaw.x - elbow.x) * b.w, (wristRaw.y - elbow.y) * b.h) : 0;
+      
+      const isWristReliable = wristRaw && (wristRaw.visibility || 0) > 0.38 && rawForearmPx > expectedForearmPx * 0.55 && rawForearmPx < expectedForearmPx * 1.45;
+
+      if (isWristReliable) {
+        return { x: wristRaw.x, y: wristRaw.y, visibility: 0.95, isSynthetic: false };
+      }
+
+      const uX = (elbow.x - shoulder.x);
+      const uY = (elbow.y - shoulder.y);
+      const uMag = Math.hypot(uX * b.w, uY * b.h);
+
+      let forwardX = (uMag > 1e-4) ? (uX / uMag) : 0;
+      let forwardY = (uMag > 1e-4) ? (uY / uMag) : -1;
+
+      if (forwardY > 0.3) {
+        forwardY = -Math.abs(forwardY);
+      }
+
+      const synthX = elbow.x + (forwardX * expectedForearmPx) / b.w;
+      const synthY = elbow.y + (forwardY * expectedForearmPx) / b.h;
+
+      return { x: synthX, y: synthY, visibility: 0.85, isSynthetic: true };
     }
 
-    /* --- Shoulder External Rotation (MER) --- */
     function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
       if (!shoulderL || !shoulderR || !hipL || !hipR || !elbow || !wrist) return NaN;
 
@@ -1114,7 +1149,7 @@
       if (heel && (heel.visibility || 0) > 0.35) return { x: heel.x, y: heel.y, valid: true };
       if (ankle && (ankle.visibility || 0) > 0.3) return { x: ankle.x, y: ankle.y, valid: true };
 
-      if (hip && knee && (knee.visibility || 0) > 0.3) {
+      if (hip && knee && (knee.visibility || 0) > 0.25) {
         const dx = knee.x - hip.x;
         const dy = knee.y - hip.y;
         return {
@@ -1126,7 +1161,6 @@
       return { x: ankle ? ankle.x : 0, y: ankle ? ankle.y : 0, valid: false };
     }
 
-    /* --- Results & Skeleton Render --- */
     function onPoseResults(results) {
       const cw = outputCanvas.width;
       const ch = outputCanvas.height;
@@ -1164,23 +1198,20 @@
         const L_TOE = landmarks[31];
         const R_TOE = landmarks[32];
 
-        // Automatic Throwing Arm Identification
-        const isRightHandThrow = (R_ELBOW.y < L_ELBOW.y || (R_WRIST_RAW?.y || 1) < (L_WRIST_RAW?.y || 1));
+        const isRightHandThrow = (selectedThrowArm === 'RIGHT');
         const throwShoulder = isRightHandThrow ? R_SHOULDER : L_SHOULDER;
         const throwElbow = isRightHandThrow ? R_ELBOW : L_ELBOW;
         const rawThrowWrist = isRightHandThrow ? R_WRIST_RAW : L_WRIST_RAW;
 
-        // Kinematic Motion-Blur Compensation for Wrist
-        const compWrist = getKinematicCompensatedWrist(throwShoulder, throwElbow, rawThrowWrist);
+        const resolvedWrist = resolveKinematicArm(throwShoulder, throwElbow, rawThrowWrist, b);
 
-        // Replace throw wrist landmark with compensated position
         if (isRightHandThrow) {
-          landmarks[16] = { ...landmarks[16], x: compWrist.x, y: compWrist.y, visibility: 0.9 };
+          landmarks[16] = { ...landmarks[16], x: resolvedWrist.x, y: resolvedWrist.y, visibility: resolvedWrist.visibility };
         } else {
-          landmarks[15] = { ...landmarks[15], x: compWrist.x, y: compWrist.y, visibility: 0.9 };
+          landmarks[15] = { ...landmarks[15], x: resolvedWrist.x, y: resolvedWrist.y, visibility: resolvedWrist.visibility };
         }
 
-        drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h);
+        drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isRightHandThrow);
 
         /* ========================================================
            SKELETAL SUMMATION CALIBRATION
@@ -1210,7 +1241,7 @@
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
         /* ========================================================
-           METRICS CALCULATION
+           METRICS ENGINE
         ======================================================== */
 
         // 1. Stride Width (FC)
@@ -1232,14 +1263,14 @@
           valStride.textContent = `-- cm`;
         }
 
-        // 2. True Shoulder External Rotation (MER)
-        const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, compWrist);
+        // 2. True Shoulder External Rotation (MER) on Fixed Arm
+        const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, resolvedWrist);
 
-        if (!isNaN(trueMerDeg) && trueMerDeg >= 40 && trueMerDeg <= 200) {
+        if (!isNaN(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
           const roundedMER = Math.round(trueMerDeg);
           valElbow.textContent = `${roundedMER} °`;
 
-          if (throwElbow.y < throwShoulder.y + 0.15) {
+          if (throwElbow.y < throwShoulder.y + 0.2) {
             if (roundedMER > records.maxMER && roundedMER <= 190) {
               records.maxMER = roundedMER;
               maxMER.textContent = `最大: ${roundedMER} °`;
@@ -1250,7 +1281,7 @@
         }
 
         // 3. Twist X-Factor
-        const torsoVisible = (L_SHOULDER.visibility || 0) > 0.4 && (R_SHOULDER.visibility || 0) > 0.4 && (L_HIP.visibility || 0) > 0.4 && (R_HIP.visibility || 0) > 0.4;
+        const torsoVisible = (L_SHOULDER.visibility || 0) > 0.35 && (R_SHOULDER.visibility || 0) > 0.35 && (L_HIP.visibility || 0) > 0.35 && (R_HIP.visibility || 0) > 0.35;
         const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
         const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
 
@@ -1270,9 +1301,9 @@
           }
         }
 
-        // 4. Release Height (Kinematic Chain Compensated)
+        // 4. Release Height on Fixed Arm
         const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
-        const throwingHandY = compWrist.y * b.h;
+        const throwingHandY = resolvedWrist.y * b.h;
         const releaseHeightPx = Math.max(0, lowestGroundY - throwingHandY);
         const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
 
@@ -1291,7 +1322,7 @@
       outputCtx.restore();
     }
 
-    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh) {
+    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isRightThrow) {
       const connections = [
         [11, 12], [11, 13], [13, 15],
         [12, 14], [14, 16],
@@ -1314,12 +1345,22 @@
       });
 
       const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
+      const throwWristIdx = isRightThrow ? 16 : 15;
+
       keyJoints.forEach(idx => {
         const p = landmarks[idx];
         if (p && (p.visibility || 1) > 0.15) {
           outputCtx.beginPath();
-          outputCtx.arc(ox + p.x * bw, oy + p.y * bh, (idx >= 29 ? 4.5 : 6), 0, Math.PI * 2);
-          outputCtx.fillStyle = (idx === 15 || idx === 16) ? "#f59e0b" : "#38bdf8";
+          outputCtx.arc(ox + p.x * bw, oy + p.y * bh, (idx === throwWristIdx ? 7 : (idx >= 29 ? 4.5 : 5.5)), 0, Math.PI * 2);
+          
+          if (idx === throwWristIdx) {
+            outputCtx.fillStyle = "#ef4444"; // Highlight Throwing Wrist in Red
+          } else if (idx === 15 || idx === 16) {
+            outputCtx.fillStyle = "#f59e0b";
+          } else {
+            outputCtx.fillStyle = "#38bdf8";
+          }
+
           outputCtx.fill();
           outputCtx.strokeStyle = "#ffffff";
           outputCtx.lineWidth = 1.5;
@@ -1328,7 +1369,6 @@
       });
     }
 
-    /* --- Video Playback Engine --- */
     function updatePlayState() {
       if (videoElement.paused) {
         btnPlayPause.textContent = "再生";
@@ -1401,7 +1441,8 @@
     document.getElementById('btn-reset-max').addEventListener('click', () => {
       records = { maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0 };
       calibratedPxPerCm = null;
-      prevValidWrist = null;
+      stableUpperArmPx = null;
+      stableForearmPx = null;
       smoothLandmarks.clear();
       maxStride.textContent = "最大: -- cm (0%身)";
       maxMER.textContent = "最大: -- °";
@@ -1414,7 +1455,8 @@
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
       smoothLandmarks.clear();
       calibratedPxPerCm = null;
-      prevValidWrist = null;
+      stableUpperArmPx = null;
+      stableForearmPx = null;
       zoomScale = 1.0;
       zoomPan = { x: 0, y: 0 };
       updateZoomBadge();
