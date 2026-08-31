@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析 Ultimate</title>
+  <title>投球フォームAIバイオメカニクス解析 Ultimate Pro</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -151,7 +151,6 @@
       width: 100%;
     }
 
-    /* Video Screen Area */
     .screen-wrapper {
       position: relative;
       width: 100%;
@@ -168,7 +167,6 @@
       border: 1px solid #1f2d45;
     }
 
-    /* Force video to not block interaction */
     video {
       position: fixed;
       top: -9999px;
@@ -238,7 +236,6 @@
       font-weight: 700;
     }
 
-    /* Metrics Dashboard */
     .dashboard {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -286,7 +283,6 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* Controls */
     .controls-container {
       display: flex;
       flex-direction: column;
@@ -375,7 +371,7 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析 Ultimate</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 Ultimate Pro</h1>
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. 動画選択</div>
       <div id="step-nav-2" class="step-pill">2. 枠で調整</div>
@@ -401,7 +397,8 @@
     <!-- STEP 2: ROI Selection -->
     <section id="view-step2" class="view-section">
       <div class="guidance-box">
-        枠の<b>中央をドラッグして移動</b>、<b>四隅の白丸でサイズ調整</b>ができます。
+        枠の<b>中央をドラッグして移動</b>、<b>四隅の白丸でサイズ調整</b>ができます。<br>
+        ※足や腕が大きく広がるため、<b>投手の全身より広め</b>に囲んでください。
       </div>
       <div class="screen-wrapper" id="roi-wrapper">
         <canvas id="roi-canvas"></canvas>
@@ -515,8 +512,9 @@
     let userHeightCm = 140;
     let videoFileUrl = null;
 
-    // Editable ROI State [0.0 - 1.0]
-    let roi = { x: 0.2, y: 0.1, w: 0.6, h: 0.8, isActive: true };
+    // ROI Box [0.0 - 1.0] - Default set wide to avoid clipping stride/cocking
+    let roi = { x: 0.1, y: 0.05, w: 0.8, h: 0.9, isActive: true };
+    let actualCrop = { x: 0, y: 0, w: 1, h: 1 }; // Crop with automatic safety padding
     let dragMode = null;
     let dragStartPos = { x: 0, y: 0 };
     let roiSnapshot = { ...roi };
@@ -599,8 +597,8 @@
         smoothLandmarks: false,
         enableSegmentation: false,
         smoothSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minDetectionConfidence: 0.45,
+        minTrackingConfidence: 0.45
       });
 
       pose.onResults(onPoseResults);
@@ -613,7 +611,7 @@
       });
     }
 
-    /* --- Reliable Video Frame Extraction --- */
+    /* --- Video Frame Extraction --- */
     function ensureVideoFirstFrame() {
       return new Promise((resolve) => {
         roiLoading.style.display = 'flex';
@@ -867,7 +865,7 @@
     window.addEventListener('touchend', onRoiPointerUp);
 
     document.getElementById('btn-roi-reset').addEventListener('click', () => {
-      roi = { x: 0.15, y: 0.05, w: 0.7, h: 0.9, isActive: true };
+      roi = { x: 0.1, y: 0.05, w: 0.8, h: 0.9, isActive: true };
       drawRoiSetupFrame();
     });
 
@@ -910,7 +908,7 @@
       }
     });
 
-    /* --- Pinch Zoom & Pan Controls on Workspace --- */
+    /* --- Pinch Zoom & Pan Controls --- */
     function updateZoomBadge() {
       zoomBadge.textContent = `拡大: ${zoomScale.toFixed(1)}x ${zoomScale > 1 ? '(ドラッグで移動)' : '(ピンチ/ホイール可)'}`;
     }
@@ -928,7 +926,6 @@
       processSingleFrame();
     }, { passive: false });
 
-    // Touch Pinch & Drag
     outputCanvas.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) {
         initialPinchDistance = Math.hypot(
@@ -977,10 +974,9 @@
       processSingleFrame();
     });
 
-    /* --- Frame Inference Processing --- */
+    /* --- Frame Inference Processing with ROI Auto-Padding --- */
     function processSingleFrame() {
       if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
-        // Draw even if model not yet ready
         renderFrameOnly();
         return;
       }
@@ -990,10 +986,21 @@
 
       let sx = 0, sy = 0, sw = vw, sh = vh;
       if (roi.isActive) {
-        sx = Math.max(0, Math.floor(roi.x * vw));
-        sy = Math.max(0, Math.floor(roi.y * vh));
-        sw = Math.min(vw - sx, Math.floor(roi.w * vw));
-        sh = Math.min(vh - sy, Math.floor(roi.h * vh));
+        // Automatic Safety Padding (+25% in each direction) so extended limbs are never clipped
+        const padX = roi.w * 0.25;
+        const padY = roi.h * 0.20;
+
+        actualCrop.x = Math.max(0, roi.x - padX);
+        actualCrop.y = Math.max(0, roi.y - padY);
+        actualCrop.w = Math.min(1 - actualCrop.x, roi.w + padX * 2);
+        actualCrop.h = Math.min(1 - actualCrop.y, roi.h + padY * 2);
+
+        sx = Math.floor(actualCrop.x * vw);
+        sy = Math.floor(actualCrop.y * vh);
+        sw = Math.floor(actualCrop.w * vw);
+        sh = Math.floor(actualCrop.h * vh);
+      } else {
+        actualCrop = { x: 0, y: 0, w: 1, h: 1 };
       }
 
       if (sw <= 0 || sh <= 0) return;
@@ -1018,7 +1025,6 @@
       outputCtx.clearRect(0, 0, cw, ch);
       outputCtx.save();
 
-      // Apply Zoom Transform
       outputCtx.translate(cw / 2 + zoomPan.x, ch / 2 + zoomPan.y);
       outputCtx.scale(zoomScale, zoomScale);
       outputCtx.translate(-cw / 2, -ch / 2);
@@ -1030,7 +1036,7 @@
       outputCtx.restore();
     }
 
-    /* --- Biomechanics Math --- */
+    /* --- Biomechanics Math & Robust Extrapolation --- */
     function smoothLandmark(idx, raw) {
       if (!smoothLandmarks.has(idx)) {
         smoothLandmarks.set(idx, { x: raw.x, y: raw.y, z: raw.z, visibility: raw.visibility });
@@ -1071,17 +1077,37 @@
       return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
     }
 
-    function mapRoiToVideoCoords(lm) {
+    function mapCropToVideoCoords(lm) {
       if (!roi.isActive) return { ...lm };
       return {
-        x: roi.x + lm.x * roi.w,
-        y: roi.y + lm.y * roi.h,
-        z: lm.z * roi.w,
+        x: actualCrop.x + lm.x * actualCrop.w,
+        y: actualCrop.y + lm.y * actualCrop.h,
+        z: lm.z * actualCrop.w,
         visibility: lm.visibility
       };
     }
 
-    /* --- Results & Skeleton Render with Dynamic Zoom --- */
+    // Extrapolate foot if ankle landmark visibility is low or near-border
+    function getRobustFootPosition(hip, knee, ankle, heel, toe) {
+      // Pick best foot anchor
+      if (toe && (toe.visibility || 0) > 0.35) return { x: toe.x, y: toe.y, isEstimated: false };
+      if (heel && (heel.visibility || 0) > 0.35) return { x: heel.x, y: heel.y, isEstimated: false };
+      if (ankle && (ankle.visibility || 0) > 0.3) return { x: ankle.x, y: ankle.y, isEstimated: false };
+
+      // Geometrical bone-extension fallback
+      if (hip && knee) {
+        const dirX = knee.x - hip.x;
+        const dirY = knee.y - hip.y;
+        return {
+          x: knee.x + dirX * 0.95,
+          y: knee.y + dirY * 0.95,
+          isEstimated: true
+        };
+      }
+      return { x: ankle ? ankle.x : 0, y: ankle ? ankle.y : 0, isEstimated: false };
+    }
+
+    /* --- Results & Skeleton Render --- */
     function onPoseResults(results) {
       const cw = outputCanvas.width;
       const ch = outputCanvas.height;
@@ -1090,7 +1116,6 @@
       outputCtx.clearRect(0, 0, cw, ch);
       outputCtx.save();
 
-      // Apply Zoom & Pan Transform
       outputCtx.translate(cw / 2 + zoomPan.x, ch / 2 + zoomPan.y);
       outputCtx.scale(zoomScale, zoomScale);
       outputCtx.translate(-cw / 2, -ch / 2);
@@ -1105,7 +1130,7 @@
       }
 
       if (results.poseLandmarks) {
-        const rawLandmarks = results.poseLandmarks.map(mapRoiToVideoCoords);
+        const rawLandmarks = results.poseLandmarks.map(mapCropToVideoCoords);
         const landmarks = rawLandmarks.map((lm, idx) => smoothLandmark(idx, lm));
 
         const NOSE = landmarks[0];
@@ -1123,10 +1148,13 @@
         const R_ANKLE = landmarks[28];
         const L_HEEL = landmarks[29];
         const R_HEEL = landmarks[30];
+        const L_TOE = landmarks[31];
+        const R_TOE = landmarks[32];
 
+        // Draw Full Connected Skeleton (Including Feet & Toes)
         drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h);
 
-        // Biomechanical Dimension Calculation
+        /* --- Biomechanical Dimension Engine --- */
         const trunkPx = (Math.hypot(
           ((L_SHOULDER.x + R_SHOULDER.x)/2) - ((L_HIP.x + R_HIP.x)/2),
           ((L_SHOULDER.y + R_SHOULDER.y)/2) - ((L_HIP.y + R_HIP.y)/2)
@@ -1141,17 +1169,18 @@
           pxPerCm = segmentTotalPx / (userHeightCm * 0.78);
         } else {
           const topY = NOSE ? NOSE.y : ((L_SHOULDER.y + R_SHOULDER.y)/2);
-          const bottomY = Math.max(L_ANKLE.y, R_ANKLE.y, L_HEEL.y, R_HEEL.y);
+          const bottomY = Math.max(L_ANKLE.y, R_ANKLE.y, L_HEEL?.y || 0, R_HEEL?.y || 0);
           const totalSpanPx = Math.abs(bottomY - topY) * b.h * 1.14;
           pxPerCm = totalSpanPx / userHeightCm;
         }
 
         if (pxPerCm < 0.2) pxPerCm = (b.h * 0.75) / userHeightCm;
 
-        // 1. Stride (FC)
-        const footL = { x: (L_HEEL.x || L_ANKLE.x) * b.w, y: (L_HEEL.y || L_ANKLE.y) * b.h };
-        const footR = { x: (R_HEEL.x || R_ANKLE.x) * b.w, y: (R_HEEL.y || R_ANKLE.y) * b.h };
-        const stridePx = Math.hypot(footL.x - footR.x, footL.y - footR.y);
+        // 1. High-Accuracy Stride (FC) using Heel & Robust Foot Position
+        const footL = getRobustFootPosition(L_HIP, L_KNEE, L_ANKLE, L_HEEL, L_TOE);
+        const footR = getRobustFootPosition(R_HIP, R_KNEE, R_ANKLE, R_HEEL, R_TOE);
+
+        const stridePx = Math.hypot((footL.x - footR.x) * b.w, (footL.y - footR.y) * b.h);
         const strideCm = Math.round(stridePx / pxPerCm);
 
         if (!isNaN(strideCm) && strideCm > 15 && strideCm < 250) {
@@ -1194,7 +1223,7 @@
         }
 
         // 4. Release Height
-        const lowestGroundY = Math.max(L_HEEL.y, R_HEEL.y, L_ANKLE.y, R_ANKLE.y) * b.h;
+        const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
         const throwingHandY = throwWrist.y * b.h;
         const releaseHeightPx = Math.max(0, lowestGroundY - throwingHandY);
         const releaseHeightCm = Math.round(releaseHeightPx / pxPerCm);
@@ -1216,8 +1245,8 @@
         [11, 12], [11, 13], [13, 15],
         [12, 14], [14, 16],
         [11, 23], [12, 24], [23, 24],
-        [23, 25], [25, 27], [27, 29],
-        [24, 26], [26, 28], [28, 30]
+        [23, 25], [25, 27], [27, 29], [29, 31], [27, 31], // Left Leg & Foot
+        [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]  // Right Leg & Foot
       ];
 
       outputCtx.strokeStyle = "#22c55e";
@@ -1225,7 +1254,7 @@
       connections.forEach(([i, j]) => {
         const p1 = landmarks[i];
         const p2 = landmarks[j];
-        if (p1 && p2 && (p1.visibility || 1) > 0.25 && (p2.visibility || 1) > 0.25) {
+        if (p1 && p2 && (p1.visibility || 1) > 0.2 && (p2.visibility || 1) > 0.2) {
           outputCtx.beginPath();
           outputCtx.moveTo(ox + p1.x * bw, oy + p1.y * bh);
           outputCtx.lineTo(ox + p2.x * bw, oy + p2.y * bh);
@@ -1233,12 +1262,12 @@
         }
       });
 
-      const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30];
+      const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
       keyJoints.forEach(idx => {
         const p = landmarks[idx];
-        if (p && (p.visibility || 1) > 0.25) {
+        if (p && (p.visibility || 1) > 0.2) {
           outputCtx.beginPath();
-          outputCtx.arc(ox + p.x * bw, oy + p.y * bh, 5.5, 0, Math.PI * 2);
+          outputCtx.arc(ox + p.x * bw, oy + p.y * bh, (idx >= 29 ? 4 : 5.5), 0, Math.PI * 2);
           outputCtx.fillStyle = (idx === 15 || idx === 16) ? "#f59e0b" : "#38bdf8";
           outputCtx.fill();
           outputCtx.strokeStyle = "#ffffff";
@@ -1248,7 +1277,7 @@
       });
     }
 
-    /* --- Video Playback Engine & Events --- */
+    /* --- Video Playback Engine & Controls --- */
     function updatePlayState() {
       if (videoElement.paused) {
         btnPlayPause.textContent = "再生";
