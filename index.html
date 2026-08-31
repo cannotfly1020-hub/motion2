@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>2動画比較 - 動作観察 & 3Dバイオメカニクス解析</title>
-  <!-- MediaPipe Pose CDN -->
+  <title>動作観察 & 3Dバイオメカニクス解析</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
   
   <style>
@@ -23,7 +22,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* 2画面動画比較コンテナ */
+    /* ビューポートコンテナ */
     .compare-viewport {
       position: absolute;
       top: 0;
@@ -31,23 +30,58 @@
       width: 100vw;
       height: 100dvh;
       display: flex;
-      flex-direction: row; /* 横画面時は左右並び */
       background: #000;
+      transition: all 0.3s ease;
+    }
+
+    /* モード1: 動画Aのみ */
+    .compare-viewport.mode-single #paneB { display: none; }
+    .compare-viewport.mode-single #paneA { flex: 1; border: none; }
+
+    /* モード2: 2画面並列 */
+    .compare-viewport.mode-split {
+      flex-direction: row;
+    }
+    .compare-viewport.mode-split #paneA,
+    .compare-viewport.mode-split #paneB {
+      flex: 1;
+      display: flex;
+      border: 1px solid #222;
     }
     @media (orientation: portrait) {
-      .compare-viewport {
-        flex-direction: column; /* 縦画面時は上下並び */
-      }
+      .compare-viewport.mode-split { flex-direction: column; }
+    }
+
+    /* モード3: 重ね合わせ */
+    .compare-viewport.mode-overlay {
+      display: block;
+    }
+    .compare-viewport.mode-overlay #paneA {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .compare-viewport.mode-overlay #paneB {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.55; /* 半透明で重ねる */
+      pointer-events: none;
+      border: none;
     }
 
     .video-pane {
       position: relative;
-      flex: 1;
+      width: 100%;
       height: 100%;
       display: flex;
       justify-content: center;
       align-items: center;
-      border: 1px solid #222;
       overflow: hidden;
     }
 
@@ -74,7 +108,7 @@
     .pane-tag.tag-a { color: #4dabf7; border-color: #1971c2; }
     .pane-tag.tag-b { color: #ff922b; border-color: #f76707; }
 
-    /* 下部コントローラー & 選択エリア */
+    /* 下部コントローラー */
     .controls-overlay {
       position: absolute;
       bottom: 0;
@@ -82,13 +116,40 @@
       right: 0;
       padding: 6px 10px;
       padding-bottom: max(8px, env(safe-area-inset-bottom));
-      background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 80%, transparent 100%);
+      background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 80%, transparent 100%);
       display: flex;
       flex-direction: column;
       gap: 5px;
       z-index: 20;
     }
 
+    /* 表示モード切替バー */
+    .mode-bar {
+      display: flex;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 4px;
+    }
+    .mode-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #aaa;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 5px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .mode-btn.active {
+      background: #1971c2;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    /* タブ切り替え */
     .tab-bar {
       display: flex;
       gap: 6px;
@@ -148,39 +209,22 @@
       border-color: #ffd43b !important;
     }
 
-    /* 各動画の個別シーク行 */
+    /* シークバー */
     .seek-row {
       display: flex;
       align-items: center;
       gap: 6px;
       font-size: 0.7rem;
     }
-    .seek-label {
-      font-weight: bold;
-      min-width: 48px;
-    }
+    .seek-label { font-weight: bold; min-width: 48px; }
     .seek-label.lbl-a { color: #4dabf7; }
     .seek-label.lbl-b { color: #ff922b; }
-    input[type="range"] {
-      flex: 1;
-      height: 16px;
-      cursor: pointer;
-    }
+    input[type="range"] { flex: 1; height: 16px; cursor: pointer; }
     #seekBarA { accent-color: #4dabf7; }
     #seekBarB { accent-color: #ff922b; }
+    .time-txt { font-size: 0.7rem; min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
 
-    .time-txt {
-      font-size: 0.7rem;
-      min-width: 42px;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .btn-grid {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
+    .btn-grid { display: flex; gap: 4px; align-items: center; }
     button, label.btn {
       flex: 1;
       background: rgba(255, 255, 255, 0.15);
@@ -200,14 +244,12 @@
     .btn-a { background: #1971c2 !important; border-color: #4dabf7 !important; }
     .btn-b { background: #d9480f !important; border-color: #ff922b !important; }
     .btn-sync { background: #2f9e44 !important; border-color: #51cf66 !important; font-weight: bold; }
-    .btn-circle { flex: 0 0 32px; height: 32px; border-radius: 50%; font-size: 0.85rem; }
     input[type="file"] { display: none; }
   </style>
 </head>
 <body>
 
-  <!-- 2画面表示エリア -->
-  <div class="compare-viewport">
+  <div class="compare-viewport mode-split" id="mainViewport">
     <div class="video-pane" id="paneA">
       <div class="pane-tag tag-a">動画 A</div>
       <video id="videoA" playsinline webkit-playsinline muted></video>
@@ -220,16 +262,19 @@
     </div>
   </div>
 
-  <!-- 下部操作コントローラー -->
   <div class="controls-overlay">
     
-    <!-- タブ切り替え -->
+    <div class="mode-bar">
+      <button class="mode-btn" id="btnModeSingle">動画Aのみ</button>
+      <button class="mode-btn active" id="btnModeSplit">2画面並列</button>
+      <button class="mode-btn" id="btnModeOverlay">重ね合わせ</button>
+    </div>
+
     <div class="tab-bar">
       <button class="tab-btn active" id="tabAngle">📐 角度ピン留め</button>
       <button class="tab-btn" id="tabTrail">✨ 軌跡ポイント選択</button>
     </div>
 
-    <!-- 1. 角度ピン留めチップ一覧 -->
     <div class="chip-scroll-row" id="angleChipsRow">
       <span class="chip chip-angle" data-joint="trunk_fe">体幹 屈伸</span>
       <span class="chip chip-angle" data-joint="trunk_lb">体幹 側屈</span>
@@ -246,7 +291,6 @@
       <span class="chip chip-angle" data-joint="l_ank">左足 背底屈</span>
     </div>
 
-    <!-- 2. 軌跡ポイント選択チップ一覧 -->
     <div class="chip-scroll-row" id="trailChipsRow" style="display: none;">
       <span class="chip chip-trail active" data-trail="headTop"><span class="chip-dot" style="background:#00f0ff;"></span>頭頂部</span>
       <span class="chip chip-trail active" data-trail="chin"><span class="chip-dot" style="background:#ff3399;"></span>顎先</span>
@@ -265,8 +309,7 @@
       <span class="chip chip-trail" data-trail="lAnkle"><span class="chip-dot" style="background:#94d82d;"></span>左足首</span>
     </div>
 
-    <!-- シークバー A -->
-    <div class="seek-row">
+    <div class="seek-row" id="rowSeekA">
       <span class="seek-label lbl-a">A コマ送り</span>
       <button id="btnPrevA" style="flex:0 0 26px; padding:2px;">◀</button>
       <input type="range" id="seekBarA" value="0" min="0" step="0.033" disabled>
@@ -274,8 +317,7 @@
       <span id="timeDisplayA" class="time-txt">0.00s</span>
     </div>
 
-    <!-- シークバー B -->
-    <div class="seek-row">
+    <div class="seek-row" id="rowSeekB">
       <span class="seek-label lbl-b">B コマ送り</span>
       <button id="btnPrevB" style="flex:0 0 26px; padding:2px;">◀</button>
       <input type="range" id="seekBarB" value="0" min="0" step="0.033" disabled>
@@ -283,22 +325,28 @@
       <span id="timeDisplayB" class="time-txt">0.00s</span>
     </div>
 
-    <!-- 動画読み込み & 同期再生ボタン列 -->
     <div class="btn-grid">
       <label class="btn btn-a" style="flex: 1;">
         📁 動画A
         <input type="file" id="uploaderA" accept="video/*">
       </label>
-      <label class="btn btn-b" style="flex: 1;">
+      <label class="btn btn-b" style="flex: 1;" id="btnUploadBLabel">
         📁 動画B
         <input type="file" id="uploaderB" accept="video/*">
       </label>
-      <button id="btnSyncPlay" class="btn btn-sync" style="flex: 1.3;" disabled>▶ 同期再生</button>
+      <button id="btnSyncPlay" class="btn btn-sync" style="flex: 1.3;" disabled>▶ 再生</button>
       <button id="btnClearTrail" style="flex: 0.8;">軌跡消去</button>
     </div>
   </div>
 
   <script>
+    const mainViewport = document.getElementById('mainViewport');
+    const btnModeSingle = document.getElementById('btnModeSingle');
+    const btnModeSplit = document.getElementById('btnModeSplit');
+    const btnModeOverlay = document.getElementById('btnModeOverlay');
+    const rowSeekB = document.getElementById('rowSeekB');
+    const btnUploadBLabel = document.getElementById('btnUploadBLabel');
+
     const videoA = document.getElementById('videoA');
     const canvasA = document.getElementById('canvasA');
     const ctxA = canvasA.getContext('2d');
@@ -324,6 +372,30 @@
     const angleChipsRow = document.getElementById('angleChipsRow');
     const trailChipsRow = document.getElementById('trailChipsRow');
 
+    let currentMode = 'split'; // 'single' | 'split' | 'overlay'
+
+    // 表示モード切替
+    function setMode(mode) {
+      currentMode = mode;
+      mainViewport.className = `compare-viewport mode-${mode}`;
+      btnModeSingle.classList.toggle('active', mode === 'single');
+      btnModeSplit.classList.toggle('active', mode === 'split');
+      btnModeOverlay.classList.toggle('active', mode === 'overlay');
+
+      if (mode === 'single') {
+        rowSeekB.style.display = 'none';
+        btnSyncPlay.innerText = (!videoA.paused) ? '⏸ 一時停止' : '▶ 再生';
+      } else {
+        rowSeekB.style.display = 'flex';
+        btnSyncPlay.innerText = (!videoA.paused || !videoB.paused) ? '⏸ 一時停止' : '▶ 同期再生';
+      }
+      renderAll();
+    }
+
+    btnModeSingle.addEventListener('click', () => setMode('single'));
+    btnModeSplit.addEventListener('click', () => setMode('split'));
+    btnModeOverlay.addEventListener('click', () => setMode('overlay'));
+
     const selectedOverlays = new Set(['r_knee']);
     const selectedTrails = new Set(['headTop', 'chin', 'trunkCenter']);
 
@@ -344,7 +416,6 @@
     };
     const MAX_TRAIL_LENGTH = 120;
 
-    // タブ切り替え
     tabAngle.addEventListener('click', () => {
       tabAngle.classList.add('active');
       tabTrail.classList.remove('active');
@@ -382,18 +453,14 @@
       renderAll();
     });
 
-    // 2つのMediaPipe Poseインスタンスを初期化
     const poseA = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
     poseA.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     
     const poseB = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
     poseB.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
-    let currentResultsA = null;
-    let currentResultsB = null;
-
-    poseA.onResults(res => { currentResultsA = res; drawFrame(canvasA, ctxA, videoA, res, trailsA); });
-    poseB.onResults(res => { currentResultsB = res; drawFrame(canvasB, ctxB, videoB, res, trailsB); });
+    poseA.onResults(res => drawFrame(canvasA, ctxA, videoA, res, trailsA, "#00e5ff", "A"));
+    poseB.onResults(res => drawFrame(canvasB, ctxB, videoB, res, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B"));
 
     const V = {
       sub: (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: (a.z || 0) - (b.z || 0) }),
@@ -417,7 +484,7 @@
       if (tb[key].length > MAX_TRAIL_LENGTH) tb[key].shift();
     }
 
-    function drawFrame(canvas, ctx, video, results, trailBuf) {
+    function drawFrame(canvas, ctx, video, results, trailBuf, skeletonColor, label) {
       canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 360;
       const w = canvas.width;
@@ -439,7 +506,7 @@
           [27, 29], [28, 30]
         ];
 
-        ctx.strokeStyle = "#00e5ff";
+        ctx.strokeStyle = skeletonColor;
         ctx.lineWidth = Math.max(2, Math.floor(w / 220));
         connections.forEach(([i, j]) => {
           if (lm[i].visibility > 0.4 && lm[j].visibility > 0.4) {
@@ -451,7 +518,7 @@
         });
 
         const validJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
-        ctx.fillStyle = "#ff0055";
+        ctx.fillStyle = label === "B" && currentMode === 'overlay' ? "#ffa94d" : "#ff0055";
         validJoints.forEach(i => {
           if (lm[i] && lm[i].visibility > 0.4) {
             ctx.beginPath();
@@ -525,7 +592,7 @@
         });
 
         // 角度オーバーレイ描画
-        drawAngles(ctx, lm, wlm, w, h, trunkCenter);
+        drawAngles(ctx, lm, wlm, w, h, trunkCenter, label);
       }
       ctx.restore();
     }
@@ -553,7 +620,7 @@
       ctx.restore();
     }
 
-    function drawAngles(ctx, lm, p, w, h, trunkCenter) {
+    function drawAngles(ctx, lm, p, w, h, trunkCenter, label) {
       const shoMid = V.mid(p[11], p[12]);
       const hipMid = V.mid(p[23], p[24]);
       const trunkVec = V.sub(shoMid, hipMid);
@@ -562,175 +629,48 @@
 
       const trunkZ = V.normalize(V.cross(shoulderLine, trunkVec));
       const trunkX = V.normalize(shoulderLine);
+      const prefix = currentMode === 'overlay' ? `[${label}] ` : '';
 
       if (selectedOverlays.has('trunk_fe') && trunkCenter) {
         const flex = Math.atan2(trunkVec.z, -trunkVec.y) * (180 / Math.PI);
-        drawBadge(ctx, trunkCenter, `体幹:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
+        drawBadge(ctx, trunkCenter, `${prefix}体幹:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
       }
       if (selectedOverlays.has('trunk_lb') && trunkCenter) {
         const lat = Math.atan2(trunkVec.x, -trunkVec.y) * (180 / Math.PI);
-        drawBadge(ctx, trunkCenter, `側屈:${lat >= 0 ? '右' : '左'}${Math.abs(lat).toFixed(0)}°`);
+        drawBadge(ctx, trunkCenter, `${prefix}側屈:${lat >= 0 ? '右' : '左'}${Math.abs(lat).toFixed(0)}°`);
       }
       if (selectedOverlays.has('trunk_rot') && trunkCenter) {
         const rot = (Math.atan2(shoulderLine.z, shoulderLine.x) - Math.atan2(pelvisLine.z, pelvisLine.x)) * (180 / Math.PI);
-        drawBadge(ctx, trunkCenter, `回旋:${rot >= 0 ? '右' : '左'}${Math.abs(rot).toFixed(0)}°`);
+        drawBadge(ctx, trunkCenter, `${prefix}回旋:${rot >= 0 ? '右' : '左'}${Math.abs(rot).toFixed(0)}°`);
       }
 
       if (selectedOverlays.has('r_elbow') && lm[14].visibility > 0.4) {
         const a = 180 - V.angleDeg(V.sub(p[12], p[14]), V.sub(p[16], p[14]));
-        drawBadge(ctx, { x: lm[14].x * w, y: lm[14].y * h }, `右肘:${Math.max(0, a).toFixed(0)}°`);
+        drawBadge(ctx, { x: lm[14].x * w, y: lm[14].y * h }, `${prefix}右肘:${Math.max(0, a).toFixed(0)}°`);
       }
       if (selectedOverlays.has('l_elbow') && lm[13].visibility > 0.4) {
         const a = 180 - V.angleDeg(V.sub(p[11], p[13]), V.sub(p[15], p[13]));
-        drawBadge(ctx, { x: lm[13].x * w, y: lm[13].y * h }, `左肘:${Math.max(0, a).toFixed(0)}°`);
+        drawBadge(ctx, { x: lm[13].x * w, y: lm[13].y * h }, `${prefix}左肘:${Math.max(0, a).toFixed(0)}°`);
       }
 
       if (selectedOverlays.has('r_knee') && lm[26].visibility > 0.4) {
         const a = 180 - V.angleDeg(V.sub(p[24], p[26]), V.sub(p[28], p[26]));
-        drawBadge(ctx, { x: lm[26].x * w, y: lm[26].y * h }, `右膝:${Math.max(0, a).toFixed(0)}°`);
+        drawBadge(ctx, { x: lm[26].x * w, y: lm[26].y * h }, `${prefix}右膝:${Math.max(0, a).toFixed(0)}°`);
       }
       if (selectedOverlays.has('l_knee') && lm[25].visibility > 0.4) {
         const a = 180 - V.angleDeg(V.sub(p[23], p[25]), V.sub(p[27], p[25]));
-        drawBadge(ctx, { x: lm[25].x * w, y: lm[25].y * h }, `左膝:${Math.max(0, a).toFixed(0)}°`);
+        drawBadge(ctx, { x: lm[25].x * w, y: lm[25].y * h }, `${prefix}左膝:${Math.max(0, a).toFixed(0)}°`);
       }
 
       if (selectedOverlays.has('r_hip') && lm[24].visibility > 0.4) {
         const thigh = V.normalize(V.sub(p[26], p[24]));
         const flex = Math.asin(Math.min(Math.max(V.dot(thigh, trunkZ), -1), 1)) * (180 / Math.PI);
-        drawBadge(ctx, { x: lm[24].x * w, y: lm[24].y * h }, `右股:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
+        drawBadge(ctx, { x: lm[24].x * w, y: lm[24].y * h }, `${prefix}右股:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
       }
       if (selectedOverlays.has('l_hip') && lm[23].visibility > 0.4) {
         const thigh = V.normalize(V.sub(p[25], p[23]));
         const flex = Math.asin(Math.min(Math.max(V.dot(thigh, trunkZ), -1), 1)) * (180 / Math.PI);
-        drawBadge(ctx, { x: lm[23].x * w, y: lm[23].y * h }, `左股:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
+        drawBadge(ctx, { x: lm[23].x * w, y: lm[23].y * h }, `${prefix}左股:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
       }
 
-      if (selectedOverlays.has('r_sho') && lm[12].visibility > 0.4) {
-        const arm = V.normalize(V.sub(p[14], p[12]));
-        const flex = Math.asin(Math.min(Math.max(V.dot(arm, trunkZ), -1), 1)) * (180 / Math.PI);
-        drawBadge(ctx, { x: lm[12].x * w, y: lm[12].y * h }, `右肩:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
-      }
-      if (selectedOverlays.has('l_sho') && lm[11].visibility > 0.4) {
-        const arm = V.normalize(V.sub(p[13], p[11]));
-        const flex = Math.asin(Math.min(Math.max(V.dot(arm, trunkZ), -1), 1)) * (180 / Math.PI);
-        drawBadge(ctx, { x: lm[11].x * w, y: lm[11].y * h }, `左肩:${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}°`);
-      }
-
-      if (selectedOverlays.has('r_ank') && lm[28].visibility > 0.4) {
-        const a = V.angleDeg(V.sub(p[26], p[28]), V.sub(p[32], p[28])) - 90;
-        drawBadge(ctx, { x: lm[28].x * w, y: lm[28].y * h }, `右足:${a >= 0 ? '背' : '底'}${Math.abs(a).toFixed(0)}°`);
-      }
-      if (selectedOverlays.has('l_ank') && lm[27].visibility > 0.4) {
-        const a = V.angleDeg(V.sub(p[25], p[27]), V.sub(p[31], p[27])) - 90;
-        drawBadge(ctx, { x: lm[27].x * w, y: lm[27].y * h }, `左足:${a >= 0 ? '背' : '底'}${Math.abs(a).toFixed(0)}°`);
-      }
-    }
-
-    async function renderFrameA() {
-      if (videoA.readyState >= 2) {
-        await poseA.send({ image: videoA });
-        seekBarA.value = videoA.currentTime;
-        timeDisplayA.innerText = `${videoA.currentTime.toFixed(2)}s`;
-      }
-    }
-
-    async function renderFrameB() {
-      if (videoB.readyState >= 2) {
-        await poseB.send({ image: videoB });
-        seekBarB.value = videoB.currentTime;
-        timeDisplayB.innerText = `${videoB.currentTime.toFixed(2)}s`;
-      }
-    }
-
-    async function renderAll() {
-      await renderFrameA();
-      await renderFrameB();
-    }
-
-    async function syncPlayLoop() {
-      if (!videoA.paused || !videoB.paused) {
-        if (!videoA.paused && !videoA.ended) await renderFrameA();
-        if (!videoB.paused && !videoB.ended) await renderFrameB();
-        requestAnimationFrame(syncPlayLoop);
-      }
-    }
-
-    // 動画読み込み A
-    uploaderA.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      Object.keys(trailsA).forEach(k => trailsA[k].length = 0);
-      videoA.src = URL.createObjectURL(file);
-      videoA.load();
-      videoA.onloadedmetadata = () => {
-        seekBarA.max = videoA.duration;
-        seekBarA.value = 0;
-        seekBarA.disabled = false;
-        btnSyncPlay.disabled = false;
-        videoA.currentTime = 0.001;
-      };
-    });
-    videoA.onseeked = () => { if (videoA.paused) renderFrameA(); };
-
-    // 動画読み込み B
-    uploaderB.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      Object.keys(trailsB).forEach(k => trailsB[k].length = 0);
-      videoB.src = URL.createObjectURL(file);
-      videoB.load();
-      videoB.onloadedmetadata = () => {
-        seekBarB.max = videoB.duration;
-        seekBarB.value = 0;
-        seekBarB.disabled = false;
-        btnSyncPlay.disabled = false;
-        videoB.currentTime = 0.001;
-      };
-    });
-    videoB.onseeked = () => { if (videoB.paused) renderFrameB(); };
-
-    // 同期再生ボタン
-    btnSyncPlay.addEventListener('click', () => {
-      const isPlaying = !videoA.paused || !videoB.paused;
-      if (isPlaying) {
-        videoA.pause();
-        videoB.pause();
-        btnSyncPlay.innerText = '▶ 同期再生';
-      } else {
-        if (videoA.src) videoA.play();
-        if (videoB.src) videoB.play();
-        btnSyncPlay.innerText = '⏸ 一時停止';
-        syncPlayLoop();
-      }
-    });
-
-    // シークバー A / B
-    seekBarA.addEventListener('input', () => { videoA.currentTime = parseFloat(seekBarA.value); });
-    seekBarB.addEventListener('input', () => { videoB.currentTime = parseFloat(seekBarB.value); });
-
-    // コマ送り A
-    btnPrevA.addEventListener('click', () => {
-      videoA.pause();
-      btnSyncPlay.innerText = '▶ 同期再生';
-      videoA.currentTime = Math.max(0, videoA.currentTime - 0.033);
-    });
-    btnNextA.addEventListener('click', () => {
-      videoA.pause();
-      btnSyncPlay.innerText = '▶ 同期再生';
-      videoA.currentTime = Math.min(videoA.duration, videoA.currentTime + 0.033);
-    });
-
-    // コマ送り B
-    btnPrevB.addEventListener('click', () => {
-      videoB.pause();
-      btnSyncPlay.innerText = '▶ 同期再生';
-      videoB.currentTime = Math.max(0, videoB.currentTime - 0.033);
-    });
-    btnNextB.addEventListener('click', () => {
-      videoB.pause();
-      btnSyncPlay.innerText = '▶ 同期再生';
-      videoB.currentTime = Math.min(videoB.duration, videoB.currentTime + 0.033);
-    });
-  </script>
-</body>
-</html>
+      if (selectedOverlays.has('r_sho') && lm
