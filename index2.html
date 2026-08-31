@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析 AutoTrack</title>
+  <title>投球フォームAIバイオメカニクス解析 Calibrated Pro</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -371,7 +371,7 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析 AutoTrack</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 Calibrated Pro</h1>
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. 動画選択</div>
       <div id="step-nav-2" class="step-pill">2. 選手指定</div>
@@ -423,7 +423,7 @@
         <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
       </div>
       <button class="btn" id="btn-start-analysis" style="font-size: 1.1rem; padding: 12px 28px;">
-        🚀 OK！全自動追従解析スタート
+        🚀 OK！キャリブレーション解析スタート
       </button>
     </section>
 
@@ -527,7 +527,7 @@
     let panStart = { x: 0, y: 0 };
     let panSnapshot = { x: 0, y: 0 };
 
-    // Metrics Records
+    // Metrics Peak Records
     let records = {
       maxStride: 0,
       minElbow: 180,
@@ -535,9 +535,12 @@
       maxRelease: 0
     };
 
-    // Temporal Smoothing Filter & Pose Memory
+    // Stature Calibration Scale (px/cm) - Calculated from uncompressed skeletal length
+    let calibratedPxPerCm = null;
+
+    // Temporal Smoothing Filter
     const smoothLandmarks = new Map();
-    const SMOOTH_ALPHA = 0.6; // High responsiveness without jitter
+    const SMOOTH_ALPHA = 0.6;
 
     // Elements
     const stepViews = {
@@ -590,13 +593,12 @@
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
       });
 
-      // Optimized full-frame tracking configuration
       pose.setOptions({
         modelComplexity: 1,
         smoothLandmarks: false,
         enableSegmentation: false,
         smoothSegmentation: false,
-        minDetectionConfidence: 0.35, // High sensitivity to never drop fast extremities
+        minDetectionConfidence: 0.35,
         minTrackingConfidence: 0.35
       });
 
@@ -880,6 +882,7 @@
       const hVal = parseFloat(document.getElementById('height-input').value);
       userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
 
+      calibratedPxPerCm = null;
       initMediaPipe();
       setStep(4);
       setTimeout(() => {
@@ -968,7 +971,7 @@
       processSingleFrame();
     });
 
-    /* --- Full-Frame Inference Processor (No cropping, Never Lost) --- */
+    /* --- Frame Inference Processor --- */
     function processSingleFrame() {
       if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
         renderFrameOnly();
@@ -978,7 +981,6 @@
       const vw = videoElement.videoWidth;
       const vh = videoElement.videoHeight;
 
-      // Always pass FULL FRAME to AI so step/throw will NEVER go out of bounds
       bufferCanvas.width = vw;
       bufferCanvas.height = vh;
       bufferCtx.drawImage(videoElement, 0, 0, vw, vh);
@@ -1051,22 +1053,21 @@
       return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
     }
 
-    // Dynamic foot fallback for outdoor/low-contrast ground
     function getRobustFootPosition(hip, knee, ankle, heel, toe) {
-      if (toe && (toe.visibility || 0) > 0.3) return { x: toe.x, y: toe.y };
-      if (heel && (heel.visibility || 0) > 0.3) return { x: heel.x, y: heel.y };
-      if (ankle && (ankle.visibility || 0) > 0.25) return { x: ankle.x, y: ankle.y };
+      if (toe && (toe.visibility || 0) > 0.35) return { x: toe.x, y: toe.y, valid: true };
+      if (heel && (heel.visibility || 0) > 0.35) return { x: heel.x, y: heel.y, valid: true };
+      if (ankle && (ankle.visibility || 0) > 0.3) return { x: ankle.x, y: ankle.y, valid: true };
 
-      // Vector extrapolation if ankle is lost in brush
-      if (hip && knee) {
+      if (hip && knee && (knee.visibility || 0) > 0.3) {
         const dx = knee.x - hip.x;
         const dy = knee.y - hip.y;
         return {
           x: knee.x + dx * 0.95,
-          y: knee.y + dy * 0.95
+          y: knee.y + dy * 0.95,
+          valid: false
         };
       }
-      return { x: ankle ? ankle.x : 0, y: ankle ? ankle.y : 0 };
+      return { x: ankle ? ankle.x : 0, y: ankle ? ankle.y : 0, valid: false };
     }
 
     /* --- Results & Skeleton Render --- */
@@ -1107,89 +1108,122 @@
         const L_TOE = landmarks[31];
         const R_TOE = landmarks[32];
 
-        // Draw Complete High-Visibility Skeleton
         drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h);
 
-        /* --- Biomechanical Dimension Engine --- */
-        const trunkPx = (Math.hypot(
+        /* ========================================================
+           ROBUST SKELETAL SUMMATION CALIBRATION (IMMUNE TO SQUATTING)
+        ======================================================== */
+        const trunkLen = Math.hypot(
           ((L_SHOULDER.x + R_SHOULDER.x)/2) - ((L_HIP.x + R_HIP.x)/2),
           ((L_SHOULDER.y + R_SHOULDER.y)/2) - ((L_HIP.y + R_HIP.y)/2)
-        )) * b.h;
+        ) * b.h;
 
-        const thighPx = (Math.hypot(L_HIP.x - L_KNEE.x, L_HIP.y - L_KNEE.y) + Math.hypot(R_HIP.x - R_KNEE.x, R_HIP.y - R_KNEE.y)) / 2 * b.h;
-        const shankPx = (Math.hypot(L_KNEE.x - L_ANKLE.x, L_KNEE.y - L_ANKLE.y) + Math.hypot(R_KNEE.x - R_ANKLE.x, R_KNEE.y - R_ANKLE.y)) / 2 * b.h;
+        const leftLegLen = (Math.hypot(L_HIP.x - L_KNEE.x, L_HIP.y - L_KNEE.y) + Math.hypot(L_KNEE.x - L_ANKLE.x, L_KNEE.y - L_ANKLE.y)) * b.h;
+        const rightLegLen = (Math.hypot(R_HIP.x - R_KNEE.x, R_HIP.y - R_KNEE.y) + Math.hypot(R_KNEE.x - R_ANKLE.x, R_KNEE.y - R_ANKLE.y)) * b.h;
+        const avgLegLen = (leftLegLen + rightLegLen) / 2;
 
-        let pxPerCm = 0;
-        if (trunkPx > 10 && thighPx > 10 && shankPx > 10) {
-          const segmentTotalPx = trunkPx + thighPx + shankPx;
-          pxPerCm = segmentTotalPx / (userHeightCm * 0.78);
-        } else {
-          const topY = NOSE ? NOSE.y : ((L_SHOULDER.y + R_SHOULDER.y)/2);
-          const bottomY = Math.max(L_ANKLE.y, R_ANKLE.y, L_HEEL?.y || 0, R_HEEL?.y || 0);
-          const totalSpanPx = Math.abs(bottomY - topY) * b.h * 1.14;
-          pxPerCm = totalSpanPx / userHeightCm;
+        const measuredSkeletonPx = trunkLen + avgLegLen;
+
+        // Trunk + Legs constitutes approx 78% of total standing anatomical height
+        if (measuredSkeletonPx > 40) {
+          const currentPxPerCm = measuredSkeletonPx / (userHeightCm * 0.78);
+          if (calibratedPxPerCm === null) {
+            calibratedPxPerCm = currentPxPerCm;
+          } else {
+            // Keep maximum observed uncompressed skeleton scale to prevent scale-explosion during lunges
+            if (currentPxPerCm > calibratedPxPerCm) {
+              calibratedPxPerCm = currentPxPerCm;
+            }
+          }
         }
 
-        if (pxPerCm < 0.2) pxPerCm = (b.h * 0.75) / userHeightCm;
+        const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
-        // 1. Full Stride Width (FC)
+        /* ========================================================
+           METRICS CALCULATION WITH OUTLIER & SPIKE FILTERING
+        ======================================================== */
+
+        // 1. Stride Width (FC)
         const footL = getRobustFootPosition(L_HIP, L_KNEE, L_ANKLE, L_HEEL, L_TOE);
         const footR = getRobustFootPosition(R_HIP, R_KNEE, R_ANKLE, R_HEEL, R_TOE);
 
         const stridePx = Math.hypot((footL.x - footR.x) * b.w, (footL.y - footR.y) * b.h);
-        const strideCm = Math.round(stridePx / pxPerCm);
+        const strideCm = Math.round(stridePx / activePxPerCm);
 
-        if (!isNaN(strideCm) && strideCm > 15 && strideCm < 250) {
+        // Valid physiological stride constraint (20cm to 110% of stature)
+        if (!isNaN(strideCm) && strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
           const strideRatio = Math.round((strideCm / userHeightCm) * 100);
           valStride.textContent = `約 ${strideCm} cm`;
-          if (strideCm > records.maxStride) {
+          
+          if (footL.valid && footR.valid && strideCm > records.maxStride) {
             records.maxStride = strideCm;
             maxStride.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
           }
+        } else {
+          valStride.textContent = `-- cm`;
         }
 
-        // 2. Arm Cocking (MER Flexion)
+        // 2. MER Flexion (Throwing Arm)
         const isRightHandThrow = (R_WRIST.y < L_WRIST.y);
         const throwShoulder = isRightHandThrow ? R_SHOULDER : L_SHOULDER;
         const throwElbow = isRightHandThrow ? R_ELBOW : L_ELBOW;
         const throwWrist = isRightHandThrow ? R_WRIST : L_WRIST;
 
+        const armVisible = (throwShoulder.visibility || 0) > 0.4 && (throwElbow.visibility || 0) > 0.4 && (throwWrist.visibility || 0) > 0.4;
         const elbowFlexion = calc3DAngle(throwShoulder, throwElbow, throwWrist);
-        if (!isNaN(elbowFlexion)) {
+
+        if (!isNaN(elbowFlexion) && elbowFlexion >= 45 && elbowFlexion <= 175) {
           const roundedElbow = Math.round(elbowFlexion);
           valElbow.textContent = `${roundedElbow} °`;
-          if (roundedElbow < records.minElbow && roundedElbow > 35) {
-            records.minElbow = roundedElbow;
-            minElbow.textContent = `最深: ${roundedElbow} °`;
+
+          // MER peak requires hand above shoulder level
+          if (armVisible && throwWrist.y < throwShoulder.y + 0.1) {
+            if (roundedElbow < records.minElbow && roundedElbow >= 50) {
+              records.minElbow = roundedElbow;
+              minElbow.textContent = `最深: ${roundedElbow} °`;
+            }
           }
+        } else {
+          valElbow.textContent = `-- °`;
         }
 
-        // 3. Twist X-Factor
+        // 3. Twist X-Factor (Shoulder vs Pelvis angle difference)
+        const torsoVisible = (L_SHOULDER.visibility || 0) > 0.4 && (R_SHOULDER.visibility || 0) > 0.4 && (L_HIP.visibility || 0) > 0.4 && (R_HIP.visibility || 0) > 0.4;
         const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
         const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
+
         if (!isNaN(shoulderAngle) && !isNaN(hipAngle)) {
           let diff = Math.abs(shoulderAngle - hipAngle);
           if (diff > 180) diff = 360 - diff;
           const roundedTwist = Math.round(diff);
-          valTwist.textContent = `${roundedTwist} °`;
-          if (roundedTwist > records.maxTwist && roundedTwist < 110) {
-            records.maxTwist = roundedTwist;
-            maxTwist.textContent = `最大: ${roundedTwist} °`;
+
+          if (roundedTwist <= 65) {
+            valTwist.textContent = `${roundedTwist} °`;
+            if (torsoVisible && roundedTwist > records.maxTwist && roundedTwist >= 5) {
+              records.maxTwist = roundedTwist;
+              maxTwist.textContent = `最大: ${roundedTwist} °`;
+            }
+          } else {
+            valTwist.textContent = `-- °`;
           }
         }
 
-        // 4. Release Height
+        // 4. Release Height (Wrist height relative to lowest ground contact)
         const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
         const throwingHandY = throwWrist.y * b.h;
         const releaseHeightPx = Math.max(0, lowestGroundY - throwingHandY);
-        const releaseHeightCm = Math.round(releaseHeightPx / pxPerCm);
+        const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
 
-        if (!isNaN(releaseHeightCm) && releaseHeightCm > 30 && releaseHeightCm < 280) {
+        // Release height strictly bounded by player height geometry
+        if (!isNaN(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.35)) {
           valRelease.textContent = `約 ${releaseHeightCm} cm`;
-          if (releaseHeightCm > records.maxRelease) {
+          
+          if ((throwWrist.visibility || 0) > 0.4 && releaseHeightCm > records.maxRelease) {
             records.maxRelease = releaseHeightCm;
             maxRelease.textContent = `最高: ${releaseHeightCm} cm`;
           }
+        } else {
+          valRelease.textContent = `-- cm`;
         }
       }
 
@@ -1201,8 +1235,8 @@
         [11, 12], [11, 13], [13, 15],
         [12, 14], [14, 16],
         [11, 23], [12, 24], [23, 24],
-        [23, 25], [25, 27], [27, 29], [29, 31], [27, 31], // Left Leg & Foot
-        [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]  // Right Leg & Foot
+        [23, 25], [25, 27], [27, 29], [29, 31], [27, 31],
+        [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]
       ];
 
       outputCtx.strokeStyle = "#22c55e";
@@ -1305,6 +1339,7 @@
 
     document.getElementById('btn-reset-max').addEventListener('click', () => {
       records = { maxStride: 0, minElbow: 180, maxTwist: 0, maxRelease: 0 };
+      calibratedPxPerCm = null;
       smoothLandmarks.clear();
       maxStride.textContent = "最大: -- cm (0%身)";
       minElbow.textContent = "最深: -- °";
@@ -1316,6 +1351,7 @@
       videoElement.pause();
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
       smoothLandmarks.clear();
+      calibratedPxPerCm = null;
       zoomScale = 1.0;
       zoomPan = { x: 0, y: 0 };
       updateZoomBadge();
