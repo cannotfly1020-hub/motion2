@@ -79,7 +79,7 @@
     .modal-card h3 { font-size: 15px; margin-bottom: 6px; color: #ff9500; }
     .modal-card p { font-size: 12px; color: #ccc; margin-bottom: 12px; }
     .modal-input-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 14px; }
-    .modal-input-row input { width: 100px; font-size: 16px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid #555; background: #1c1c1e; color: #fff; user-select: auto; -webkit-user-select: auto; }
+    .modal-input-row input { width: 100px; font-size: 16px; padding: 6px; text-align: center; border-radius: 6px; border: 1px solid #555; background: #1c1c1e; color: #fff; }
     .modal-btn-row { display: flex; gap: 8px; }
     .modal-btn-row button { -webkit-appearance: none; appearance: none; flex: 1; padding: 8px 0; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; }
     #snapshot-img { max-width: 100%; max-height: 50vh; border-radius: 6px; border: 1px solid #555; margin-bottom: 10px; }
@@ -247,6 +247,10 @@
     const scaleModalTitle = document.getElementById('scale-modal-title');
     const scaleInputValue = document.getElementById('scale-input-value');
 
+    // オフスクリーン画像バッファ（iOSフリーズ防止）
+    const inputBufferCanvas = document.createElement('canvas');
+    const inputBufferCtx = inputBufferCanvas.getContext('2d');
+
     let compareMode = 0; 
     let currentMode = 'auto';
     let selectedAutoJoint = 'kneeR';
@@ -370,19 +374,18 @@
             };
             state[1].currentCoM = comPt;
             
-            // 重心モード時、自動で軌跡配列に追加
             if (currentMode === 'cog') {
                 const cogs = state[1].cogPoints;
-                if (cogs.length === 0 || Math.hypot(comPt.x - cogs[cogs.length-1].x, comPt.y - cogs[cogs.length-1].y) > 3) {
+                if (cogs.length === 0 || Math.hypot(comPt.x - cogs[cogs.length-1].x, comPt.y - cogs[cogs.length-1].y) > 2) {
                     cogs.push(comPt);
-                    if (cogs.length > 100) cogs.shift();
+                    if (cogs.length > 150) cogs.shift();
                 }
             }
         }
 
         if (currentMode === 'auto') {
             mainResult.innerHTML = `🤖 ${jointName}: <span style="color:#00ffcc; font-size:14px;">${curAngle.toFixed(1)}°</span> ｜ 最大: <span style="color:#ffd60a;">${autoPeakMax > -Infinity ? autoPeakMax.toFixed(1) + '°' : '---'}</span> 最小: <span style="color:#ff375f;">${autoPeakMin < Infinity ? autoPeakMin.toFixed(1) + '°' : '---'}</span>`;
-            subResult.innerHTML = "動画再生・コマ送りでリアルタイム更新中";
+            subResult.innerHTML = "再生・コマ送りでリアルタイム自動追従中";
         }
     }
 
@@ -432,8 +435,14 @@
         autoPeakMax = -Infinity;
         autoPeakMin = Infinity;
         setMode('auto');
-        loop();
     });
+
+    video1.addEventListener('canplay', () => {
+        fitCanvases();
+        processCurrentFrame();
+        if (!animFrameId) loop();
+    });
+
     video2.addEventListener('loadedmetadata', () => { fitCanvases(); seekbar2.max = video2.duration; seekbar2.value = 0; });
 
     function toggleCompareMode() {
@@ -486,7 +495,6 @@
     seekbar1.addEventListener('change', () => { seeking1 = false; processCurrentFrame(); });
     video1.addEventListener('timeupdate', () => { 
         if (!seeking1) seekbar1.value = video1.currentTime; 
-        processCurrentFrame();
     });
 
     let seeking2 = false;
@@ -658,7 +666,7 @@
             // 垂直線の描画
             if (s.perpPoints.length > 0) {
                 item.ctx.save();
-                s.perpPoints.forEach((pt, i) => {
+                s.perpPoints.forEach((pt) => {
                     item.ctx.fillStyle = '#ff2d55';
                     item.ctx.beginPath(); item.ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2); item.ctx.fill();
                 });
@@ -718,7 +726,7 @@
         });
     }
 
-    // タップ＆ドラッグ処理（完全実装）
+    // タップ＆ドラッグ処理
     [ {c: canvas1, idx: 1}, {c: canvas2, idx: 2} ].forEach(item => {
         item.c.addEventListener('pointerdown', (e) => {
             const rect = item.c.getBoundingClientRect();
@@ -906,7 +914,10 @@
         if (isProcessing || video1.readyState < 2 || !video1.videoWidth) return;
         isProcessing = true;
         try {
-            await pose.send({ image: video1 });
+            inputBufferCanvas.width = video1.videoWidth;
+            inputBufferCanvas.height = video1.videoHeight;
+            inputBufferCtx.drawImage(video1, 0, 0, video1.videoWidth, video1.videoHeight);
+            await pose.send({ image: inputBufferCanvas });
         } catch(e) {} finally {
             isProcessing = false;
         }
