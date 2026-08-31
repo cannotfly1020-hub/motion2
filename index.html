@@ -44,7 +44,7 @@
       object-fit: contain;
     }
 
-    /* 角度データ表示パネル（折りたたみ可能） */
+    /* 角度データ表示パネル */
     .data-panel {
       position: absolute;
       top: env(safe-area-inset-top, 8px);
@@ -100,6 +100,33 @@
       font-weight: 600;
       color: #69db7c;
       font-variant-numeric: tabular-nums;
+    }
+
+    /* 軌跡凡例 */
+    .trail-legend {
+      position: absolute;
+      top: 50px;
+      right: 12px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 15;
+      pointer-events: none;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
     }
 
     /* 下部コントローラー */
@@ -167,7 +194,14 @@
     <canvas id="outputCanvas"></canvas>
   </div>
 
-  <!-- 関節可動域・アライメント測定値パネル -->
+  <!-- 軌跡の凡例 -->
+  <div class="trail-legend" id="trailLegend">
+    <div class="legend-item"><span class="legend-dot" style="background:#00f0ff;"></span><span>頭頂部 (Head Top)</span></div>
+    <div class="legend-item"><span class="legend-dot" style="background:#ff3399;"></span><span>顎先 (Chin)</span></div>
+    <div class="legend-item"><span class="legend-dot" style="background:#51cf66;"></span><span>体幹中心 (Trunk Center)</span></div>
+  </div>
+
+  <!-- 測定値パネル -->
   <div class="data-panel" id="dataPanel">
     <div class="panel-header" id="togglePanelBtn">
       <span>📊 関節運動 & アライメント数値</span>
@@ -237,37 +271,38 @@
     const btnClearTrail = document.getElementById('btnClearTrail');
     const togglePanelBtn = document.getElementById('togglePanelBtn');
     const dataPanel = document.getElementById('dataPanel');
+    const trailLegend = document.getElementById('trailLegend');
 
     let isLiveCamera = false;
     let cameraUtil = null;
     let showTrail = true;
 
-    // 軌跡バッファ
-    const shoulderMidTrails = [];
-    const hipMidTrails = [];
+    // 軌跡バッファ（頭頂・顎・体幹中心）
+    const headTopTrails = [];
+    const chinTrails = [];
+    const trunkCenterTrails = [];
     const MAX_TRAIL_LENGTH = 150;
 
-    // パネル開閉
     togglePanelBtn.addEventListener('click', () => {
       dataPanel.classList.toggle('collapsed');
       document.getElementById('collapseIcon').innerText = dataPanel.classList.contains('collapsed') ? '▲ タップで展開' : '▼ タップで開閉';
     });
 
-    // 軌跡トグル・クリア
     btnToggleTrail.addEventListener('click', () => {
       showTrail = !showTrail;
       btnToggleTrail.innerText = showTrail ? '軌跡: ON' : '軌跡: OFF';
       btnToggleTrail.classList.toggle('btn-active', showTrail);
+      trailLegend.style.display = showTrail ? 'flex' : 'none';
       processCurrentVideoFrame();
     });
 
     btnClearTrail.addEventListener('click', () => {
-      shoulderMidTrails.length = 0;
-      hipMidTrails.length = 0;
+      headTopTrails.length = 0;
+      chinTrails.length = 0;
+      trunkCenterTrails.length = 0;
       processCurrentVideoFrame();
     });
 
-    // MediaPipe Pose初期化
     const pose = new Pose({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
     });
@@ -281,7 +316,6 @@
 
     pose.onResults(onResults);
 
-    // --- 3Dベクトル演算ユーティリティ ---
     const V = {
       sub: (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: (a.z || 0) - (b.z || 0) }),
       add: (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: (a.z || 0) + (b.z || 0) }),
@@ -293,7 +327,6 @@
         y: a.z * b.x - a.x * b.z,
         z: a.x * b.y - a.y * b.x
       }),
-      norm: (a) => Math.hypot(a.x, a.y, a.z),
       normalize: (a) => {
         const n = Math.hypot(a.x, a.y, a.z) || 1;
         return { x: a.x / n, y: a.y / n, z: a.z / n };
@@ -306,7 +339,6 @@
       }
     };
 
-    // 描画 & 解析
     function onResults(results) {
       canvasElement.width = videoElement.videoWidth || 640;
       canvasElement.height = videoElement.videoHeight || 360;
@@ -319,20 +351,19 @@
 
       if (results.poseLandmarks) {
         const lm = results.poseLandmarks;
-        const wlm = results.poseWorldLandmarks || lm; // 3D解析用
+        const wlm = results.poseWorldLandmarks || lm;
 
-        // 1. 体幹・四肢の骨格定義 (顔 0〜10, 手 17〜22 を除外)
+        // 体幹・四肢の骨格ライン (顔・手先は除外)
         const connections = [
-          [11, 12], // 肩幅
-          [11, 13], [13, 15], // 左腕 (肩-肘-手首)
-          [12, 14], [14, 16], // 右腕
-          [11, 23], [12, 24], [23, 24], // 体幹 (肩-股関節)
-          [23, 25], [25, 27], [27, 31], // 左脚 (股-膝-足首-爪先)
-          [24, 26], [26, 28], [28, 32], // 右脚
-          [27, 29], [28, 30]  // 踵
+          [11, 12],
+          [11, 13], [13, 15],
+          [12, 14], [14, 16],
+          [11, 23], [12, 24], [23, 24],
+          [23, 25], [25, 27], [27, 31],
+          [24, 26], [26, 28], [28, 32],
+          [27, 29], [28, 30]
         ];
 
-        // 骨格リンク描画
         canvasCtx.strokeStyle = "#00e5ff";
         canvasCtx.lineWidth = Math.max(2, Math.floor(w / 220));
         connections.forEach(([i, j]) => {
@@ -344,7 +375,7 @@
           }
         });
 
-        // 関節点描画 (11番以降のみ)
+        // 関節点描画 (11番以降)
         const validJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
         canvasCtx.fillStyle = "#ff0055";
         validJoints.forEach(i => {
@@ -355,35 +386,73 @@
           }
         });
 
-        // 2. 両肩・両股関節の中心点算出 & 軌跡
+        // --- 1. 体幹中心の算出 ---
         if (lm[11].visibility > 0.4 && lm[12].visibility > 0.4 && lm[23].visibility > 0.4 && lm[24].visibility > 0.4) {
-          const shoMid = { x: (lm[11].x + lm[12].x) / 2 * w, y: (lm[11].y + lm[12].y) / 2 * h };
-          const hipMid = { x: (lm[23].x + lm[24].x) / 2 * w, y: (lm[23].y + lm[24].y) / 2 * h };
+          const shoMid = { x: (lm[11].x + lm[12].x) / 2, y: (lm[11].y + lm[12].y) / 2 };
+          const hipMid = { x: (lm[23].x + lm[24].x) / 2, y: (lm[23].y + lm[24].y) / 2 };
+          const trunkCenter = { x: (shoMid.x + hipMid.x) / 2 * w, y: (shoMid.y + hipMid.y) / 2 * h };
 
-          shoulderMidTrails.push(shoMid);
-          hipMidTrails.push(hipMid);
-          if (shoulderMidTrails.length > MAX_TRAIL_LENGTH) shoulderMidTrails.shift();
-          if (hipMidTrails.length > MAX_TRAIL_LENGTH) hipMidTrails.shift();
+          trunkCenterTrails.push(trunkCenter);
+          if (trunkCenterTrails.length > MAX_TRAIL_LENGTH) trunkCenterTrails.shift();
 
-          // 中心点マーカー
-          canvasCtx.fillStyle = "#ffd43b"; // 肩中心: 黄色
+          // 体幹中心マーカー（緑）
+          canvasCtx.fillStyle = "#51cf66";
           canvasCtx.beginPath();
-          canvasCtx.arc(shoMid.x, shoMid.y, 6, 0, 2 * Math.PI);
+          canvasCtx.arc(trunkCenter.x, trunkCenter.y, 6, 0, 2 * Math.PI);
           canvasCtx.fill();
-
-          canvasCtx.fillStyle = "#ff922b"; // 股中心: オレンジ
-          canvasCtx.beginPath();
-          canvasCtx.arc(hipMid.x, hipMid.y, 6, 0, 2 * Math.PI);
-          canvasCtx.fill();
-
-          // 軌跡描画
-          if (showTrail) {
-            drawTrail(canvasCtx, shoulderMidTrails, "#ffd43b");
-            drawTrail(canvasCtx, hipMidTrails, "#ff922b");
-          }
         }
 
-        // 3. 各関節のバイオメカニクス角度計算 (3D座標系利用)
+        // --- 2. 頭頂部 & 顎の算出 ---
+        // lm[0]:鼻, lm[9]:左口角, lm[10]:右口角, lm[11]:左肩, lm[12]:右肩
+        if (lm[0] && lm[0].visibility > 0.4 && lm[11].visibility > 0.4 && lm[12].visibility > 0.4) {
+          const shoMid = { x: (lm[11].x + lm[12].x) / 2, y: (lm[11].y + lm[12].y) / 2 };
+          
+          // 首から鼻へのベクトル（頭部の上向き方向）
+          const headUpVec = { x: lm[0].x - shoMid.x, y: lm[0].y - shoMid.y };
+          const headDist = Math.hypot(headUpVec.x, headUpVec.y);
+
+          // 頭頂部: 鼻から頭部ベクトル方向へさらに約0.65倍延長
+          const headTop = {
+            x: (lm[0].x + (headUpVec.x / headDist) * headDist * 0.65) * w,
+            y: (lm[0].y + (headUpVec.y / headDist) * headDist * 0.65) * h
+          };
+
+          // 顎先: 口の中心（9と10の中点）または鼻と肩の中点手前
+          let mouthMid = lm[0];
+          if (lm[9] && lm[10] && lm[9].visibility > 0.3 && lm[10].visibility > 0.3) {
+            mouthMid = { x: (lm[9].x + lm[10].x) / 2, y: (lm[9].y + lm[10].y) / 2 };
+          }
+          const chin = {
+            x: (mouthMid.x - (headUpVec.x / headDist) * headDist * 0.2) * w,
+            y: (mouthMid.y - (headUpVec.y / headDist) * headDist * 0.2) * h
+          };
+
+          headTopTrails.push(headTop);
+          chinTrails.push(chin);
+          if (headTopTrails.length > MAX_TRAIL_LENGTH) headTopTrails.shift();
+          if (chinTrails.length > MAX_TRAIL_LENGTH) chinTrails.shift();
+
+          // 頭頂マーカー（シアン）
+          canvasCtx.fillStyle = "#00f0ff";
+          canvasCtx.beginPath();
+          canvasCtx.arc(headTop.x, headTop.y, 6, 0, 2 * Math.PI);
+          canvasCtx.fill();
+
+          // 顎マーカー（ピンク）
+          canvasCtx.fillStyle = "#ff3399";
+          canvasCtx.beginPath();
+          canvasCtx.arc(chin.x, chin.y, 6, 0, 2 * Math.PI);
+          canvasCtx.fill();
+        }
+
+        // --- 3. 軌跡の描画 ---
+        if (showTrail) {
+          drawTrail(canvasCtx, headTopTrails, "#00f0ff");      // 頭頂部
+          drawTrail(canvasCtx, chinTrails, "#ff3399");         // 顎
+          drawTrail(canvasCtx, trunkCenterTrails, "#51cf66");  // 体幹中心
+        }
+
+        // 運動学角度計算
         calculateKinematics(wlm);
       }
       canvasCtx.restore();
@@ -394,8 +463,8 @@
       ctx.save();
       for (let i = 1; i < points.length; i++) {
         ctx.strokeStyle = color;
-        ctx.globalAlpha = i / points.length; // 過去の点ほど薄く
-        ctx.lineWidth = Math.max(2, Math.floor(canvasElement.width / 260));
+        ctx.globalAlpha = (i / points.length) * 0.85;
+        ctx.lineWidth = Math.max(2, Math.floor(canvasElement.width / 240));
         ctx.beginPath();
         ctx.moveTo(points[i - 1].x, points[i - 1].y);
         ctx.lineTo(points[i].x, points[i].y);
@@ -404,51 +473,46 @@
       ctx.restore();
     }
 
-    // 各関節の運動自由度（屈伸・内外転・回旋）の計算
     function calculateKinematics(p) {
       const shoMid = V.mid(p[11], p[12]);
       const hipMid = V.mid(p[23], p[24]);
-      const trunkVec = V.sub(shoMid, hipMid); // 体幹長軸
-      const shoulderLine = V.sub(p[12], p[11]); // 肩幅ベクトル (右-左)
-      const pelvisLine = V.sub(p[24], p[23]);   // 骨盤ベクトル
+      const trunkVec = V.sub(shoMid, hipMid);
+      const shoulderLine = V.sub(p[12], p[11]);
+      const pelvisLine = V.sub(p[24], p[23]);
 
-      // 体幹の前額面・矢状面・水平面基底
-      const trunkZ = V.normalize(V.cross(shoulderLine, trunkVec)); // 前後軸
-      const trunkX = V.normalize(shoulderLine);                    // 左右軸
-      const trunkY = V.normalize(trunkVec);                        // 上下軸
+      const trunkZ = V.normalize(V.cross(shoulderLine, trunkVec));
+      const trunkX = V.normalize(shoulderLine);
+      const trunkY = V.normalize(trunkVec);
 
-      // --- 体幹 (Trunk) ---
-      // 屈曲(+)/伸展(-): 矢状面
+      // 体幹
       const trunkFlex = Math.atan2(trunkVec.z, -trunkVec.y) * (180 / Math.PI);
       document.getElementById('trunk_fe').innerText = `${trunkFlex >= 0 ? '屈 ' : '伸 '}${Math.abs(trunkFlex).toFixed(1)}°`;
-      // 側屈: 前額面
       const trunkLat = Math.atan2(trunkVec.x, -trunkVec.y) * (180 / Math.PI);
       document.getElementById('trunk_lb').innerText = `${trunkLat >= 0 ? '右 ' : '左 '}${Math.abs(trunkLat).toFixed(1)}°`;
-      // 回旋: 肩ベクトル vs 骨盤ベクトルの水平面ねじれ
       const rotAngle = (Math.atan2(shoulderLine.z, shoulderLine.x) - Math.atan2(pelvisLine.z, pelvisLine.x)) * (180 / Math.PI);
       document.getElementById('trunk_rot').innerText = `${rotAngle >= 0 ? '右 ' : '左 '}${Math.abs(rotAngle).toFixed(1)}°`;
 
-      // --- 肘関節 (屈曲/伸展) ---
+      // 肘
       const rElbowAngle = 180 - V.angleDeg(V.sub(p[12], p[14]), V.sub(p[16], p[14]));
       const lElbowAngle = 180 - V.angleDeg(V.sub(p[11], p[13]), V.sub(p[15], p[13]));
       document.getElementById('r_elbow_fe').innerText = `屈 ${Math.max(0, rElbowAngle).toFixed(1)}°`;
       document.getElementById('l_elbow_fe').innerText = `屈 ${Math.max(0, lElbowAngle).toFixed(1)}°`;
 
-      // --- 肩関節 (右: 12, 左: 11) ---
+      // 肩
       computeShoulder(p[12], p[14], p[16], trunkX, trunkY, trunkZ, 'r');
       computeShoulder(p[11], p[13], p[15], trunkX, trunkY, trunkZ, 'l');
 
-      // --- 股関節 (右: 24, 左: 23) ---
+      // 股関節
       computeHip(p[24], p[26], p[28], trunkX, trunkY, trunkZ, 'r');
       computeHip(p[23], p[25], p[27], trunkX, trunkY, trunkZ, 'l');
 
-      // --- 膝関節 (右: 26, 左: 25) ---
+      // 膝
       const rKneeFlex = 180 - V.angleDeg(V.sub(p[24], p[26]), V.sub(p[28], p[26]));
       const lKneeFlex = 180 - V.angleDeg(V.sub(p[23], p[25]), V.sub(p[27], p[25]));
       document.getElementById('r_knee_fe').innerText = `屈 ${Math.max(0, rKneeFlex).toFixed(1)}°`;
       document.getElementById('l_knee_fe').innerText = `屈 ${Math.max(0, lKneeFlex).toFixed(1)}°`;
 
-      // --- 足関節 背屈/底屈 (右: 28-32, 左: 27-31) ---
+      // 足関節
       const rAnkleAngle = V.angleDeg(V.sub(p[26], p[28]), V.sub(p[32], p[28])) - 90;
       const lAnkleAngle = V.angleDeg(V.sub(p[25], p[27]), V.sub(p[31], p[27])) - 90;
       document.getElementById('r_ank_df').innerText = `${rAnkleAngle >= 0 ? '背 ' : '底 '}${Math.abs(rAnkleAngle).toFixed(1)}°`;
@@ -459,17 +523,13 @@
       const arm = V.normalize(V.sub(elb, sho));
       const foreArm = V.normalize(V.sub(wrs, elb));
       
-      // 屈曲/伸展 (矢状面射影)
       const flex = Math.asin(Math.min(Math.max(V.dot(arm, tz), -1), 1)) * (180 / Math.PI);
-      // 外転/内転 (前額面射影)
       const abd = Math.asin(Math.min(Math.max(side === 'r' ? V.dot(arm, tx) : -V.dot(arm, tx), -1), 1)) * (180 / Math.PI);
       document.getElementById(`${side}_sho_fe_aa`).innerText = `${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}° / ${abd >= 0 ? '外' : '内'}${Math.abs(abd).toFixed(0)}°`;
 
-      // 水平内転/水平外転
       const horiz = Math.atan2(V.dot(arm, tz), side === 'r' ? V.dot(arm, tx) : -V.dot(arm, tx)) * (180 / Math.PI);
       document.getElementById(`${side}_sho_ha`).innerText = `${horiz >= 0 ? '水内 ' : '水外 '}${Math.abs(horiz).toFixed(1)}°`;
 
-      // 回旋 (前腕ベクトルの向き)
       const rot = (Math.asin(Math.min(Math.max(V.dot(foreArm, tz), -1), 1)) * (180 / Math.PI));
       document.getElementById(`${side}_sho_rot`).innerText = `${(side === 'r' ? rot : -rot) >= 0 ? '内旋 ' : '外旋 '}${Math.abs(rot).toFixed(1)}°`;
     }
@@ -478,25 +538,22 @@
       const thigh = V.normalize(V.sub(knee, hip));
       const shank = V.normalize(V.sub(ank, knee));
 
-      // 屈曲/伸展
       const flex = Math.asin(Math.min(Math.max(V.dot(thigh, tz), -1), 1)) * (180 / Math.PI);
-      // 外転/内転
       const abd = Math.asin(Math.min(Math.max(side === 'r' ? V.dot(thigh, tx) : -V.dot(thigh, tx), -1), 1)) * (180 / Math.PI);
       document.getElementById(`${side}_hip_fe_aa`).innerText = `${flex >= 0 ? '屈' : '伸'}${Math.abs(flex).toFixed(0)}° / ${abd >= 0 ? '外' : '内'}${Math.abs(abd).toFixed(0)}°`;
 
-      // 回旋 (下腿の内外側傾斜)
       const rot = Math.asin(Math.min(Math.max(side === 'r' ? V.dot(shank, tx) : -V.dot(shank, tx), -1), 1)) * (180 / Math.PI);
       document.getElementById(`${side}_hip_rot`).innerText = `${rot >= 0 ? '外旋 ' : '内旋 '}${Math.abs(rot).toFixed(1)}°`;
     }
 
-    // --- 動画・カメラ制御 ---
     uploader.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
       if (cameraUtil) { cameraUtil.stop(); isLiveCamera = false; }
-      shoulderMidTrails.length = 0;
-      hipMidTrails.length = 0;
+      headTopTrails.length = 0;
+      chinTrails.length = 0;
+      trunkCenterTrails.length = 0;
 
       videoElement.src = URL.createObjectURL(file);
       videoElement.load();
@@ -514,8 +571,9 @@
       if (isLiveCamera) return;
       isLiveCamera = true;
       videoElement.pause();
-      shoulderMidTrails.length = 0;
-      hipMidTrails.length = 0;
+      headTopTrails.length = 0;
+      chinTrails.length = 0;
+      trunkCenterTrails.length = 0;
       
       cameraUtil = new Camera(videoElement, {
         onFrame: async () => { await pose.send({ image: videoElement }); },
