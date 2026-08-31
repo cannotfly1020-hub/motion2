@@ -150,7 +150,6 @@
       width: 100%;
     }
 
-    /* Large Dynamic Video Screen Area */
     .screen-wrapper {
       position: relative;
       width: 100%;
@@ -168,7 +167,12 @@
     }
 
     video {
-      display: none;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0.01;
+      pointer-events: none;
+      z-index: -1;
     }
 
     canvas {
@@ -215,7 +219,6 @@
       font-weight: 700;
     }
 
-    /* Dashboard: 4 High-Accuracy Cards */
     .dashboard {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -375,10 +378,14 @@
     <!-- STEP 2: ROI Selection & Drag/Resize Adjustment -->
     <section id="view-step2" class="view-section">
       <div class="guidance-box">
-        枠の<b>中央をドラッグして移動</b>、<b>四隅の丸ハンドルでサイズ調整</b>ができます。投手を囲んでください。
+        枠の<b>中央をドラッグして移動</b>、<b>四隅の白丸でサイズ調整</b>ができます。投手を囲んでください。
       </div>
       <div class="screen-wrapper" id="roi-wrapper">
         <canvas id="roi-canvas"></canvas>
+        <div class="loading-overlay" id="roi-loading" style="display: none;">
+          <div class="spinner"></div>
+          <div style="font-size: 0.85rem; color: #fff;">動画を展開中...</div>
+        </div>
       </div>
       <div class="btn-group">
         <button class="btn btn-secondary" id="btn-roi-reset">🔄 枠をリセット</button>
@@ -482,13 +489,14 @@
 
     let userHeightCm = 140;
     let videoFileUrl = null;
+    let isVideoReady = false;
 
     // Editable ROI State [0.0 - 1.0]
     let roi = { x: 0.2, y: 0.1, w: 0.6, h: 0.8, isActive: true };
     let dragMode = null; // 'move', 'nw', 'ne', 'sw', 'se', 'create'
     let dragStartPos = { x: 0, y: 0 };
     let roiSnapshot = { ...roi };
-    const HANDLE_RADIUS = 12;
+    const HANDLE_RADIUS = 14;
 
     // Metrics Records
     let records = {
@@ -498,9 +506,9 @@
       maxRelease: 0
     };
 
-    // Low-Pass Filter State for Temporal Stability
+    // Temporal Smoothing Filter
     const smoothLandmarks = new Map();
-    const SMOOTH_ALPHA = 0.55; // EMA factor (0.55 responsiveness & stability)
+    const SMOOTH_ALPHA = 0.55;
 
     // Elements
     const stepViews = {
@@ -529,6 +537,7 @@
     const timeDisp = document.getElementById('time-disp');
     const btnPlayPause = document.getElementById('btn-play-pause');
     const aiLoading = document.getElementById('ai-loading');
+    const roiLoading = document.getElementById('roi-loading');
 
     /* --- Navigation --- */
     function setStep(stepNum) {
@@ -545,6 +554,7 @@
 
     /* --- MediaPipe Pose Initialization --- */
     function initMediaPipe() {
+      if (pose) return;
       aiLoading.style.display = 'flex';
       pose = new Pose({
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
@@ -552,7 +562,7 @@
 
       pose.setOptions({
         modelComplexity: 1,
-        smoothLandmarks: false, // Handled by custom anatomical smoothing
+        smoothLandmarks: false,
         enableSegmentation: false,
         smoothSegmentation: false,
         minDetectionConfidence: 0.5,
@@ -569,33 +579,68 @@
       });
     }
 
-    /* --- Step 1: Video Loader --- */
-    document.getElementById('video-input').addEventListener('change', function(e) {
+    /* --- Reliable Video Frame Extraction (iOS/Android/Desktop) --- */
+    function ensureVideoFirstFrame() {
+      return new Promise((resolve) => {
+        roiLoading.style.display = 'flex';
+        
+        const onFrameReady = () => {
+          isVideoReady = true;
+          roiLoading.style.display = 'none';
+          initRoiCanvas();
+          resolve();
+        };
+
+        // If metadata already loaded
+        const setupPlaybackFrame = () => {
+          videoElement.muted = true;
+          videoElement.playsInline = true;
+          
+          // Prime video decoder by playing and pausing immediately
+          const playPromise = videoElement.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              videoElement.pause();
+              videoElement.currentTime = 0.001;
+              onFrameReady();
+            }).catch(() => {
+              // Fallback for strict browser autoplay limits
+              videoElement.currentTime = 0.001;
+              setTimeout(onFrameReady, 200);
+            });
+          } else {
+            videoElement.currentTime = 0.001;
+            setTimeout(onFrameReady, 200);
+          }
+        };
+
+        if (videoElement.readyState >= 2 && videoElement.videoWidth > 0) {
+          setupPlaybackFrame();
+        } else {
+          videoElement.onloadeddata = () => setupPlaybackFrame();
+        }
+      });
+    }
+
+    /* --- Step 1: Video File Selection --- */
+    document.getElementById('video-input').addEventListener('change', async function(e) {
       const file = e.target.files[0];
       if (!file) return;
 
       if (videoFileUrl) URL.revokeObjectURL(videoFileUrl);
       videoFileUrl = URL.createObjectURL(file);
+      
+      isVideoReady = false;
       videoElement.src = videoFileUrl;
-
-      videoElement.onloadedmetadata = () => {
-        videoElement.currentTime = 0.001;
-      };
-
-      videoElement.onseeked = () => {
-        if (stepViews[2].classList.contains('active')) {
-          drawRoiSetupFrame();
-        } else if (stepViews[4].classList.contains('active')) {
-          processSingleFrame();
-        }
-      };
+      videoElement.load();
 
       setStep(2);
-      initRoiCanvas();
+      await ensureVideoFirstFrame();
     });
 
-    /* --- Step 2: Interactive ROI Adjustment (Move & Resize) --- */
+    /* --- Aspect Fit Bounds --- */
     function getAspectFitBounds(srcW, srcH, dstW, dstH) {
+      if (!srcW || !srcH || !dstW || !dstH) return { x: 0, y: 0, w: dstW || 300, h: dstH || 200 };
       const srcAspect = srcW / srcH;
       const dstAspect = dstW / dstH;
       let w, h, x, y;
@@ -613,24 +658,37 @@
       return { x, y, w, h };
     }
 
+    /* --- Step 2: ROI Canvas Handling --- */
     function initRoiCanvas() {
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         const rect = roiCanvas.parentElement.getBoundingClientRect();
-        roiCanvas.width = rect.width;
-        roiCanvas.height = rect.height;
+        if (rect.width > 0 && rect.height > 0) {
+          roiCanvas.width = rect.width;
+          roiCanvas.height = rect.height;
+        }
         drawRoiSetupFrame();
-      }, 100);
+      });
     }
 
     function drawRoiSetupFrame() {
-      if (!videoElement.videoWidth) return;
-
       const cw = roiCanvas.width;
       const ch = roiCanvas.height;
+      if (cw === 0 || ch === 0) return;
+
       roiCtx.clearRect(0, 0, cw, ch);
 
-      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
-      roiCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
+      const vw = videoElement.videoWidth || 640;
+      const vh = videoElement.videoHeight || 360;
+      const b = getAspectFitBounds(vw, vh, cw, ch);
+
+      // Render video frame
+      if (videoElement.readyState >= 2) {
+        try {
+          roiCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
+        } catch (e) {
+          console.warn("Frame draw postponed:", e);
+        }
+      }
 
       if (roi.isActive) {
         const rx = b.x + roi.x * b.w;
@@ -640,10 +698,10 @@
 
         // Dark dim backdrop outside ROI
         roiCtx.fillStyle = "rgba(0, 0, 0, 0.45)";
-        roiCtx.fillRect(b.x, b.y, b.w, ry - b.y);
-        roiCtx.fillRect(b.x, ry + rh, b.w, b.y + b.h - (ry + rh));
-        roiCtx.fillRect(b.x, ry, rx - b.x, rh);
-        roiCtx.fillRect(rx + rw, ry, b.x + b.w - (rx + rw), rh);
+        roiCtx.fillRect(b.x, b.y, b.w, Math.max(0, ry - b.y));
+        roiCtx.fillRect(b.x, ry + rh, b.w, Math.max(0, b.y + b.h - (ry + rh)));
+        roiCtx.fillRect(b.x, ry, Math.max(0, rx - b.x), rh);
+        roiCtx.fillRect(rx + rw, ry, Math.max(0, b.x + b.w - (rx + rw)), rh);
 
         // Highlight Box
         roiCtx.fillStyle = "rgba(56, 189, 248, 0.15)";
@@ -652,7 +710,7 @@
         roiCtx.lineWidth = 2.5;
         roiCtx.strokeRect(rx, ry, rw, rh);
 
-        // 4 Corner Handles for intuitive resizing
+        // 4 Corner Handles
         const corners = [
           { x: rx, y: ry },
           { x: rx + rw, y: ry },
@@ -684,12 +742,14 @@
 
     function hitTestRoi(pt) {
       if (!roi.isActive) return 'create';
-      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, roiCanvas.width, roiCanvas.height);
+      const vw = videoElement.videoWidth || 640;
+      const vh = videoElement.videoHeight || 360;
+      const b = getAspectFitBounds(vw, vh, roiCanvas.width, roiCanvas.height);
       const rx = b.x + roi.x * b.w;
       const ry = b.y + roi.y * b.h;
       const rw = roi.w * b.w;
       const rh = roi.h * b.h;
-      const tol = HANDLE_RADIUS + 8;
+      const tol = HANDLE_RADIUS + 10;
 
       if (Math.hypot(pt.x - rx, pt.y - ry) <= tol) return 'nw';
       if (Math.hypot(pt.x - (rx + rw), pt.y - ry) <= tol) return 'ne';
@@ -709,7 +769,9 @@
       roiSnapshot = { ...roi };
 
       if (dragMode === 'create') {
-        const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, roiCanvas.width, roiCanvas.height);
+        const vw = videoElement.videoWidth || 640;
+        const vh = videoElement.videoHeight || 360;
+        const b = getAspectFitBounds(vw, vh, roiCanvas.width, roiCanvas.height);
         const normX = Math.max(0, Math.min(1, (pt.x - b.x) / b.w));
         const normY = Math.max(0, Math.min(1, (pt.y - b.y) / b.h));
         roi = { x: normX, y: normY, w: 0.01, h: 0.01, isActive: true };
@@ -719,7 +781,9 @@
     function onRoiPointerMove(e) {
       if (!dragMode) return;
       const pt = getRoiCanvasPoint(e);
-      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, roiCanvas.width, roiCanvas.height);
+      const vw = videoElement.videoWidth || 640;
+      const vh = videoElement.videoHeight || 360;
+      const b = getAspectFitBounds(vw, vh, roiCanvas.width, roiCanvas.height);
       const dx = (pt.x - dragStartPos.x) / b.w;
       const dy = (pt.y - dragStartPos.y) / b.h;
 
@@ -791,13 +855,12 @@
       setStep(3);
     });
 
-    /* --- Step 3: Start & Calibration --- */
+    /* --- Step 3: Analysis Start --- */
     document.getElementById('btn-start-analysis').addEventListener('click', () => {
       const hVal = parseFloat(document.getElementById('height-input').value);
       userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
 
-      if (!pose) initMediaPipe();
-
+      initMediaPipe();
       setStep(4);
       setTimeout(() => {
         resetWorkspaceDimensions();
@@ -807,8 +870,10 @@
 
     function resetWorkspaceDimensions() {
       const rect = outputCanvas.parentElement.getBoundingClientRect();
-      outputCanvas.width = rect.width;
-      outputCanvas.height = rect.height;
+      if (rect.width > 0 && rect.height > 0) {
+        outputCanvas.width = rect.width;
+        outputCanvas.height = rect.height;
+      }
     }
 
     window.addEventListener('resize', () => {
@@ -820,7 +885,7 @@
       }
     });
 
-    /* --- Double Buffering Single-Frame Processor --- */
+    /* --- Frame Inference Processing --- */
     function processSingleFrame() {
       if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) return;
 
@@ -829,11 +894,13 @@
 
       let sx = 0, sy = 0, sw = vw, sh = vh;
       if (roi.isActive) {
-        sx = roi.x * vw;
-        sy = roi.y * vh;
-        sw = roi.w * vw;
-        sh = roi.h * vh;
+        sx = Math.max(0, Math.floor(roi.x * vw));
+        sy = Math.max(0, Math.floor(roi.y * vh));
+        sw = Math.min(vw - sx, Math.floor(roi.w * vw));
+        sh = Math.min(vh - sy, Math.floor(roi.h * vh));
       }
+
+      if (sw <= 0 || sh <= 0) return;
 
       bufferCanvas.width = sw;
       bufferCanvas.height = sh;
@@ -847,7 +914,7 @@
       });
     }
 
-    /* --- High Accuracy Biomechanics Math & Landmark Filter --- */
+    /* --- Biomechanics Math --- */
     function smoothLandmark(idx, raw) {
       if (!smoothLandmarks.has(idx)) {
         smoothLandmarks.set(idx, { x: raw.x, y: raw.y, z: raw.z, visibility: raw.visibility });
@@ -885,7 +952,6 @@
 
     function getSegmentAngle3D(p1, p2) {
       if (!p1 || !p2) return NaN;
-      // Calculate rotation in transversal/coronal planes using atan2
       return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
     }
 
@@ -899,7 +965,7 @@
       };
     }
 
-    /* --- High Accuracy Results & Rendering Loop --- */
+    /* --- Results & Skeleton Render --- */
     function onPoseResults(results) {
       const cw = outputCanvas.width;
       const ch = outputCanvas.height;
@@ -918,11 +984,9 @@
 
       if (!results.poseLandmarks) return;
 
-      // Transform and smooth landmarks
       const rawLandmarks = results.poseLandmarks.map(mapRoiToVideoCoords);
       const landmarks = rawLandmarks.map((lm, idx) => smoothLandmark(idx, lm));
 
-      // Key Joints
       const NOSE = landmarks[0];
       const L_SHOULDER = landmarks[11];
       const R_SHOULDER = landmarks[12];
@@ -939,15 +1003,9 @@
       const L_HEEL = landmarks[29];
       const R_HEEL = landmarks[30];
 
-      // Draw Biomechanical Skeleton
       drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h);
 
-      /* ========================================================
-         BIOMECHANICAL ACCURACY CALIBRATION ENGINE
-      ======================================================== */
-
-      // Segmental Anatomical Calibration (Calculates pxPerCm via segment summation)
-      // Height = HeadToShoulder(0.18) + Trunk(0.29) + Thigh(0.25) + Shank(0.24) + Foot(0.04)
+      // Biomechanical Dimension Calculation
       const trunkPx = (Math.hypot(
         ((L_SHOULDER.x + R_SHOULDER.x)/2) - ((L_HIP.x + R_HIP.x)/2),
         ((L_SHOULDER.y + R_SHOULDER.y)/2) - ((L_HIP.y + R_HIP.y)/2)
@@ -958,11 +1016,9 @@
 
       let pxPerCm = 0;
       if (trunkPx > 10 && thighPx > 10 && shankPx > 10) {
-        // Sum of anatomical segments = approx 78% of total standing stature
         const segmentTotalPx = trunkPx + thighPx + shankPx;
         pxPerCm = segmentTotalPx / (userHeightCm * 0.78);
       } else {
-        // Fallback to bounding span
         const topY = NOSE ? NOSE.y : ((L_SHOULDER.y + R_SHOULDER.y)/2);
         const bottomY = Math.max(L_ANKLE.y, R_ANKLE.y, L_HEEL.y, R_HEEL.y);
         const totalSpanPx = Math.abs(bottomY - topY) * b.h * 1.14;
@@ -971,7 +1027,7 @@
 
       if (pxPerCm < 0.2) pxPerCm = (b.h * 0.75) / userHeightCm;
 
-      // 1. Stride Width (Distance between both heels/ankles)
+      // 1. Stride (FC)
       const footL = { x: (L_HEEL.x || L_ANKLE.x) * b.w, y: (L_HEEL.y || L_ANKLE.y) * b.h };
       const footR = { x: (R_HEEL.x || R_ANKLE.x) * b.w, y: (R_HEEL.y || R_ANKLE.y) * b.h };
       const stridePx = Math.hypot(footL.x - footR.x, footL.y - footR.y);
@@ -986,7 +1042,7 @@
         }
       }
 
-      // 2. Arm Cocking / MER Flexion (Automatic throwing arm identification)
+      // 2. MER Flexion
       const isRightHandThrow = (R_WRIST.y < L_WRIST.y);
       const throwShoulder = isRightHandThrow ? R_SHOULDER : L_SHOULDER;
       const throwElbow = isRightHandThrow ? R_ELBOW : L_ELBOW;
@@ -1002,7 +1058,7 @@
         }
       }
 
-      // 3. Hip-Shoulder Separation (X-Factor with anatomical twist correction)
+      // 3. Twist X-Factor
       const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
       const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
       if (!isNaN(shoulderAngle) && !isNaN(hipAngle)) {
@@ -1016,7 +1072,7 @@
         }
       }
 
-      // 4. Release Height (Vertical distance from lowest ground contact point)
+      // 4. Release Height
       const lowestGroundY = Math.max(L_HEEL.y, R_HEEL.y, L_ANKLE.y, R_ANKLE.y) * b.h;
       const throwingHandY = throwWrist.y * b.h;
       const releaseHeightPx = Math.max(0, lowestGroundY - throwingHandY);
@@ -1033,14 +1089,13 @@
 
     function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh) {
       const connections = [
-        [11, 12], [11, 13], [13, 15], // Left Arm
-        [12, 14], [14, 16],           // Right Arm
-        [11, 23], [12, 24], [23, 24], // Torso
-        [23, 25], [25, 27], [27, 29], // Left Leg & Foot
-        [24, 26], [26, 28], [28, 30]  // Right Leg & Foot
+        [11, 12], [11, 13], [13, 15],
+        [12, 14], [14, 16],
+        [11, 23], [12, 24], [23, 24],
+        [23, 25], [25, 27], [27, 29],
+        [24, 26], [26, 28], [28, 30]
       ];
 
-      // Bone Segments
       outputCtx.strokeStyle = "#22c55e";
       outputCtx.lineWidth = 3.5;
       connections.forEach(([i, j]) => {
@@ -1054,7 +1109,6 @@
         }
       });
 
-      // Joint Nodes
       const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30];
       keyJoints.forEach(idx => {
         const p = landmarks[idx];
@@ -1098,6 +1152,13 @@
     videoElement.addEventListener('play', updatePlayState);
     videoElement.addEventListener('pause', updatePlayState);
     videoElement.addEventListener('ended', updatePlayState);
+    videoElement.addEventListener('seeked', () => {
+      if (stepViews[2].classList.contains('active')) {
+        drawRoiSetupFrame();
+      } else if (stepViews[4].classList.contains('active')) {
+        processSingleFrame();
+      }
+    });
 
     btnPlayPause.addEventListener('click', () => {
       if (videoElement.paused) {
