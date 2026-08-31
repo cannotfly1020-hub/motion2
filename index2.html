@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析 Pure-Kinematics</title>
+  <title>投球フォームAIバイオメカニクス解析 Raw-Precision Pro</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -16,7 +16,6 @@
       --primary: #2563eb;
       --primary-hover: #1d4ed8;
       --accent: #38bdf8;
-      --accent-glow: rgba(56, 189, 248, 0.4);
       --bg: #090d16;
       --surface: #131d31;
       --surface-light: #22324e;
@@ -396,7 +395,7 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析 Pure-Kinematics</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 Raw-Precision Pro</h1>
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. 動画選択</div>
       <div id="step-nav-2" class="step-pill">2. 選手指定</div>
@@ -420,7 +419,7 @@
 
     <section id="view-step2" class="view-section">
       <div class="guidance-box">
-        解析対象の<b>投手を囲んでください</b>（リリースで激しく前進してもAIが自動追従します）。
+        解析対象の<b>投手を囲んでください</b>（リリースで前進してもAIが追従します）。
       </div>
       <div class="screen-wrapper" id="roi-wrapper">
         <canvas id="roi-canvas"></canvas>
@@ -459,7 +458,7 @@
       </div>
 
       <button class="btn" id="btn-start-analysis" style="font-size: 1.1rem; padding: 12px 28px;">
-        🚀 OK！解析スタート
+        🚀 OK！最高精度AI解析スタート
       </button>
     </section>
 
@@ -493,7 +492,7 @@
         <div class="zoom-badge" id="zoom-badge">拡大: 1.0x (ピンチ/ホイール可)</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.85rem; color: #fff;">AI解析エンジン同期中...</div>
+          <div style="font-size: 0.85rem; color: #fff;">最上位AIモデル(Complexity: 2)読込中...</div>
         </div>
       </div>
 
@@ -562,9 +561,6 @@
 
     let calibratedPxPerCm = null;
 
-    const smoothLandmarks = new Map();
-    const SMOOTH_ALPHA = 0.55;
-
     const stepViews = {
       1: document.getElementById('view-step1'),
       2: document.getElementById('view-step2'),
@@ -631,9 +627,10 @@
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
       });
 
+      // Switched to Heavy Model (Complexity: 2) for difficult outdoor backgrounds & blur
       pose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: false,
+        modelComplexity: 2,
+        smoothLandmarks: true,
         enableSegmentation: false,
         smoothSegmentation: false,
         minDetectionConfidence: 0.15,
@@ -1041,72 +1038,9 @@
       outputCtx.restore();
     }
 
-    function smoothLandmark(idx, raw) {
-      if (!smoothLandmarks.has(idx)) {
-        smoothLandmarks.set(idx, { x: raw.x, y: raw.y, z: raw.z, visibility: raw.visibility });
-        return raw;
-      }
-      const prev = smoothLandmarks.get(idx);
-      const curr = {
-        x: prev.x * (1 - SMOOTH_ALPHA) + raw.x * SMOOTH_ALPHA,
-        y: prev.y * (1 - SMOOTH_ALPHA) + raw.y * SMOOTH_ALPHA,
-        z: prev.z * (1 - SMOOTH_ALPHA) + raw.z * SMOOTH_ALPHA,
-        visibility: raw.visibility
-      };
-      smoothLandmarks.set(idx, curr);
-      return curr;
-    }
-
     function getSegmentAngle3D(p1, p2) {
       if (!p1 || !p2) return NaN;
       return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
-    }
-
-    /* ========================================================
-       ANATOMICALLY STABLE ARM LINK RESOLVER
-    ======================================================== */
-    function resolveArmPosition(shoulder, rawElbow, rawWrist, b, isSouthpaw, activePxPerCm) {
-      const upperArmPx = (userHeightCm * 0.175) * activePxPerCm;
-      const forearmPx  = (userHeightCm * 0.155) * activePxPerCm;
-
-      // 1. Shoulder Anchor is solid. Check if Elbow is valid and above chest
-      const isElbowPlausible = rawElbow && (rawElbow.visibility || 0) > 0.35 && rawElbow.y < shoulder.y + 0.15;
-      
-      let elbowX, elbowY;
-      if (isElbowPlausible) {
-        elbowX = rawElbow.x;
-        elbowY = rawElbow.y;
-      } else {
-        // High Release Elbow vector biased upwards
-        const angle = isSouthpaw ? -2.05 : -1.09;
-        elbowX = shoulder.x + (Math.cos(angle) * upperArmPx) / b.w;
-        elbowY = shoulder.y + (Math.sin(angle) * upperArmPx) / b.h;
-      }
-
-      // 2. Resolve Wrist (Enforce upward extension towards sky)
-      const isWristPlausible = rawWrist && (rawWrist.visibility || 0) > 0.35 && rawWrist.y < elbowY - 0.02;
-
-      let wristX, wristY;
-      if (isWristPlausible) {
-        wristX = rawWrist.x;
-        wristY = rawWrist.y;
-      } else {
-        // Project through elbow straight up to release point
-        const uX = elbowX - shoulder.x;
-        const uY = elbowY - shoulder.y;
-        const uMag = Math.hypot(uX * b.w, uY * b.h);
-
-        const dirX = (uMag > 1e-4) ? (uX / uMag) : (isSouthpaw ? -0.3 : 0.3);
-        const dirY = (uMag > 1e-4) ? (uY / uMag) : -0.95;
-
-        wristX = elbowX + (dirX * forearmPx) / b.w;
-        wristY = elbowY + (Math.min(-0.4, dirY) * forearmPx) / b.h;
-      }
-
-      return {
-        elbow: { x: elbowX, y: elbowY, visibility: 0.9 },
-        wrist: { x: wristX, y: wristY, visibility: 0.9 }
-      };
     }
 
     function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
@@ -1146,23 +1080,6 @@
       return 180.0 - baseAngle;
     }
 
-    function getRobustFootPosition(hip, knee, ankle, heel, toe) {
-      if (toe && (toe.visibility || 0) > 0.35) return { x: toe.x, y: toe.y, valid: true };
-      if (heel && (heel.visibility || 0) > 0.35) return { x: heel.x, y: heel.y, valid: true };
-      if (ankle && (ankle.visibility || 0) > 0.3) return { x: ankle.x, y: ankle.y, valid: true };
-
-      if (hip && knee && (knee.visibility || 0) > 0.25) {
-        const dx = knee.x - hip.x;
-        const dy = knee.y - hip.y;
-        return {
-          x: knee.x + dx * 0.95,
-          y: knee.y + dy * 0.95,
-          valid: false
-        };
-      }
-      return { x: ankle ? ankle.x : 0, y: ankle ? ankle.y : 0, valid: false };
-    }
-
     function onPoseResults(results) {
       const cw = outputCanvas.width;
       const ch = outputCanvas.height;
@@ -1179,16 +1096,14 @@
       outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
 
       if (results.poseLandmarks) {
-        const rawLandmarks = results.poseLandmarks;
-        const landmarks = rawLandmarks.map((lm, idx) => smoothLandmark(idx, lm));
+        const landmarks = results.poseLandmarks;
 
-        const NOSE = landmarks[0];
         const L_SHOULDER = landmarks[11];
         const R_SHOULDER = landmarks[12];
-        const L_ELBOW_RAW = landmarks[13];
-        const R_ELBOW_RAW = landmarks[14];
-        const L_WRIST_RAW = landmarks[15];
-        const R_WRIST_RAW = landmarks[16];
+        const L_ELBOW = landmarks[13];
+        const R_ELBOW = landmarks[14];
+        const L_WRIST = landmarks[15];
+        const R_WRIST = landmarks[16];
         const L_HIP = landmarks[23];
         const R_HIP = landmarks[24];
         const L_KNEE = landmarks[25];
@@ -1197,11 +1112,9 @@
         const R_ANKLE = landmarks[28];
         const L_HEEL = landmarks[29];
         const R_HEEL = landmarks[30];
-        const L_TOE = landmarks[31];
-        const R_TOE = landmarks[32];
 
         /* ========================================================
-           SKELETAL SUMMATION CALIBRATION
+           SCALE CALIBRATION
         ======================================================== */
         const trunkLen = Math.hypot(
           ((L_SHOULDER.x + R_SHOULDER.x)/2) - ((L_HIP.x + R_HIP.x)/2),
@@ -1216,42 +1129,28 @@
 
         if (measuredSkeletonPx > 40) {
           const currentPxPerCm = measuredSkeletonPx / (userHeightCm * 0.78);
-          if (calibratedPxPerCm === null) {
+          if (calibratedPxPerCm === null || currentPxPerCm > calibratedPxPerCm) {
             calibratedPxPerCm = currentPxPerCm;
-          } else {
-            if (currentPxPerCm > calibratedPxPerCm) {
-              calibratedPxPerCm = currentPxPerCm;
-            }
           }
         }
 
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
-        // Fixed Southpaw (Left Hand) vs Orthodox (Right Hand) Full Link Enforcement
+        // Target Throwing Arm
         const isSouthpaw = (selectedThrowArm === 'LEFT');
         const throwShoulder = isSouthpaw ? L_SHOULDER : R_SHOULDER;
-        const rawThrowElbow = isSouthpaw ? L_ELBOW_RAW : R_ELBOW_RAW;
-        const rawThrowWrist = isSouthpaw ? L_WRIST_RAW : R_WRIST_RAW;
+        const throwElbow = isSouthpaw ? L_ELBOW : R_ELBOW;
+        const throwWrist = isSouthpaw ? L_WRIST : R_WRIST;
 
-        const resolved = resolveArmPosition(throwShoulder, rawThrowElbow, rawThrowWrist, b, isSouthpaw, activePxPerCm);
-
-        if (isSouthpaw) {
-          landmarks[13] = { ...landmarks[13], x: resolved.elbow.x, y: resolved.elbow.y, visibility: 0.95 };
-          landmarks[15] = { ...landmarks[15], x: resolved.wrist.x, y: resolved.wrist.y, visibility: 0.95 };
-        } else {
-          landmarks[14] = { ...landmarks[14], x: resolved.elbow.x, y: resolved.elbow.y, visibility: 0.95 };
-          landmarks[16] = { ...landmarks[16], x: resolved.wrist.x, y: resolved.wrist.y, visibility: 0.95 };
-        }
-
-        drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw);
+        drawRawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw);
 
         /* ========================================================
            METRICS ENGINE
         ======================================================== */
 
-        // 1. Stride Width (FC)
-        const footL = getRobustFootPosition(L_HIP, L_KNEE, L_ANKLE, L_HEEL, L_TOE);
-        const footR = getRobustFootPosition(R_HIP, R_KNEE, R_ANKLE, R_HEEL, R_TOE);
+        // 1. Stride Width (Distance between both feet)
+        const footL = { x: (L_HEEL?.x || L_ANKLE.x), y: (L_HEEL?.y || L_ANKLE.y) };
+        const footR = { x: (R_HEEL?.x || R_ANKLE.x), y: (R_HEEL?.y || R_ANKLE.y) };
 
         const stridePx = Math.hypot((footL.x - footR.x) * b.w, (footL.y - footR.y) * b.h);
         const strideCm = Math.round(stridePx / activePxPerCm);
@@ -1260,33 +1159,26 @@
           const strideRatio = Math.round((strideCm / userHeightCm) * 100);
           valStride.textContent = `約 ${strideCm} cm`;
           
-          if (footL.valid && footR.valid && strideCm > records.maxStride) {
+          if (strideCm > records.maxStride) {
             records.maxStride = strideCm;
             maxStride.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
           }
-        } else {
-          valStride.textContent = `-- cm`;
         }
 
-        // 2. True Shoulder External Rotation (MER)
-        const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, resolved.elbow, resolved.wrist);
+        // 2. MER
+        const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist);
 
         if (!isNaN(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
           const roundedMER = Math.round(trueMerDeg);
           valElbow.textContent = `${roundedMER} °`;
 
-          if (resolved.elbow.y < throwShoulder.y + 0.2) {
-            if (roundedMER > records.maxMER && roundedMER <= 190) {
-              records.maxMER = roundedMER;
-              maxMER.textContent = `最大: ${roundedMER} °`;
-            }
+          if (roundedMER > records.maxMER && roundedMER <= 190) {
+            records.maxMER = roundedMER;
+            maxMER.textContent = `最大: ${roundedMER} °`;
           }
-        } else {
-          valElbow.textContent = `-- °`;
         }
 
         // 3. Twist X-Factor
-        const torsoVisible = (L_SHOULDER.visibility || 0) > 0.35 && (R_SHOULDER.visibility || 0) > 0.35 && (L_HIP.visibility || 0) > 0.35 && (R_HIP.visibility || 0) > 0.35;
         const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
         const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
 
@@ -1297,37 +1189,33 @@
 
           if (roundedTwist <= 65) {
             valTwist.textContent = `${roundedTwist} °`;
-            if (torsoVisible && roundedTwist > records.maxTwist && roundedTwist >= 5) {
+            if (roundedTwist > records.maxTwist && roundedTwist >= 5) {
               records.maxTwist = roundedTwist;
               maxTwist.textContent = `最大: ${roundedTwist} °`;
             }
-          } else {
-            valTwist.textContent = `-- °`;
           }
         }
 
         // 4. Release Height
         const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
-        const throwingHandY = resolved.wrist.y * b.h;
+        const throwingHandY = throwWrist.y * b.h;
         const releaseHeightPx = Math.max(0, lowestGroundY - throwingHandY);
         const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
 
-        if (!isNaN(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.35)) {
+        if (!isNaN(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.4)) {
           valRelease.textContent = `約 ${releaseHeightCm} cm`;
           
           if (releaseHeightCm > records.maxRelease) {
             records.maxRelease = releaseHeightCm;
             maxRelease.textContent = `最高: ${releaseHeightCm} cm`;
           }
-        } else {
-          valRelease.textContent = `-- cm`;
         }
       }
 
       outputCtx.restore();
     }
 
-    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw) {
+    function drawRawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw) {
       const connections = [
         [11, 12], [11, 13], [13, 15],
         [12, 14], [14, 16],
@@ -1341,7 +1229,7 @@
       connections.forEach(([i, j]) => {
         const p1 = landmarks[i];
         const p2 = landmarks[j];
-        if (p1 && p2 && (p1.visibility || 1) > 0.15 && (p2.visibility || 1) > 0.15) {
+        if (p1 && p2) {
           outputCtx.beginPath();
           outputCtx.moveTo(ox + p1.x * bw, oy + p1.y * bh);
           outputCtx.lineTo(ox + p2.x * bw, oy + p2.y * bh);
@@ -1355,7 +1243,7 @@
 
       keyJoints.forEach(idx => {
         const p = landmarks[idx];
-        if (p && (p.visibility || 1) > 0.15) {
+        if (p) {
           outputCtx.beginPath();
           outputCtx.arc(ox + p.x * bw, oy + p.y * bh, (idx === throwWristIdx ? 7 : (idx === throwElbowIdx ? 6 : 5)), 0, Math.PI * 2);
           
@@ -1447,7 +1335,6 @@
     document.getElementById('btn-reset-max').addEventListener('click', () => {
       records = { maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0 };
       calibratedPxPerCm = null;
-      smoothLandmarks.clear();
       maxStride.textContent = "最大: -- cm (0%身)";
       maxMER.textContent = "最大: -- °";
       maxTwist.textContent = "最大: -- °";
@@ -1457,7 +1344,6 @@
     document.getElementById('btn-re-select').addEventListener('click', () => {
       videoElement.pause();
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
-      smoothLandmarks.clear();
       calibratedPxPerCm = null;
       zoomScale = 1.0;
       zoomPan = { x: 0, y: 0 };
