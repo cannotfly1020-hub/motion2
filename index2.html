@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析 True-MER</title>
+  <title>投球フォームAIバイオメカニクス解析 MotionBlur Pro</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -371,7 +371,7 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析 True-MER</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 MotionBlur Pro</h1>
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. 動画選択</div>
       <div id="step-nav-2" class="step-pill">2. 選手指定</div>
@@ -423,7 +423,7 @@
         <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
       </div>
       <button class="btn" id="btn-start-analysis" style="font-size: 1.1rem; padding: 12px 28px;">
-        🚀 OK！肩外旋（しなり）解析スタート
+        🚀 OK！高速スイング補正解析スタート
       </button>
     </section>
 
@@ -438,7 +438,7 @@
           <div class="card-val" id="val-stride">-- cm</div>
           <div class="card-max" id="max-stride">最大: -- cm (0%身)</div>
         </div>
-        <!-- 2. True MER (Shoulder External Rotation) -->
+        <!-- 2. True MER -->
         <div class="card">
           <div class="card-title">💪 うでのしなり (肩外旋 MER)</div>
           <div class="card-val" id="val-elbow">-- °</div>
@@ -450,7 +450,7 @@
           <div class="card-val" id="val-twist">-- °</div>
           <div class="card-max" id="max-twist">最大: -- °</div>
         </div>
-        <!-- 4. Release Height -->
+        <!-- 4. Release Height (MotionBlur Compensated) -->
         <div class="card">
           <div class="card-title">⚾ リリース高さ</div>
           <div class="card-val" id="val-release">-- cm</div>
@@ -464,7 +464,7 @@
         <div class="zoom-badge" id="zoom-badge">拡大: 1.0x (ピンチ/ホイール可)</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.85rem; color: #fff;">AI高精度エンジン起動中...</div>
+          <div style="font-size: 0.85rem; color: #fff;">AI高速リンク解析中...</div>
         </div>
       </div>
 
@@ -511,14 +511,12 @@
     let userHeightCm = 140;
     let videoFileUrl = null;
 
-    // Anchor ROI for Target Selection [0.0 - 1.0]
     let initialAnchor = { x: 0.15, y: 0.1, w: 0.7, h: 0.8, isActive: false };
     let dragMode = null;
     let dragStartPos = { x: 0, y: 0 };
     let roiSnapshot = { ...initialAnchor };
     const HANDLE_RADIUS = 14;
 
-    // Pinch Zoom & Pan State
     let zoomScale = 1.0;
     let zoomPan = { x: 0, y: 0 };
     let initialPinchDistance = 0;
@@ -527,7 +525,6 @@
     let panStart = { x: 0, y: 0 };
     let panSnapshot = { x: 0, y: 0 };
 
-    // Metrics Peak Records
     let records = {
       maxStride: 0,
       maxMER: 0,
@@ -535,12 +532,15 @@
       maxRelease: 0
     };
 
-    // Stature Calibration Scale (px/cm)
     let calibratedPxPerCm = null;
 
-    // Temporal Smoothing Filter
+    // Temporal Smoothing Filter & Historical Memory
     const smoothLandmarks = new Map();
-    const SMOOTH_ALPHA = 0.6;
+    const SMOOTH_ALPHA = 0.65;
+
+    // Previous Wrist History for Kinematic Velocity Recovery
+    let prevValidWrist = null;
+    let estimatedForearmLengthRatio = 0.85; // Standard anatomical Forearm / UpperArm ratio
 
     // Elements
     const stepViews = {
@@ -598,8 +598,8 @@
         smoothLandmarks: false,
         enableSegmentation: false,
         smoothSegmentation: false,
-        minDetectionConfidence: 0.35,
-        minTrackingConfidence: 0.35
+        minDetectionConfidence: 0.30,
+        minTrackingConfidence: 0.30
       });
 
       pose.onResults(onPoseResults);
@@ -612,7 +612,7 @@
       });
     }
 
-    /* --- Reliable First Frame Decoder --- */
+    /* --- Video Frame Extraction --- */
     function ensureVideoFirstFrame() {
       return new Promise((resolve) => {
         roiLoading.style.display = 'flex';
@@ -651,7 +651,6 @@
       });
     }
 
-    /* --- Step 1: Video File Selection --- */
     document.getElementById('video-input').addEventListener('change', async function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -666,7 +665,6 @@
       await ensureVideoFirstFrame();
     });
 
-    /* --- Aspect Fit Bounds --- */
     function getAspectFitBounds(srcW, srcH, dstW, dstH) {
       if (!srcW || !srcH || !dstW || !dstH) return { x: 0, y: 0, w: dstW || 300, h: dstH || 200 };
       const srcAspect = srcW / srcH;
@@ -686,7 +684,6 @@
       return { x, y, w, h };
     }
 
-    /* --- Step 2: Pitcher Anchor Box Handling --- */
     function initRoiCanvas() {
       requestAnimationFrame(() => {
         const rect = roiCanvas.parentElement.getBoundingClientRect();
@@ -883,6 +880,7 @@
       userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
 
       calibratedPxPerCm = null;
+      prevValidWrist = null;
       initMediaPipe();
       setStep(4);
       setTimeout(() => {
@@ -1035,13 +1033,48 @@
     }
 
     /* ========================================================
-       TRUE BIOMECHANICS SHOULDER EXTERNAL ROTATION (MER)
-       Calculates forearm layback angle relative to the trunk axis
+       KINEMATIC CHAIN ESTIMATOR (MOTION BLUR RECOVERY)
+       Recovers Wrist Position from Proximal Links (Shoulder & Elbow)
     ======================================================== */
-    function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist, isRightThrow) {
+    function getKinematicCompensatedWrist(shoulder, elbow, rawWrist) {
+      const upperArmLength = Math.hypot(elbow.x - shoulder.x, elbow.y - shoulder.y);
+      
+      // Update expected Forearm Length based on detected frames
+      if (rawWrist && (rawWrist.visibility || 0) > 0.45 && upperArmLength > 0.01) {
+        const measuredForearm = Math.hypot(rawWrist.x - elbow.x, rawWrist.y - elbow.y);
+        estimatedForearmLengthRatio = Math.max(0.75, Math.min(1.05, measuredForearm / upperArmLength));
+      }
+
+      // If Raw Wrist is reliable, use it
+      if (rawWrist && (rawWrist.visibility || 0) > 0.35) {
+        prevValidWrist = { x: rawWrist.x, y: rawWrist.y, isCompensated: false };
+        return prevValidWrist;
+      }
+
+      // If Wrist is BLURRED/LOST: Reconstruct along the kinematic velocity vector
+      if (shoulder && elbow && upperArmLength > 0.01) {
+        const forearmLength = upperArmLength * estimatedForearmLengthRatio;
+        
+        // Direction vector extending from Shoulder through Elbow (Arm swing momentum)
+        const dirX = elbow.x - shoulder.x;
+        const dirY = elbow.y - shoulder.y;
+        const dirMag = Math.hypot(dirX, dirY);
+
+        if (dirMag > 1e-5) {
+          const compX = elbow.x + (dirX / dirMag) * forearmLength;
+          const compY = elbow.y + (dirY / dirMag) * forearmLength;
+          prevValidWrist = { x: compX, y: compY, isCompensated: true };
+          return prevValidWrist;
+        }
+      }
+
+      return prevValidWrist || { x: elbow.x, y: elbow.y - 0.1, isCompensated: true };
+    }
+
+    /* --- Shoulder External Rotation (MER) --- */
+    function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
       if (!shoulderL || !shoulderR || !hipL || !hipR || !elbow || !wrist) return NaN;
 
-      // 1. Trunk Longitudinal Axis Vector (Mid-Hip -> Mid-Shoulder)
       const midShoulder = {
         x: (shoulderL.x + shoulderR.x) / 2,
         y: (shoulderL.y + shoulderR.y) / 2,
@@ -1059,7 +1092,6 @@
         z: midShoulder.z - midHip.z
       };
 
-      // 2. Forearm Vector (Elbow -> Wrist)
       const forearmV = {
         x: wrist.x - elbow.x,
         y: wrist.y - elbow.y,
@@ -1070,17 +1102,11 @@
       const forearmMag = Math.hypot(forearmV.x, forearmV.y, forearmV.z);
       if (trunkMag < 1e-6 || forearmMag < 1e-6) return NaN;
 
-      // 3. 3D Angle between Spine/Trunk Longitudinal Vector and Forearm
       const dot = trunkV.x * forearmV.x + trunkV.y * forearmV.y + trunkV.z * forearmV.z;
       const cosVal = Math.max(-1.0, Math.min(1.0, dot / (trunkMag * forearmMag)));
       const baseAngle = (Math.acos(cosVal) * 180.0) / Math.PI;
 
-      // Clinical Standard Alignment:
-      // Neutral forearm pointing upright = 90°
-      // Full Cocking / Layback (MER) = 150° ~ 185°
-      // Internal Rotation (Follow-through) = 0° ~ 80°
-      const trueMER = 180.0 - baseAngle;
-      return trueMER;
+      return 180.0 - baseAngle;
     }
 
     function getRobustFootPosition(hip, knee, ankle, heel, toe) {
@@ -1125,8 +1151,8 @@
         const R_SHOULDER = landmarks[12];
         const L_ELBOW = landmarks[13];
         const R_ELBOW = landmarks[14];
-        const L_WRIST = landmarks[15];
-        const R_WRIST = landmarks[16];
+        const L_WRIST_RAW = landmarks[15];
+        const R_WRIST_RAW = landmarks[16];
         const L_HIP = landmarks[23];
         const R_HIP = landmarks[24];
         const L_KNEE = landmarks[25];
@@ -1138,10 +1164,26 @@
         const L_TOE = landmarks[31];
         const R_TOE = landmarks[32];
 
+        // Automatic Throwing Arm Identification
+        const isRightHandThrow = (R_ELBOW.y < L_ELBOW.y || (R_WRIST_RAW?.y || 1) < (L_WRIST_RAW?.y || 1));
+        const throwShoulder = isRightHandThrow ? R_SHOULDER : L_SHOULDER;
+        const throwElbow = isRightHandThrow ? R_ELBOW : L_ELBOW;
+        const rawThrowWrist = isRightHandThrow ? R_WRIST_RAW : L_WRIST_RAW;
+
+        // Kinematic Motion-Blur Compensation for Wrist
+        const compWrist = getKinematicCompensatedWrist(throwShoulder, throwElbow, rawThrowWrist);
+
+        // Replace throw wrist landmark with compensated position
+        if (isRightHandThrow) {
+          landmarks[16] = { ...landmarks[16], x: compWrist.x, y: compWrist.y, visibility: 0.9 };
+        } else {
+          landmarks[15] = { ...landmarks[15], x: compWrist.x, y: compWrist.y, visibility: 0.9 };
+        }
+
         drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h);
 
         /* ========================================================
-           ROBUST SKELETAL SUMMATION CALIBRATION
+           SKELETAL SUMMATION CALIBRATION
         ======================================================== */
         const trunkLen = Math.hypot(
           ((L_SHOULDER.x + R_SHOULDER.x)/2) - ((L_HIP.x + R_HIP.x)/2),
@@ -1190,22 +1232,14 @@
           valStride.textContent = `-- cm`;
         }
 
-        // 2. True Shoulder External Rotation (MER / Layback)
-        const isRightHandThrow = (R_WRIST.y < L_WRIST.y);
-        const throwShoulder = isRightHandThrow ? R_SHOULDER : L_SHOULDER;
-        const throwElbow = isRightHandThrow ? R_ELBOW : L_ELBOW;
-        const throwWrist = isRightHandThrow ? R_WRIST : L_WRIST;
-
-        const armVisible = (throwShoulder.visibility || 0) > 0.4 && (throwElbow.visibility || 0) > 0.4 && (throwWrist.visibility || 0) > 0.4;
-        
-        const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist, isRightHandThrow);
+        // 2. True Shoulder External Rotation (MER)
+        const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, compWrist);
 
         if (!isNaN(trueMerDeg) && trueMerDeg >= 40 && trueMerDeg <= 200) {
           const roundedMER = Math.round(trueMerDeg);
           valElbow.textContent = `${roundedMER} °`;
 
-          // Cocking Phase Gate: Throwing hand is elevated around/above shoulder height
-          if (armVisible && throwWrist.y < throwShoulder.y + 0.15) {
+          if (throwElbow.y < throwShoulder.y + 0.15) {
             if (roundedMER > records.maxMER && roundedMER <= 190) {
               records.maxMER = roundedMER;
               maxMER.textContent = `最大: ${roundedMER} °`;
@@ -1215,7 +1249,7 @@
           valElbow.textContent = `-- °`;
         }
 
-        // 3. Twist X-Factor (Shoulder vs Pelvis difference)
+        // 3. Twist X-Factor
         const torsoVisible = (L_SHOULDER.visibility || 0) > 0.4 && (R_SHOULDER.visibility || 0) > 0.4 && (L_HIP.visibility || 0) > 0.4 && (R_HIP.visibility || 0) > 0.4;
         const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
         const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
@@ -1236,16 +1270,16 @@
           }
         }
 
-        // 4. Release Height
+        // 4. Release Height (Kinematic Chain Compensated)
         const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
-        const throwingHandY = throwWrist.y * b.h;
+        const throwingHandY = compWrist.y * b.h;
         const releaseHeightPx = Math.max(0, lowestGroundY - throwingHandY);
         const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
 
         if (!isNaN(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.35)) {
           valRelease.textContent = `約 ${releaseHeightCm} cm`;
           
-          if ((throwWrist.visibility || 0) > 0.4 && releaseHeightCm > records.maxRelease) {
+          if (releaseHeightCm > records.maxRelease) {
             records.maxRelease = releaseHeightCm;
             maxRelease.textContent = `最高: ${releaseHeightCm} cm`;
           }
@@ -1367,6 +1401,7 @@
     document.getElementById('btn-reset-max').addEventListener('click', () => {
       records = { maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0 };
       calibratedPxPerCm = null;
+      prevValidWrist = null;
       smoothLandmarks.clear();
       maxStride.textContent = "最大: -- cm (0%身)";
       maxMER.textContent = "最大: -- °";
@@ -1379,6 +1414,7 @@
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
       smoothLandmarks.clear();
       calibratedPxPerCm = null;
+      prevValidWrist = null;
       zoomScale = 1.0;
       zoomPan = { x: 0, y: 0 };
       updateZoomBadge();
