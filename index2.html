@@ -14,20 +14,21 @@
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
     html, body { width: 100%; height: 100dvh; background: #111; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; overflow: hidden; }
     
-    #header { width: 100%; background: #222; padding: calc(8px + env(safe-area-inset-top)) 12px 8px; text-align: center; border-bottom: 2px solid #444; z-index: 30; flex-shrink: 0; }
+    #header { width: 100%; background: #222; padding: calc(8px + env(safe-area-inset-top)) 12px 8px; text-align: center; border-bottom: 2px solid #444; z-index: 50; flex-shrink: 0; }
     #header h1 { font-size: 16px; color: #30d158; margin-bottom: 2px; }
     #guideStep { font-size: 12px; font-weight: bold; color: #00ffcc; padding: 3px 8px; background: #111; border-radius: 6px; display: inline-block; margin-top: 4px; }
     
-    .hdr-row { display: flex; justify-content: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+    .hdr-row { display: flex; justify-content: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
     .main-btn { background: #007aff; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; }
-    .main-btn.active { background: #ff9500; color: #000; animation: pulse 1.2s infinite; }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+    .main-btn.active { background: #ff9500; color: #000; }
+    .main-btn.confirm-btn { background: #30d158; color: #000; font-weight: 800; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
     #stage { width: 100%; position: relative; flex: 1; display: flex; background: #000; overflow: hidden; justify-content: center; align-items: center; min-height: 0; }
     video { width: 100%; height: 100%; object-fit: contain; display: block; }
     canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    #outputCanvas { pointer-events: none; z-index: 1; }
-    #interactionCanvas { touch-action: none; cursor: crosshair; z-index: 10; }
+    #outputCanvas { pointer-events: none; z-index: 5; }
+    #interactionCanvas { touch-action: none; cursor: crosshair; z-index: 20; pointer-events: auto; }
 
     #dashboard { background: #1c1c1e; padding: 8px 12px; border-top: 2px solid #333; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex-shrink: 0; }
     .data-box { background: #2c2c2e; border-radius: 8px; padding: 6px 8px; text-align: center; border-left: 4px solid #555; }
@@ -68,6 +69,7 @@
         <button class="main-btn" onclick="document.getElementById('inputFile').click()">📁 動画をえらぶ</button>
         <input type="file" id="inputFile" accept="video/*" style="display:none;">
         <button class="main-btn" id="btnSetRoi" style="display:none;" onclick="startRoiSelection()">🔲 投手をかこむ</button>
+        <button class="main-btn confirm-btn" id="btnConfirmRoi" style="display:none;" onclick="confirmRoiAndNext()">✅ この範囲で決定</button>
         <button class="main-btn" id="btnSkipRoi" style="display:none; background:#444;" onclick="skipRoiSelection()">スキップ</button>
         <button class="main-btn" id="btnSetHeight" style="display:none;" onclick="openHeightModal()">📏 身長入力</button>
     </div>
@@ -136,6 +138,7 @@ const btnStepForward = document.getElementById('btnStepForward');
 const btnStepBack = document.getElementById('btnStepBack');
 const guideStep = document.getElementById('guideStep');
 const btnSetRoi = document.getElementById('btnSetRoi');
+const btnConfirmRoi = document.getElementById('btnConfirmRoi');
 const btnSkipRoi = document.getElementById('btnSkipRoi');
 const btnSetHeight = document.getElementById('btnSetHeight');
 
@@ -197,9 +200,10 @@ function getVideoRenderRect(vid, cvs) {
     return { width: renderWidth, height: renderHeight, x: offsetX, y: offsetY };
 }
 
+// 枠描画
 function redrawOverlay() {
     intCtx.clearRect(0, 0, interactionCanvas.width, interactionCanvas.height);
-    if (!isRoiEnabled || roiNorm.w < 0.05) return;
+    if (roiNorm.w < 0.02 || roiNorm.h < 0.02) return;
 
     const box = getVideoRenderRect(video, interactionCanvas);
     const rx = box.x + roiNorm.x * box.w;
@@ -209,12 +213,15 @@ function redrawOverlay() {
 
     intCtx.save();
     intCtx.strokeStyle = '#00ffcc';
-    intCtx.lineWidth = 2.5;
+    intCtx.lineWidth = 3;
     intCtx.setLineDash([6, 4]);
     intCtx.strokeRect(rx, ry, rw, rh);
 
+    intCtx.fillStyle = 'rgba(0, 255, 204, 0.15)';
+    intCtx.fillRect(rx, ry, rw, rh);
+
     intCtx.fillStyle = '#00ffcc';
-    intCtx.font = 'bold 11px sans-serif';
+    intCtx.font = 'bold 12px sans-serif';
     intCtx.fillText(`🎯 対象ピッチャー`, rx + 4, ry - 6);
     intCtx.restore();
 }
@@ -222,13 +229,93 @@ function redrawOverlay() {
 function startRoiSelection() {
     isRoiSelectingMode = true;
     btnSetRoi.classList.add('active');
-    guideStep.innerHTML = "<span style='color:#ffd60a;'>👆 ピッチャーを画面上で四角く囲んでね（ドラッグ）</span>";
+    btnConfirmRoi.style.display = 'none';
+    guideStep.innerHTML = "<span style='color:#ffd60a;'>👆 画面を指でなぞって投手を囲んでね</span>";
+}
+
+function getPointerNorm(clientX, clientY) {
+    const rect = interactionCanvas.getBoundingClientRect();
+    const box = getVideoRenderRect(video, interactionCanvas);
+    const cvsX = (clientX - rect.left) * (interactionCanvas.width / rect.width);
+    const cvsY = (clientY - rect.top) * (interactionCanvas.height / rect.height);
+
+    return {
+        x: Math.max(0, Math.min(1.0, (cvsX - box.x) / (box.w || 1))),
+        y: Math.max(0, Math.min(1.0, (cvsY - box.y) / (box.h || 1)))
+    };
+}
+
+// タッチ＆ポインター共通ドラッグ開始
+function handleDragStart(clientX, clientY) {
+    if (!isRoiSelectingMode) return;
+    isRoiDrawing = true;
+    roiStart = getPointerNorm(clientX, clientY);
+    roiNorm = { x: roiStart.x, y: roiStart.y, w: 0, h: 0 };
+    redrawOverlay();
+}
+
+// タッチ＆ポインター共通ドラッグ移動
+function handleDragMove(clientX, clientY) {
+    if (!isRoiDrawing || !isRoiSelectingMode) return;
+    const p = getPointerNorm(clientX, clientY);
+    roiNorm.x = Math.min(roiStart.x, p.x);
+    roiNorm.y = Math.min(roiStart.y, p.y);
+    roiNorm.w = Math.abs(p.x - roiStart.x);
+    roiNorm.h = Math.abs(p.y - roiStart.y);
+    redrawOverlay();
+}
+
+// タッチ＆ポインター共通ドラッグ終了
+function handleDragEnd() {
+    if (!isRoiDrawing || !isRoiSelectingMode) return;
+    isRoiDrawing = false;
+    
+    if (roiNorm.w > 0.05 && roiNorm.h > 0.05) {
+        btnConfirmRoi.style.display = 'inline-block';
+        guideStep.innerHTML = "枠の位置が良ければ【この範囲で決定】を押してね！";
+    } else {
+        guideStep.innerHTML = "<span style='color:#ff375f;'>⚠️ もう一度、投手を大きく指で囲んでね</span>";
+    }
+}
+
+// イベントリスナーの登録（タッチ＋マウス両対応）
+interactionCanvas.addEventListener('pointerdown', (e) => { e.preventDefault(); handleDragStart(e.clientX, e.clientY); });
+interactionCanvas.addEventListener('pointermove', (e) => { handleDragMove(e.clientX, e.clientY); });
+interactionCanvas.addEventListener('pointerup', () => { handleDragEnd(); });
+
+interactionCanvas.addEventListener('touchstart', (e) => { 
+    if (e.touches.length === 1 && isRoiSelectingMode) {
+        e.preventDefault(); 
+        handleDragStart(e.touches[0].clientX, e.touches[0].clientY); 
+    }
+}, { passive: false });
+
+interactionCanvas.addEventListener('touchmove', (e) => { 
+    if (isRoiDrawing && isRoiSelectingMode) {
+        e.preventDefault(); 
+        handleDragMove(e.touches[0].clientX, e.touches[0].clientY); 
+    }
+}, { passive: false });
+
+interactionCanvas.addEventListener('touchend', () => { handleDragEnd(); });
+
+function confirmRoiAndNext() {
+    isRoiEnabled = true;
+    isRoiSelectingMode = false;
+    btnSetRoi.classList.remove('active');
+    btnConfirmRoi.style.display = 'none';
+    btnSkipRoi.style.display = 'none';
+    
+    guideStep.innerHTML = "STEP 3: 「身長入力」を押してね！";
+    btnSetHeight.style.display = 'inline-block';
+    openHeightModal();
 }
 
 function skipRoiSelection() {
     isRoiSelectingMode = false;
     isRoiEnabled = false;
     btnSetRoi.classList.remove('active');
+    btnConfirmRoi.style.display = 'none';
     btnSkipRoi.style.display = 'none';
     redrawOverlay();
     
@@ -236,63 +323,6 @@ function skipRoiSelection() {
     btnSetHeight.style.display = 'inline-block';
     openHeightModal();
 }
-
-function getPointerNorm(e) {
-    const rect = interactionCanvas.getBoundingClientRect();
-    const box = getVideoRenderRect(video, interactionCanvas);
-    const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-    const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-    const cvsX = (clientX - rect.left) * (interactionCanvas.width / rect.width);
-    const cvsY = (clientY - rect.top) * (interactionCanvas.height / rect.height);
-
-    return {
-        x: Math.max(0, Math.min(1.0, (cvsX - box.x) / box.w)),
-        y: Math.max(0, Math.min(1.0, (cvsY - box.y) / box.h))
-    };
-}
-
-interactionCanvas.addEventListener('pointerdown', (e) => {
-    if (!isRoiSelectingMode) return;
-    e.preventDefault();
-    isRoiDrawing = true;
-    roiStart = getPointerNorm(e);
-    roiNorm = { x: roiStart.x, y: roiStart.y, w: 0, h: 0 };
-    try { interactionCanvas.setPointerCapture(e.pointerId); } catch(err){}
-});
-
-interactionCanvas.addEventListener('pointermove', (e) => {
-    if (!isRoiDrawing || !isRoiSelectingMode) return;
-    const p = getPointerNorm(e);
-    roiNorm.x = Math.min(roiStart.x, p.x);
-    roiNorm.y = Math.min(roiStart.y, p.y);
-    roiNorm.w = Math.abs(p.x - roiStart.x);
-    roiNorm.h = Math.abs(p.y - roiStart.y);
-    redrawOverlay();
-});
-
-interactionCanvas.addEventListener('pointerup', (e) => {
-    if (!isRoiDrawing || !isRoiSelectingMode) return;
-    isRoiDrawing = false;
-    try { interactionCanvas.releasePointerCapture(e.pointerId); } catch(err){}
-
-    // 十分な大きさ（幅・高さ10%以上）で囲まれた場合のみ確定
-    if (roiNorm.w > 0.10 && roiNorm.h > 0.10) {
-        isRoiEnabled = true;
-        isRoiSelectingMode = false;
-        btnSetRoi.classList.remove('active');
-        btnSkipRoi.style.display = 'none';
-        redrawOverlay();
-
-        guideStep.innerHTML = "STEP 3: 「身長入力」を押してね！";
-        btnSetHeight.style.display = 'inline-block';
-        openHeightModal();
-    } else {
-        // 小さすぎる（単なるタップなど）はやり直し
-        isRoiEnabled = false;
-        redrawOverlay();
-        guideStep.innerHTML = "<span style='color:#ff375f;'>⚠️ 指でピッチャーを大きく四角く囲んでね</span>";
-    }
-});
 
 function openHeightModal() {
     document.getElementById('height-modal-overlay').style.display = 'flex';
@@ -356,11 +386,11 @@ function drawAndAnalyze(lm) {
         }
     };
 
-    drawL(12, 14, '#ff9500'); drawL(14, 16, '#ff9500'); // 右腕
-    drawL(11, 13, '#00ffcc'); drawL(13, 15, '#00ffcc'); // 左腕
-    drawL(24, 26, '#ffd60a'); drawL(26, 28, '#ffd60a'); // 右脚
-    drawL(23, 25, '#00ffcc'); drawL(25, 27, '#00ffcc'); // 左脚
-    drawL(11, 12, '#ff375f'); drawL(23, 24, '#007aff'); // 肩・腰
+    drawL(12, 14, '#ff9500'); drawL(14, 16, '#ff9500');
+    drawL(11, 13, '#00ffcc'); drawL(13, 15, '#00ffcc');
+    drawL(24, 26, '#ffd60a'); drawL(26, 28, '#ffd60a');
+    drawL(23, 25, '#00ffcc'); drawL(25, 27, '#00ffcc');
+    drawL(11, 12, '#ff375f'); drawL(23, 24, '#007aff');
     drawL(11, 23, 'rgba(255,255,255,0.4)'); drawL(12, 24, 'rgba(255,255,255,0.4)');
 
     // 1. ひねり（捻転差）
@@ -512,6 +542,8 @@ document.getElementById('inputFile').addEventListener('change', (e) => {
     minElbowAngle = 180;
     maxReleaseH = 0;
     isRoiEnabled = false;
+    roiNorm = { x: 0, y: 0, w: 0, h: 0 };
+    redrawOverlay();
 
     const objUrl = URL.createObjectURL(file);
     video.src = objUrl;
@@ -526,6 +558,8 @@ document.getElementById('inputFile').addEventListener('change', (e) => {
         
         btnSetRoi.style.display = 'inline-block';
         btnSkipRoi.style.display = 'inline-block';
+        btnSetHeight.style.display = 'none';
+        btnConfirmRoi.style.display = 'none';
         startRoiSelection();
     };
     
