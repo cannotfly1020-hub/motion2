@@ -44,13 +44,13 @@
       object-fit: contain;
     }
 
-    /* 上部：全体データ表示パネル（展開・折りたたみ維持） */
+    /* 上部：全体データ表示パネル */
     .data-panel {
       position: absolute;
       top: env(safe-area-inset-top, 8px);
       left: 8px;
       right: 8px;
-      max-height: 42dvh;
+      max-height: 40dvh;
       background: rgba(15, 15, 15, 0.88);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
@@ -73,7 +73,6 @@
       cursor: pointer;
       font-weight: bold;
       color: #4dabf7;
-      padding-bottom: 2px;
     }
     .grid-data {
       display: grid;
@@ -103,26 +102,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* 軌跡の凡例 */
-    .trail-legend {
-      position: absolute;
-      top: 48px;
-      right: 12px;
-      background: rgba(0, 0, 0, 0.65);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 0.7rem;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      z-index: 15;
-      pointer-events: none;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    .legend-item { display: flex; align-items: center; gap: 6px; }
-    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-
-    /* 下部コントローラー & 関節選択バー */
+    /* 下部コントローラー & 選択エリア */
     .controls-overlay {
       position: absolute;
       bottom: 0;
@@ -130,42 +110,72 @@
       right: 0;
       padding: 6px 10px;
       padding-bottom: max(10px, env(safe-area-inset-bottom));
-      background: linear-gradient(0deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 75%, transparent 100%);
+      background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.65) 80%, transparent 100%);
       display: flex;
       flex-direction: column;
       gap: 6px;
       z-index: 20;
     }
 
-    /* 横スクロール可能な関節選択チップバー */
-    .joint-select-bar {
+    .tab-bar {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      padding-bottom: 4px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 0.75rem;
+      font-weight: bold;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      color: #4dabf7;
+      border-bottom: 2px solid #4dabf7;
+    }
+
+    .chip-scroll-row {
       display: flex;
       gap: 6px;
       overflow-x: auto;
-      padding: 2px 0 4px 0;
+      padding: 2px 0;
       scrollbar-width: none;
-      -ms-overflow-style: none;
     }
-    .joint-select-bar::-webkit-scrollbar { display: none; }
+    .chip-scroll-row::-webkit-scrollbar { display: none; }
     
     .chip {
       flex: 0 0 auto;
       background: rgba(255, 255, 255, 0.12);
       border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 14px;
-      padding: 4px 10px;
+      border-radius: 12px;
+      padding: 3px 8px;
       font-size: 0.7rem;
       color: #ccc;
       cursor: pointer;
       user-select: none;
-      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
     .chip.active {
-      background: #ffd43b;
-      color: #000;
+      background: rgba(255, 255, 255, 0.25);
       font-weight: bold;
-      border-color: #ffd43b;
-      box-shadow: 0 0 8px rgba(255, 212, 59, 0.5);
+    }
+    .chip-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* 角度用チップの選択時スタイル */
+    .chip-angle.active {
+      background: #ffd43b !important;
+      color: #000 !important;
+      border-color: #ffd43b !important;
     }
 
     .slider-row {
@@ -205,7 +215,6 @@
     }
     button:active, label.btn:active { background: rgba(255, 255, 255, 0.35); }
     .btn-primary { background: #1971c2 !important; border-color: #4dabf7 !important; }
-    .btn-active { background: #2f9e44 !important; border-color: #51cf66 !important; }
     .btn-circle { flex: 0 0 38px; height: 38px; border-radius: 50%; font-size: 1rem; }
     input[type="file"] { display: none; }
   </style>
@@ -217,18 +226,11 @@
     <canvas id="outputCanvas"></canvas>
   </div>
 
-  <!-- 軌跡凡例 -->
-  <div class="trail-legend" id="trailLegend">
-    <div class="legend-item"><span class="legend-dot" style="background:#00f0ff;"></span><span>頭頂部</span></div>
-    <div class="legend-item"><span class="legend-dot" style="background:#ff3399;"></span><span>顎先</span></div>
-    <div class="legend-item"><span class="legend-dot" style="background:#51cf66;"></span><span>体幹中心</span></div>
-  </div>
-
-  <!-- 全体データ表示パネル（折りたたみ維持） -->
-  <div class="data-panel" id="dataPanel">
+  <!-- 全体データ表示パネル -->
+  <div class="data-panel collapsed" id="dataPanel">
     <div class="panel-header" id="togglePanelBtn">
       <span>📊 全関節運動 & アライメント数値</span>
-      <span id="collapseIcon">▼ タップで開閉</span>
+      <span id="collapseIcon">▲ タップで開く</span>
     </div>
     <div class="grid-data">
       <div class="data-group-title">体幹 (Trunk)</div>
@@ -258,30 +260,62 @@
     </div>
   </div>
 
-  <!-- 下部操作コントローラー & 関節選択バー -->
+  <!-- 下部操作コントローラー -->
   <div class="controls-overlay">
-    <!-- 見たい角度を動画内にピン留めする選択チップ -->
-    <div class="joint-select-bar">
-      <span class="chip" data-joint="trunk_fe">体幹 屈伸</span>
-      <span class="chip" data-joint="trunk_lb">体幹 側屈</span>
-      <span class="chip" data-joint="trunk_rot">体幹 回旋</span>
-      <span class="chip active" data-joint="r_knee">右膝 屈伸</span>
-      <span class="chip" data-joint="l_knee">左膝 屈伸</span>
-      <span class="chip" data-joint="r_hip">右股 屈伸</span>
-      <span class="chip" data-joint="l_hip">左股 屈伸</span>
-      <span class="chip" data-joint="r_elbow">右肘 屈伸</span>
-      <span class="chip" data-joint="l_elbow">左肘 屈伸</span>
-      <span class="chip" data-joint="r_sho">右肩 屈伸</span>
-      <span class="chip" data-joint="l_sho">左肩 屈伸</span>
-      <span class="chip" data-joint="r_ank">右足 背底屈</span>
-      <span class="chip" data-joint="l_ank">左足 背底屈</span>
+    
+    <!-- タブ切り替え -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabAngle">📐 角度ピン留め</button>
+      <button class="tab-btn" id="tabTrail">✨ 軌跡ポイント選択</button>
     </div>
 
+    <!-- 1. 角度ピン留めチップ一覧 -->
+    <div class="chip-scroll-row" id="angleChipsRow">
+      <span class="chip chip-angle" data-joint="trunk_fe">体幹 屈伸</span>
+      <span class="chip chip-angle" data-joint="trunk_lb">体幹 側屈</span>
+      <span class="chip chip-angle" data-joint="trunk_rot">体幹 回旋</span>
+      <span class="chip chip-angle active" data-joint="r_knee">右膝 屈伸</span>
+      <span class="chip chip-angle" data-joint="l_knee">左膝 屈伸</span>
+      <span class="chip chip-angle" data-joint="r_hip">右股 屈伸</span>
+      <span class="chip chip-angle" data-joint="l_hip">左股 屈伸</span>
+      <span class="chip chip-angle" data-joint="r_elbow">右肘 屈伸</span>
+      <span class="chip chip-angle" data-joint="l_elbow">左肘 屈伸</span>
+      <span class="chip chip-angle" data-joint="r_sho">右肩 屈伸</span>
+      <span class="chip chip-angle" data-joint="l_sho">左肩 屈伸</span>
+      <span class="chip chip-angle" data-joint="r_ank">右足 背底屈</span>
+      <span class="chip chip-angle" data-joint="l_ank">左足 背底屈</span>
+    </div>
+
+    <!-- 2. 軌跡ポイント選択チップ一覧（左右完全分解） -->
+    <div class="chip-scroll-row" id="trailChipsRow" style="display: none;">
+      <span class="chip chip-trail active" data-trail="headTop"><span class="chip-dot" style="background:#00f0ff;"></span>頭頂部</span>
+      <span class="chip chip-trail active" data-trail="chin"><span class="chip-dot" style="background:#ff3399;"></span>顎先</span>
+      <span class="chip chip-trail active" data-trail="trunkCenter"><span class="chip-dot" style="background:#51cf66;"></span>体幹中心</span>
+      
+      <!-- 上肢（右・左） -->
+      <span class="chip chip-trail" data-trail="rShoulder"><span class="chip-dot" style="background:#ff6b6b;"></span>右肩</span>
+      <span class="chip chip-trail" data-trail="lShoulder"><span class="chip-dot" style="background:#339af0;"></span>左肩</span>
+      <span class="chip chip-trail" data-trail="rElbow"><span class="chip-dot" style="background:#f76707;"></span>右肘</span>
+      <span class="chip chip-trail" data-trail="lElbow"><span class="chip-dot" style="background:#22b8cf;"></span>左肘</span>
+      <span class="chip chip-trail" data-trail="rWrist"><span class="chip-dot" style="background:#ff922b;"></span>右手首</span>
+      <span class="chip chip-trail" data-trail="lWrist"><span class="chip-dot" style="background:#20c997;"></span>左手首</span>
+
+      <!-- 下肢（右・左） -->
+      <span class="chip chip-trail" data-trail="rHip"><span class="chip-dot" style="background:#e8590c;"></span>右股</span>
+      <span class="chip chip-trail" data-trail="lHip"><span class="chip-dot" style="background:#4263eb;"></span>左股</span>
+      <span class="chip chip-trail" data-trail="rKnee"><span class="chip-dot" style="background:#fcc419;"></span>右膝</span>
+      <span class="chip chip-trail" data-trail="lKnee"><span class="chip-dot" style="background:#748ffc;"></span>左膝</span>
+      <span class="chip chip-trail" data-trail="rAnkle"><span class="chip-dot" style="background:#ffd43b;"></span>右足首</span>
+      <span class="chip chip-trail" data-trail="lAnkle"><span class="chip-dot" style="background:#94d82d;"></span>左足首</span>
+    </div>
+
+    <!-- 再生シークバー -->
     <div class="slider-row">
       <input type="range" id="seekBar" value="0" min="0" step="0.033" disabled>
       <span id="timeDisplay" class="time-txt">0.00s</span>
     </div>
 
+    <!-- 操作ボタン列 -->
     <div class="btn-grid">
       <label class="btn btn-primary" style="flex: 1.1;">
         📁 動画選択
@@ -291,8 +325,7 @@
       <button id="btnPrevFrame" class="btn-circle" disabled>◀</button>
       <button id="btnPlayPause" class="btn-circle btn-primary" disabled>▶</button>
       <button id="btnNextFrame" class="btn-circle" disabled>▶</button>
-      <button id="btnToggleTrail" class="btn-active" style="flex: 0.8;">軌跡: ON</button>
-      <button id="btnClearTrail" style="flex: 0.7;">クリア</button>
+      <button id="btnClearTrail" style="flex: 0.7;">軌跡消去</button>
     </div>
   </div>
 
@@ -307,21 +340,80 @@
     const btnNextFrame = document.getElementById('btnNextFrame');
     const btnCamera = document.getElementById('btnCamera');
     const uploader = document.getElementById('videoUploader');
-    const btnToggleTrail = document.getElementById('btnToggleTrail');
     const btnClearTrail = document.getElementById('btnClearTrail');
     const togglePanelBtn = document.getElementById('togglePanelBtn');
     const dataPanel = document.getElementById('dataPanel');
-    const trailLegend = document.getElementById('trailLegend');
+
+    const tabAngle = document.getElementById('tabAngle');
+    const tabTrail = document.getElementById('tabTrail');
+    const angleChipsRow = document.getElementById('angleChipsRow');
+    const trailChipsRow = document.getElementById('trailChipsRow');
 
     let isLiveCamera = false;
     let cameraUtil = null;
-    let showTrail = true;
 
-    // 選択された動画内表示項目（初期値: 右膝屈伸）
+    // 選択中の角度ピン留め
     const selectedOverlays = new Set(['r_knee']);
 
-    // チップ選択イベント
-    document.querySelectorAll('.chip').forEach(chip => {
+    // 選択中の軌跡ポイント（初期値: 頭頂、顎、体幹中心）
+    const selectedTrails = new Set(['headTop', 'chin', 'trunkCenter']);
+
+    // 左右完全分解の軌跡バッファ
+    const trails = {
+      headTop: [],
+      chin: [],
+      trunkCenter: [],
+      rShoulder: [],
+      lShoulder: [],
+      rElbow: [],
+      lElbow: [],
+      rWrist: [],
+      lWrist: [],
+      rHip: [],
+      lHip: [],
+      rKnee: [],
+      lKnee: [],
+      rAnkle: [],
+      lAnkle: []
+    };
+
+    // 左右識別カラーリング（右: 暖色系, 左: 寒色系）
+    const trailColors = {
+      headTop: "#00f0ff",
+      chin: "#ff3399",
+      trunkCenter: "#51cf66",
+      rShoulder: "#ff6b6b",
+      lShoulder: "#339af0",
+      rElbow: "#f76707",
+      lElbow: "#22b8cf",
+      rWrist: "#ff922b",
+      lWrist: "#20c997",
+      rHip: "#e8590c",
+      lHip: "#4263eb",
+      rKnee: "#fcc419",
+      lKnee: "#748ffc",
+      rAnkle: "#ffd43b",
+      lAnkle: "#94d82d"
+    };
+    const MAX_TRAIL_LENGTH = 150;
+
+    // タブ切り替え
+    tabAngle.addEventListener('click', () => {
+      tabAngle.classList.add('active');
+      tabTrail.classList.remove('active');
+      angleChipsRow.style.display = 'flex';
+      trailChipsRow.style.display = 'none';
+    });
+
+    tabTrail.addEventListener('click', () => {
+      tabTrail.classList.add('active');
+      tabAngle.classList.remove('active');
+      trailChipsRow.style.display = 'flex';
+      angleChipsRow.style.display = 'none';
+    });
+
+    // 角度チップ選択
+    document.querySelectorAll('.chip-angle').forEach(chip => {
       chip.addEventListener('click', () => {
         const jointKey = chip.getAttribute('data-joint');
         if (selectedOverlays.has(jointKey)) {
@@ -331,36 +423,37 @@
           selectedOverlays.add(jointKey);
           chip.classList.add('active');
         }
-        processCurrentVideoFrame();
+        renderCurrentFrame();
       });
     });
 
-    // 軌跡バッファ
-    const headTopTrails = [];
-    const chinTrails = [];
-    const trunkCenterTrails = [];
-    const MAX_TRAIL_LENGTH = 150;
+    // 軌跡チップ選択
+    document.querySelectorAll('.chip-trail').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const trailKey = chip.getAttribute('data-trail');
+        if (selectedTrails.has(trailKey)) {
+          selectedTrails.delete(trailKey);
+          chip.classList.remove('active');
+        } else {
+          selectedTrails.add(trailKey);
+          chip.classList.add('active');
+        }
+        renderCurrentFrame();
+      });
+    });
+
+    // 軌跡消去
+    btnClearTrail.addEventListener('click', () => {
+      Object.keys(trails).forEach(k => trails[k].length = 0);
+      renderCurrentFrame();
+    });
 
     togglePanelBtn.addEventListener('click', () => {
       dataPanel.classList.toggle('collapsed');
-      document.getElementById('collapseIcon').innerText = dataPanel.classList.contains('collapsed') ? '▲ タップで展開' : '▼ タップで開閉';
+      document.getElementById('collapseIcon').innerText = dataPanel.classList.contains('collapsed') ? '▲ タップで開く' : '▼ タップで閉じる';
     });
 
-    btnToggleTrail.addEventListener('click', () => {
-      showTrail = !showTrail;
-      btnToggleTrail.innerText = showTrail ? '軌跡: ON' : '軌跡: OFF';
-      btnToggleTrail.classList.toggle('btn-active', showTrail);
-      trailLegend.style.display = showTrail ? 'flex' : 'none';
-      processCurrentVideoFrame();
-    });
-
-    btnClearTrail.addEventListener('click', () => {
-      headTopTrails.length = 0;
-      chinTrails.length = 0;
-      trunkCenterTrails.length = 0;
-      processCurrentVideoFrame();
-    });
-
+    // MediaPipe Pose 初期化
     const pose = new Pose({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
     });
@@ -376,7 +469,6 @@
 
     const V = {
       sub: (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: (a.z || 0) - (b.z || 0) }),
-      add: (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: (a.z || 0) + (b.z || 0) }),
       mid: (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: ((a.z || 0) + (b.z || 0)) / 2 }),
       dot: (a, b) => a.x * b.x + a.y * b.y + a.z * b.z,
       cross: (a, b) => ({
@@ -396,6 +488,11 @@
       }
     };
 
+    function addTrailPoint(key, pt) {
+      trails[key].push(pt);
+      if (trails[key].length > MAX_TRAIL_LENGTH) trails[key].shift();
+    }
+
     function onResults(results) {
       canvasElement.width = videoElement.videoWidth || 640;
       canvasElement.height = videoElement.videoHeight || 360;
@@ -410,7 +507,7 @@
         const lm = results.poseLandmarks;
         const wlm = results.poseWorldLandmarks || lm;
 
-        // 骨格ライン描画
+        // 骨格ライン（顔・手先除外）
         const connections = [
           [11, 12],
           [11, 13], [13, 15],
@@ -432,7 +529,7 @@
           }
         });
 
-        // 関節点描画
+        // 関節点
         const validJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
         canvasCtx.fillStyle = "#ff0055";
         validJoints.forEach(i => {
@@ -443,23 +540,17 @@
           }
         });
 
-        // 体幹中心
+        // --- 全関節・部位の軌跡ポイント抽出 ---
+        // 1. 体幹中心
         let trunkCenter = null;
         if (lm[11].visibility > 0.4 && lm[12].visibility > 0.4 && lm[23].visibility > 0.4 && lm[24].visibility > 0.4) {
           const shoMid = { x: (lm[11].x + lm[12].x) / 2, y: (lm[11].y + lm[12].y) / 2 };
           const hipMid = { x: (lm[23].x + lm[24].x) / 2, y: (lm[23].y + lm[24].y) / 2 };
           trunkCenter = { x: (shoMid.x + hipMid.x) / 2 * w, y: (shoMid.y + hipMid.y) / 2 * h };
-
-          trunkCenterTrails.push(trunkCenter);
-          if (trunkCenterTrails.length > MAX_TRAIL_LENGTH) trunkCenterTrails.shift();
-
-          canvasCtx.fillStyle = "#51cf66";
-          canvasCtx.beginPath();
-          canvasCtx.arc(trunkCenter.x, trunkCenter.y, 6, 0, 2 * Math.PI);
-          canvasCtx.fill();
+          addTrailPoint('trunkCenter', trunkCenter);
         }
 
-        // 頭頂部 & 顎
+        // 2. 頭頂 & 顎
         if (lm[0] && lm[0].visibility > 0.4 && lm[11].visibility > 0.4 && lm[12].visibility > 0.4) {
           const shoMid = { x: (lm[11].x + lm[12].x) / 2, y: (lm[11].y + lm[12].y) / 2 };
           const headUpVec = { x: lm[0].x - shoMid.x, y: lm[0].y - shoMid.y };
@@ -479,30 +570,39 @@
             y: (mouthMid.y - (headUpVec.y / headDist) * headDist * 0.2) * h
           };
 
-          headTopTrails.push(headTop);
-          chinTrails.push(chin);
-          if (headTopTrails.length > MAX_TRAIL_LENGTH) headTopTrails.shift();
-          if (chinTrails.length > MAX_TRAIL_LENGTH) chinTrails.shift();
-
-          canvasCtx.fillStyle = "#00f0ff";
-          canvasCtx.beginPath();
-          canvasCtx.arc(headTop.x, headTop.y, 6, 0, 2 * Math.PI);
-          canvasCtx.fill();
-
-          canvasCtx.fillStyle = "#ff3399";
-          canvasCtx.beginPath();
-          canvasCtx.arc(chin.x, chin.y, 6, 0, 2 * Math.PI);
-          canvasCtx.fill();
+          addTrailPoint('headTop', headTop);
+          addTrailPoint('chin', chin);
         }
 
-        // 軌跡描画
-        if (showTrail) {
-          drawTrail(canvasCtx, headTopTrails, "#00f0ff");
-          drawTrail(canvasCtx, chinTrails, "#ff3399");
-          drawTrail(canvasCtx, trunkCenterTrails, "#51cf66");
-        }
+        // 3. 肩・肘・手首（左右個別）
+        if (lm[12] && lm[12].visibility > 0.4) addTrailPoint('rShoulder', { x: lm[12].x * w, y: lm[12].y * h });
+        if (lm[11] && lm[11].visibility > 0.4) addTrailPoint('lShoulder', { x: lm[11].x * w, y: lm[11].y * h });
+        if (lm[14] && lm[14].visibility > 0.4) addTrailPoint('rElbow', { x: lm[14].x * w, y: lm[14].y * h });
+        if (lm[13] && lm[13].visibility > 0.4) addTrailPoint('lElbow', { x: lm[13].x * w, y: lm[13].y * h });
+        if (lm[16] && lm[16].visibility > 0.4) addTrailPoint('rWrist', { x: lm[16].x * w, y: lm[16].y * h });
+        if (lm[15] && lm[15].visibility > 0.4) addTrailPoint('lWrist', { x: lm[15].x * w, y: lm[15].y * h });
 
-        // 運動学計算 & 選択角度の動画内描画
+        // 4. 股・膝・足首（左右個別）
+        if (lm[24] && lm[24].visibility > 0.4) addTrailPoint('rHip', { x: lm[24].x * w, y: lm[24].y * h });
+        if (lm[23] && lm[23].visibility > 0.4) addTrailPoint('lHip', { x: lm[23].x * w, y: lm[23].y * h });
+        if (lm[26] && lm[26].visibility > 0.4) addTrailPoint('rKnee', { x: lm[26].x * w, y: lm[26].y * h });
+        if (lm[25] && lm[25].visibility > 0.4) addTrailPoint('lKnee', { x: lm[25].x * w, y: lm[25].y * h });
+        if (lm[28] && lm[28].visibility > 0.4) addTrailPoint('rAnkle', { x: lm[28].x * w, y: lm[28].y * h });
+        if (lm[27] && lm[27].visibility > 0.4) addTrailPoint('lAnkle', { x: lm[27].x * w, y: lm[27].y * h });
+
+        // 選択された軌跡とマーカーの描画
+        selectedTrails.forEach(key => {
+          if (trails[key] && trails[key].length > 0) {
+            drawTrail(canvasCtx, trails[key], trailColors[key]);
+            const lastPt = trails[key][trails[key].length - 1];
+            canvasCtx.fillStyle = trailColors[key];
+            canvasCtx.beginPath();
+            canvasCtx.arc(lastPt.x, lastPt.y, 5, 0, 2 * Math.PI);
+            canvasCtx.fill();
+          }
+        });
+
+        // 角度計算と選択されたバブルの描画
         calculateKinematicsAndOverlay(lm, wlm, w, h, trunkCenter);
       }
       canvasCtx.restore();
@@ -523,7 +623,6 @@
       ctx.restore();
     }
 
-    // 動画内の関節位置に数値バブルを描画
     function drawJointBadge(ctx, pos, text) {
       ctx.save();
       const fontSize = Math.max(12, Math.floor(canvasElement.width / 36));
@@ -540,7 +639,6 @@
       ctx.strokeStyle = "#ffd43b";
       ctx.lineWidth = 1.5;
       
-      // 角丸四角形
       ctx.beginPath();
       ctx.roundRect(x, y, bgW, bgH, 4);
       ctx.fill();
@@ -562,7 +660,7 @@
       const trunkX = V.normalize(shoulderLine);
       const trunkY = V.normalize(trunkVec);
 
-      // --- 体幹 ---
+      // 体幹
       const trunkFlex = Math.atan2(trunkVec.z, -trunkVec.y) * (180 / Math.PI);
       const trunkFlexStr = `${trunkFlex >= 0 ? '屈 ' : '伸 '}${Math.abs(trunkFlex).toFixed(1)}°`;
       document.getElementById('trunk_fe').innerText = trunkFlexStr;
@@ -584,7 +682,7 @@
         drawJointBadge(canvasCtx, trunkCenter, `回旋:${rotStr}`);
       }
 
-      // --- 肘 ---
+      // 肘
       const rElbowAngle = 180 - V.angleDeg(V.sub(p[12], p[14]), V.sub(p[16], p[14]));
       const lElbowAngle = 180 - V.angleDeg(V.sub(p[11], p[13]), V.sub(p[15], p[13]));
       document.getElementById('r_elbow_fe').innerText = `屈 ${Math.max(0, rElbowAngle).toFixed(1)}°`;
@@ -596,15 +694,15 @@
         drawJointBadge(canvasCtx, { x: lm[13].x * w, y: lm[13].y * h }, `左肘:${Math.max(0, lElbowAngle).toFixed(0)}°`);
       }
 
-      // --- 肩 ---
+      // 肩
       computeShoulder(lm, p[12], p[14], p[16], trunkX, trunkY, trunkZ, 'r', w, h);
       computeShoulder(lm, p[11], p[13], p[15], trunkX, trunkY, trunkZ, 'l', w, h);
 
-      // --- 股関節 ---
+      // 股関節
       computeHip(lm, p[24], p[26], p[28], trunkX, trunkY, trunkZ, 'r', w, h);
       computeHip(lm, p[23], p[25], p[27], trunkX, trunkY, trunkZ, 'l', w, h);
 
-      // --- 膝 ---
+      // 膝
       const rKneeFlex = 180 - V.angleDeg(V.sub(p[24], p[26]), V.sub(p[28], p[26]));
       const lKneeFlex = 180 - V.angleDeg(V.sub(p[23], p[25]), V.sub(p[27], p[25]));
       document.getElementById('r_knee_fe').innerText = `屈 ${Math.max(0, rKneeFlex).toFixed(1)}°`;
@@ -616,7 +714,7 @@
         drawJointBadge(canvasCtx, { x: lm[25].x * w, y: lm[25].y * h }, `左膝:${Math.max(0, lKneeFlex).toFixed(0)}°`);
       }
 
-      // --- 足関節 ---
+      // 足関節
       const rAnkleAngle = V.angleDeg(V.sub(p[26], p[28]), V.sub(p[32], p[28])) - 90;
       const lAnkleAngle = V.angleDeg(V.sub(p[25], p[27]), V.sub(p[31], p[27])) - 90;
       const rAnkStr = `${rAnkleAngle >= 0 ? '背' : '底'}${Math.abs(rAnkleAngle).toFixed(0)}°`;
@@ -668,25 +766,47 @@
       }
     }
 
-    // --- 動画・カメラ制御 ---
+    // --- 動画・カメラ制御とフレーム描画 ---
+    async function renderCurrentFrame() {
+      if (videoElement.readyState >= 2) {
+        await pose.send({ image: videoElement });
+        seekBar.value = videoElement.currentTime;
+        timeDisplay.innerText = `${videoElement.currentTime.toFixed(2)}s`;
+      }
+    }
+
+    async function playLoop() {
+      if (!videoElement.paused && !videoElement.ended) {
+        await renderCurrentFrame();
+        requestAnimationFrame(playLoop);
+      }
+    }
+
+    videoElement.onseeked = () => {
+      if (videoElement.paused) {
+        renderCurrentFrame();
+      }
+    };
+
     uploader.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
       if (cameraUtil) { cameraUtil.stop(); isLiveCamera = false; }
-      headTopTrails.length = 0;
-      chinTrails.length = 0;
-      trunkCenterTrails.length = 0;
+      Object.keys(trails).forEach(k => trails[k].length = 0);
 
       videoElement.src = URL.createObjectURL(file);
       videoElement.load();
+
       videoElement.onloadedmetadata = () => {
         seekBar.max = videoElement.duration;
+        seekBar.value = 0;
         seekBar.disabled = false;
         btnPlayPause.disabled = false;
         btnPrevFrame.disabled = false;
         btnNextFrame.disabled = false;
-        processCurrentVideoFrame();
+        timeDisplay.innerText = "0.00s";
+        videoElement.currentTime = 0.001;
       };
     });
 
@@ -694,9 +814,8 @@
       if (isLiveCamera) return;
       isLiveCamera = true;
       videoElement.pause();
-      headTopTrails.length = 0;
-      chinTrails.length = 0;
-      trunkCenterTrails.length = 0;
+      btnPlayPause.innerText = '▶';
+      Object.keys(trails).forEach(k => trails[k].length = 0);
       
       cameraUtil = new Camera(videoElement, {
         onFrame: async () => { await pose.send({ image: videoElement }); },
@@ -712,24 +831,11 @@
       btnNextFrame.disabled = true;
     });
 
-    async function processCurrentVideoFrame() {
-      if (!videoElement.paused && !videoElement.ended) {
-        await pose.send({ image: videoElement });
-        seekBar.value = videoElement.currentTime;
-        timeDisplay.innerText = `${videoElement.currentTime.toFixed(2)}s`;
-        requestAnimationFrame(processCurrentVideoFrame);
-      } else {
-        await pose.send({ image: videoElement });
-        seekBar.value = videoElement.currentTime;
-        timeDisplay.innerText = `${videoElement.currentTime.toFixed(2)}s`;
-      }
-    }
-
     btnPlayPause.addEventListener('click', () => {
       if (videoElement.paused) {
         videoElement.play();
         btnPlayPause.innerText = '⏸';
-        processCurrentVideoFrame();
+        playLoop();
       } else {
         videoElement.pause();
         btnPlayPause.innerText = '▶';
@@ -738,21 +844,18 @@
 
     seekBar.addEventListener('input', () => {
       videoElement.currentTime = parseFloat(seekBar.value);
-      processCurrentVideoFrame();
     });
 
     btnPrevFrame.addEventListener('click', () => {
       videoElement.pause();
       btnPlayPause.innerText = '▶';
       videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
-      setTimeout(processCurrentVideoFrame, 50);
     });
 
     btnNextFrame.addEventListener('click', () => {
       videoElement.pause();
       btnPlayPause.innerText = '▶';
       videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 0.033);
-      setTimeout(processCurrentVideoFrame, 50);
     });
   </script>
 </body>
