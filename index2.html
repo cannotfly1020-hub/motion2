@@ -34,6 +34,7 @@
     .data-box.red { border-left-color: #ff375f; }
     .data-box h3 { font-size: 11px; color: #ddd; margin-bottom: 4px; }
     .data-box .val { font-size: 18px; font-weight: bold; color: #fff; font-family: monospace; }
+    .data-box .val span { font-size: 11px; color: #aaa; font-weight: normal; margin-left: 2px; }
     
     #controls { background: #111; padding: 10px 15px calc(15px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #333; }
     .seek-row { display: flex; align-items: center; gap: 10px; }
@@ -108,8 +109,9 @@ const inputBufferCtx = inputBufferCanvas.getContext('2d');
 let isProcessing = false;
 let animFrameId = null;
 
-// 身長からセンチ(cm)を割り出すための基準（最初はまっすぐ立っている状態の長さを記憶）
-let maxBodyHeightPx = 0; 
+// AIが見つけた最大値を記憶しておく変数
+let maxXFactor = 0;
+let maxStride = 0;
 
 // MediaPipe Pose の設定（AIの準備）
 const pose = new Pose({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` });
@@ -118,7 +120,6 @@ pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfide
 pose.onResults((results) => {
     if (!results.poseLandmarks) {
         outCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
-        resetNumbers();
         return;
     }
     drawAndAnalyze(results.poseLandmarks);
@@ -134,8 +135,9 @@ function fitCanvases() {
 }
 window.addEventListener('resize', fitCanvases);
 
-// 角度を計算する便利関数
+// 角度を計算する便利関数（エラーにならないようにガードを強化）
 function calcAngle(p1, p2, p3) {
+    if (!p1 || !p2 || !p3 || isNaN(p1.x) || isNaN(p2.x) || isNaN(p3.x)) return 0;
     const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
     const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
     const dot = v1.x * v2.x + v1.y * v2.y;
@@ -163,14 +165,6 @@ function getVideoRenderRect(vid, cvs) {
     return { width: renderWidth, height: renderHeight, x: offsetX, y: offsetY };
 }
 
-// 数字をリセットする
-function resetNumbers() {
-    document.getElementById('res_stride').innerText = "---";
-    document.getElementById('res_mer_elbow').innerText = "---";
-    document.getElementById('res_xfactor').innerText = "---";
-    document.getElementById('res_release_h').innerText = "---";
-}
-
 // 骨格を描画して、現在の瞬間の数値をリアルタイム計算する関数
 function drawAndAnalyze(lm) {
     outCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
@@ -180,16 +174,16 @@ function drawAndAnalyze(lm) {
     const box = getVideoRenderRect(video, outputCanvas);
     const toPx = (p) => ({ x: box.x + p.x * box.w, y: box.y + p.y * box.h });
 
-    // 線の描画関数
+    // 線の描画関数（小さく映っていても描画されるように条件を外す）
     const drawL = (p1, p2, color) => {
-        if (lm[p1] && lm[p2] && lm[p1].visibility > 0.3 && lm[p2].visibility > 0.3) {
+        if (lm[p1] && lm[p2]) {
             const pt1 = toPx(lm[p1]), pt2 = toPx(lm[p2]);
             outCtx.strokeStyle = color; outCtx.beginPath(); outCtx.moveTo(pt1.x, pt1.y); outCtx.lineTo(pt2.x, pt2.y); outCtx.stroke();
             
-            // 関節の丸も描く
+            // 関節の丸も少し大きく描く
             outCtx.fillStyle = '#fff';
-            outCtx.beginPath(); outCtx.arc(pt1.x, pt1.y, 4, 0, Math.PI * 2); outCtx.fill();
-            outCtx.beginPath(); outCtx.arc(pt2.x, pt2.y, 4, 0, Math.PI * 2); outCtx.fill();
+            outCtx.beginPath(); outCtx.arc(pt1.x, pt1.y, 5, 0, Math.PI * 2); outCtx.fill();
+            outCtx.beginPath(); outCtx.arc(pt2.x, pt2.y, 5, 0, Math.PI * 2); outCtx.fill();
         }
     };
 
@@ -202,18 +196,23 @@ function drawAndAnalyze(lm) {
     drawL(11, 23, 'rgba(255,255,255,0.4)'); drawL(12, 24, 'rgba(255,255,255,0.4)'); // 体の横の線
 
     // ==========================================
-    // 🤖 今この瞬間の数値を画面に出す
+    // 🤖 ここからAIによる完全自動計算
     // ==========================================
     
+    let curXFactor = "---", curElbow = "---", curStride = "---", curRelease = "---";
+
     // 1. 体の「ひねり」（捻転差）
     const shL = lm[11], shR = lm[12], hipL = lm[23], hipR = lm[24];
     if (shL && shR && hipL && hipR) {
-        const shAngle = Math.atan2((shR.z || 0) - (shL.z || 0), (shR.x - shL.x)) * (180 / Math.PI);
-        const hipAngle = Math.atan2((hipR.z || 0) - (hipL.z || 0), (hipR.x - hipL.x)) * (180 / Math.PI);
-        let xFactor = Math.abs(shAngle - hipAngle);
+        const shAngleZ = Math.atan2((shR.z || 0) - (shL.z || 0), (shR.x - shL.x)) * (180 / Math.PI);
+        const hipAngleZ = Math.atan2((hipR.z || 0) - (hipL.z || 0), (hipR.x - hipL.x)) * (180 / Math.PI);
+        let xFactor = Math.abs(shAngleZ - hipAngleZ);
         if (xFactor > 90) xFactor = 180 - xFactor;
         
-        document.getElementById('res_xfactor').innerText = `${xFactor.toFixed(0)}°`;
+        if (!isNaN(xFactor) && xFactor > 0) {
+            if (xFactor > maxXFactor) maxXFactor = xFactor;
+            curXFactor = `${xFactor.toFixed(0)}° <span>(最大 ${maxXFactor.toFixed(0)}°)</span>`;
+        }
     }
 
     // 2. 投げている方のうでの「しなり」
@@ -228,36 +227,62 @@ function drawAndAnalyze(lm) {
 
     if (throwSh && throwEl && throwWr) {
         const elbowAngle = calcAngle(toPx(throwSh), toPx(throwEl), toPx(throwWr));
-        document.getElementById('res_mer_elbow').innerText = `${elbowAngle.toFixed(0)}°`;
+        if (!isNaN(elbowAngle) && elbowAngle > 0) {
+            curElbow = `${elbowAngle.toFixed(0)}°`;
+        }
     }
 
-    // 3. 足のふみ出し幅 と 4. ボールをはなす高さ
-    const head = lm[0], ankL = lm[27], ankR = lm[28];
-    if (head && ankL && ankR) {
-        // 現在の頭から足の裏までのピクセル数
-        const currentBodyPx = Math.abs(toPx(head).y - Math.max(toPx(ankL).y, toPx(ankR).y));
-        // 一番まっすぐ立っている時の長さを自動で記憶する
-        if (currentBodyPx > maxBodyHeightPx) {
-            maxBodyHeightPx = currentBodyPx;
+    // 3. ピクセルをセンチに変換する基準（胴の長さから推測）
+    let pxPerCm = 0;
+    if (shL && shR && hipL && hipR) {
+        const shMidY = (toPx(shL).y + toPx(shR).y) / 2;
+        const hipMidY = (toPx(hipL).y + toPx(hipR).y) / 2;
+        const trunkPx = Math.abs(hipMidY - shMidY);
+        // 小学生の胴の長さを約40cmと仮定して、1cmが何ピクセルか割り出す
+        if (trunkPx > 0) {
+            pxPerCm = trunkPx / 40;
         }
+    }
 
-        // 小学生の平均身長を約140cmと仮定して、1cmあたりのピクセルを計算
-        const pxPerCm = maxBodyHeightPx > 0 ? maxBodyHeightPx / 140 : 0; 
-        
-        if (pxPerCm > 0) {
-            // 歩幅（右足と左足の距離）
-            const stridePx = Math.abs(toPx(ankL).x - toPx(ankR).x);
+    if (pxPerCm > 0) {
+        // 足のふみ出し幅（足首、かかと、ヒザのうち見えているものを自動で使う）
+        const foot1 = lm[27] || lm[29] || lm[25]; 
+        const foot2 = lm[28] || lm[30] || lm[26]; 
+        if (foot1 && foot2) {
+            const stridePx = Math.abs(toPx(foot1).x - toPx(foot2).x);
             const strideCm = stridePx / pxPerCm;
-            document.getElementById('res_stride').innerText = `約 ${strideCm.toFixed(0)} cm`;
             
-            // 手首の高さ
-            if (throwWr) {
-                const groundY = Math.max(toPx(ankL).y, toPx(ankR).y);
-                const releaseHCm = Math.max(0, (groundY - toPx(throwWr).y) / pxPerCm);
-                document.getElementById('res_release_h').innerText = `約 ${releaseHCm.toFixed(0)} cm`;
+            if (!isNaN(strideCm) && strideCm > 0) {
+                if (strideCm > maxStride) maxStride = strideCm;
+                curStride = `約 ${strideCm.toFixed(0)} cm <span>(最大 ${maxStride.toFixed(0)}cm)</span>`;
+            }
+        }
+        
+        // 4. ボールをはなす高さ
+        if (throwWr) {
+            // 地面を「画面に映っている一番下の足」とする
+            let lowestY = 0;
+            [27, 28, 29, 30, 31, 32].forEach(i => {
+                if (lm[i]) lowestY = Math.max(lowestY, toPx(lm[i]).y);
+            });
+            // もし足が映っていなければ、腰の下60cmあたりを地面と仮定する
+            if (lowestY === 0) {
+                const hipMidY = (toPx(hipL).y + toPx(hipR).y) / 2;
+                lowestY = hipMidY + (60 * pxPerCm);
+            }
+
+            const releaseHCm = Math.max(0, (lowestY - toPx(throwWr).y) / pxPerCm);
+            if (!isNaN(releaseHCm) && releaseHCm > 0) {
+                curRelease = `約 ${releaseHCm.toFixed(0)} cm`;
             }
         }
     }
+
+    // 画面に計算結果を表示
+    document.getElementById('res_xfactor').innerHTML = curXFactor;
+    document.getElementById('res_mer_elbow').innerHTML = curElbow;
+    document.getElementById('res_stride').innerHTML = curStride;
+    document.getElementById('res_release_h').innerHTML = curRelease;
 
     outCtx.restore();
 }
@@ -300,11 +325,8 @@ seekSlider.addEventListener('input', () => {
         btnPlayPause.innerText = '▶ 再生 / 停止';
         btnPlayPause.style.background = '#007aff';
         video.currentTime = (seekSlider.value / 100) * video.duration;
+        processCurrentFrame(); // 指を動かすたびにリアルタイム更新
     }
-});
-// 指を離した時にもう一度確実にAIを計算させる
-seekSlider.addEventListener('change', () => { 
-    processCurrentFrame(); 
 });
 
 // 再生 / ストップボタン
@@ -353,9 +375,9 @@ document.getElementById('inputFile').addEventListener('change', (e) => {
     if (animFrameId) cancelAnimationFrame(animFrameId);
     video.pause();
     
-    // 計算用の身長データをリセット
-    maxBodyHeightPx = 0; 
-    resetNumbers();
+    // 記憶したAIの最大値をリセット
+    maxXFactor = 0;
+    maxStride = 0;
 
     const objUrl = URL.createObjectURL(file);
     video.src = objUrl;
@@ -369,9 +391,15 @@ document.getElementById('inputFile').addEventListener('change', (e) => {
         video.currentTime = 0.001;
         processCurrentFrame();
         guideText.innerHTML = "<span style='color:#00ffcc;'>準備OK！下のバーをスライドさせてみよう👉</span>";
-        loop();
+        if (!animFrameId) loop();
     };
-    video.addEventListener('canplay', onCanPlay);
+    
+    // 安全に起動
+    if (video.readyState >= 3) {
+        onCanPlay();
+    } else {
+        video.addEventListener('canplay', onCanPlay);
+    }
 });
 
 // 初期化
