@@ -31,12 +31,12 @@
       height: 100dvh;
       display: flex;
       background: #000;
-      transition: all 0.2s ease;
+      z-index: 1;
     }
 
     /* モード1: 動画Aのみ */
-    .compare-viewport.mode-single #paneB { display: none; }
-    .compare-viewport.mode-single #paneA { flex: 1; border: none; }
+    .compare-viewport.mode-single #paneB { display: none !important; }
+    .compare-viewport.mode-single #paneA { flex: 1; width: 100%; height: 100%; border: none; }
 
     /* モード2: 2画面並列 */
     .compare-viewport.mode-split {
@@ -102,29 +102,29 @@
       border-radius: 4px;
       font-size: 0.75rem;
       font-weight: bold;
-      z-index: 10;
+      z-index: 5;
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
     .pane-tag.tag-a { color: #4dabf7; border-color: #1971c2; }
     .pane-tag.tag-b { color: #ff922b; border-color: #f76707; }
 
-    /* 上部：全体データ表示パネル（折りたたみ式） */
+    /* 上部：全体データ表示パネル */
     .data-panel {
       position: absolute;
       top: env(safe-area-inset-top, 8px);
       left: 8px;
       right: 8px;
       max-height: 40dvh;
-      background: rgba(15, 15, 15, 0.9);
+      background: rgba(15, 15, 15, 0.92);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 10px;
       padding: 8px 12px;
-      z-index: 30;
+      z-index: 50;
       overflow-y: auto;
       font-size: 0.75rem;
-      transition: max-height 0.3s ease;
+      transition: max-height 0.25s ease;
     }
     .data-panel.collapsed {
       max-height: 36px;
@@ -174,17 +174,18 @@
       right: 0;
       padding: 6px 10px;
       padding-bottom: max(8px, env(safe-area-inset-bottom));
-      background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 80%, transparent 100%);
+      background: linear-gradient(0deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.8) 80%, transparent 100%);
       display: flex;
       flex-direction: column;
       gap: 5px;
-      z-index: 20;
+      z-index: 50;
+      pointer-events: auto;
     }
 
-    /* 表示モード切替バー */
+    /* 3モード切替 */
     .mode-bar {
       display: flex;
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.1);
       border-radius: 6px;
       padding: 2px;
       gap: 4px;
@@ -310,12 +311,12 @@
   <div class="compare-viewport mode-split" id="mainViewport">
     <div class="video-pane" id="paneA">
       <div class="pane-tag tag-a">動画 A</div>
-      <video id="videoA" playsinline webkit-playsinline muted></video>
+      <video id="videoA" playsinline webkit-playsinline muted crossorigin="anonymous"></video>
       <canvas id="canvasA"></canvas>
     </div>
     <div class="video-pane" id="paneB">
       <div class="pane-tag tag-b">動画 B</div>
-      <video id="videoB" playsinline webkit-playsinline muted></video>
+      <video id="videoB" playsinline webkit-playsinline muted crossorigin="anonymous"></video>
       <canvas id="canvasB"></canvas>
     </div>
   </div>
@@ -431,6 +432,32 @@
   </div>
 
   <script>
+    // --- グローバル状態 ---
+    let currentMode = 'split';
+    const selectedOverlays = new Set(['r_knee']);
+    const selectedTrails = new Set(['headTop', 'chin', 'trunkCenter']);
+
+    const createTrailBuffer = () => ({
+      headTop: [], chin: [], trunkCenter: [],
+      rShoulder: [], lShoulder: [], rElbow: [], lElbow: [], rWrist: [], lWrist: [],
+      rHip: [], lHip: [], rKnee: [], lKnee: [], rAnkle: [], lAnkle: []
+    });
+
+    const trailsA = createTrailBuffer();
+    const trailsB = createTrailBuffer();
+
+    const trailColors = {
+      headTop: "#00f0ff", chin: "#ff3399", trunkCenter: "#51cf66",
+      rShoulder: "#ff6b6b", lShoulder: "#339af0", rElbow: "#f76707", lElbow: "#22b8cf",
+      rWrist: "#ff922b", lWrist: "#20c997", rHip: "#e8590c", lHip: "#4263eb",
+      rKnee: "#fcc419", lKnee: "#748ffc", rAnkle: "#ffd43b", lAnkle: "#94d82d"
+    };
+    const MAX_TRAIL_LENGTH = 120;
+
+    let activeTarget = 'A'; // 'A' または 'B' (単一Pose用)
+    let isPoseBusy = false;
+
+    // --- DOM要素取得 ---
     const mainViewport = document.getElementById('mainViewport');
     const btnModeSingle = document.getElementById('btnModeSingle');
     const btnModeSplit = document.getElementById('btnModeSplit');
@@ -457,42 +484,4 @@
     const btnNextB = document.getElementById('btnNextB');
     const uploaderB = document.getElementById('uploaderB');
 
-    const btnSyncPlay = document.getElementById('btnSyncPlay');
-    const btnClearTrail = document.getElementById('btnClearTrail');
-    const tabAngle = document.getElementById('tabAngle');
-    const tabTrail = document.getElementById('tabTrail');
-    const angleChipsRow = document.getElementById('angleChipsRow');
-    const trailChipsRow = document.getElementById('trailChipsRow');
-
-    let currentMode = 'split'; // 'single' | 'split' | 'overlay'
-
-    // パネル開閉
-    togglePanelBtn.addEventListener('click', () => {
-      dataPanel.classList.toggle('collapsed');
-      document.getElementById('collapseIcon').innerText = dataPanel.classList.contains('collapsed') ? '▲ タップで開く' : '▼ タップで閉じる';
-    });
-
-    // 表示モード切替
-    function setMode(mode) {
-      currentMode = mode;
-      mainViewport.className = `compare-viewport mode-${mode}`;
-      btnModeSingle.classList.toggle('active', mode === 'single');
-      btnModeSplit.classList.toggle('active', mode === 'split');
-      btnModeOverlay.classList.toggle('active', mode === 'overlay');
-
-      if (mode === 'single') {
-        rowSeekB.style.display = 'none';
-        btnSyncPlay.innerText = (!videoA.paused) ? '⏸ 一時停止' : '▶ 再生';
-      } else {
-        rowSeekB.style.display = 'flex';
-        btnSyncPlay.innerText = (!videoA.paused || !videoB.paused) ? '⏸ 一時停止' : '▶ 同期再生';
-      }
-      renderAllSafe();
-    }
-
-    btnModeSingle.addEventListener('click', () => setMode('single'));
-    btnModeSplit.addEventListener('click', () => setMode('split'));
-    btnModeOverlay.addEventListener('click', () => setMode('overlay'));
-
-    const selectedOverlays = new Set(['r_knee']);
-    const selectedTrails = new Set(
+    const btnSyncPlay = document.
