@@ -221,7 +221,7 @@
       color: #ccc;
       font-size: 0.72rem;
       font-weight: 500;
-      padding: 4px 0;
+      padding: 5px 0;
       border-radius: 4px;
       cursor: pointer;
       text-align: center;
@@ -552,7 +552,6 @@
     const angleChipsRow = document.getElementById('angleChipsRow');
     const trailChipsRow = document.getElementById('trailChipsRow');
 
-    // モード切替UIイベント
     btnTouchModeZoom.addEventListener('click', () => {
       currentTouchMode = 'zoom';
       btnTouchModeZoom.classList.add('active');
@@ -565,22 +564,43 @@
       btnTouchModeZoom.classList.remove('active');
     });
 
-    // タッチスクリーン座標 -> 動画Canvas内部正規化座標 (0.0 〜 1.0) 逆算
+    // 画面タップ座標 -> Canvas上の描画領域(アスペクト比余白を補正)の正規化座標(0.0~1.0)へ変換
     function getCanvasNormalizedCoord(clientX, clientY, canvas, scale, panX, panY) {
       const rect = canvas.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
 
-      // 拡大・パンの逆変換
-      const unscaledX = (clientX - centerX - panX) / scale + centerX;
-      const unscaledY = (clientY - centerY - panY) / scale + centerY;
+      // 1. スケールとパンの逆変換 (未変形時のCanvas要素上の位置)
+      const unscaledX = (clientX - centerX - panX) / scale + rect.width / 2;
+      const unscaledY = (clientY - centerY - panY) / scale + rect.height / 2;
 
-      const normX = (unscaledX - rect.left) / rect.width;
-      const normY = (unscaledY - rect.top) / rect.height;
+      // 2. object-fit: contain によるアスペクト比の黒帯余白を計算
+      if (!canvas.width || !canvas.height) return { normX: 0, normY: 0 };
+      
+      const canvasAspect = canvas.width / canvas.height;
+      const elemAspect = rect.width / rect.height;
+
+      let drawW, drawH, drawX, drawY;
+      if (elemAspect > canvasAspect) {
+        // 左右に余白あり
+        drawH = rect.height;
+        drawW = rect.height * canvasAspect;
+        drawX = (rect.width - drawW) / 2;
+        drawY = 0;
+      } else {
+        // 上下に余白あり
+        drawW = rect.width;
+        drawH = rect.width / canvasAspect;
+        drawX = 0;
+        drawY = (rect.height - drawH) / 2;
+      }
+
+      // 3. 描画領域内での正規化座標(0.0〜1.0)
+      const normX = (unscaledX - drawX) / drawW;
+      const normY = (unscaledY - drawY) / drawH;
       return { normX, normY };
     }
 
-    // 操作管理（ピンチズーム・ドラッグ・ポイント補正）
     function setupInteractions(pane, canvas, offsets, getResults, drawCallback) {
       let scale = 1.0;
       let panX = 0, panY = 0;
@@ -596,6 +616,7 @@
       }
 
       function handleStart(e) {
+        // 2本指タッチ：常にピンチズーム優先
         if (e.touches && e.touches.length === 2) {
           isPanning = false;
           draggingLandmarkIdx = null;
@@ -610,54 +631,58 @@
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        // ポイント調整モード、またはズーム時でもポイント付近をタップした場合はドラッグ判定
-        const { normX, normY } = getCanvasNormalizedCoord(clientX, clientY, canvas, scale, panX, panY);
-        const results = getResults();
+        // 【ポイント調整モード時のみ】関節点の当たり判定を実行
+        if (currentTouchMode === 'edit') {
+          const { normX, normY } = getCanvasNormalizedCoord(clientX, clientY, canvas, scale, panX, panY);
+          const results = getResults();
 
-        if (results && results.poseLandmarks) {
-          const lm = results.poseLandmarks;
-          let minD = currentTouchMode === 'edit' ? 0.08 : 0.035; // 編集モード時はタップ判定を広めに
-          let targetIdx = null;
+          if (results && results.poseLandmarks) {
+            const lm = results.poseLandmarks;
+            let minD = 0.06; // 判定半径 (動画全幅の6%)
+            let targetIdx = null;
 
-          for (let i = 0; i < lm.length; i++) {
-            if (!lm[i] || lm[i].visibility < 0.2) continue;
-            const off = offsets[i] || { x: 0, y: 0 };
-            const curX = lm[i].x + off.x;
-            const curY = lm[i].y + off.y;
-            const d = Math.hypot(curX - normX, curY - normY);
-            if (d < minD) {
-              minD = d;
-              targetIdx = i;
+            for (let i = 0; i < lm.length; i++) {
+              if (!lm[i] || lm[i].visibility < 0.2) continue;
+              const off = offsets[i] || { x: 0, y: 0 };
+              const curX = lm[i].x + off.x;
+              const curY = lm[i].y + off.y;
+              const d = Math.hypot(curX - normX, curY - normY);
+              if (d < minD) {
+                minD = d;
+                targetIdx = i;
+              }
+            }
+
+            if (targetIdx !== null) {
+              draggingLandmarkIdx = targetIdx;
+              return;
             }
           }
+          return; // ポイント調整モードでは背景ドラッグによるパンを無効化
+        }
 
-          if (targetIdx !== null) {
-            draggingLandmarkIdx = targetIdx;
+        // 【ズーム/移動モード】
+        if (currentTouchMode === 'zoom') {
+          // ダブルタップでズームリセット
+          const now = Date.now();
+          if (now - lastTapTime < 300) {
+            scale = 1.0;
+            panX = 0;
+            panY = 0;
+            updateTransform();
+            lastTapTime = 0;
             return;
           }
+          lastTapTime = now;
+
+          isPanning = true;
+          startX = clientX - panX;
+          startY = clientY - panY;
         }
-
-        if (currentTouchMode === 'edit') return;
-
-        // ダブルタップでズームリセット
-        const now = Date.now();
-        if (now - lastTapTime < 300) {
-          scale = 1.0;
-          panX = 0;
-          panY = 0;
-          updateTransform();
-          lastTapTime = 0;
-          return;
-        }
-        lastTapTime = now;
-
-        // パン移動の開始
-        isPanning = true;
-        startX = clientX - panX;
-        startY = clientY - panY;
       }
 
       function handleMove(e) {
+        // ピンチズーム動作
         if (e.touches && e.touches.length === 2) {
           e.preventDefault();
           const dist = Math.hypot(
@@ -674,7 +699,8 @@
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        if (draggingLandmarkIdx !== null) {
+        // 関節ポイントのドラッグ補正
+        if (draggingLandmarkIdx !== null && currentTouchMode === 'edit') {
           e.preventDefault();
           const { normX, normY } = getCanvasNormalizedCoord(clientX, clientY, canvas, scale, panX, panY);
           const results = getResults();
@@ -689,7 +715,8 @@
           return;
         }
 
-        if (isPanning && scale > 1.0) {
+        // パン移動
+        if (isPanning && scale > 1.0 && currentTouchMode === 'zoom') {
           e.preventDefault();
           panX = clientX - startX;
           panY = clientY - startY;
