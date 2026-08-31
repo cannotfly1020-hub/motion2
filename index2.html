@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析 Fixed-Arm Pro</title>
+  <title>投球フォームAIバイオメカニクス解析 Southpaw & Orthodox Pro</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -24,6 +24,7 @@
       --text-muted: #94a3b8;
       --success: #22c55e;
       --warning: #f59e0b;
+      --danger: #ef4444;
       --radius: 10px;
     }
 
@@ -219,11 +220,6 @@
       max-width: 320px;
     }
 
-    .input-group label {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-    }
-
     .input-field {
       width: 100%;
       padding: 10px;
@@ -236,7 +232,6 @@
       font-weight: 700;
     }
 
-    /* Hand Toggle Selector */
     .toggle-group {
       display: flex;
       width: 100%;
@@ -401,7 +396,7 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析 Fixed-Arm Pro</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 Southpaw & Orthodox Pro</h1>
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. 動画選択</div>
       <div id="step-nav-2" class="step-pill">2. 選手指定</div>
@@ -443,15 +438,17 @@
 
     <section id="view-step3" class="view-section">
       <div class="guidance-box">
-        腕の入れ替わりやロストを防ぐため<b>投球腕（利き腕）</b>を選択し、身長を入力してください。
+        投球腕（利き腕）を確実に選択してください。
       </div>
       
       <div class="input-group" style="padding: 10px 0; gap: 12px;">
         <div style="width: 100%;">
-          <label style="display: block; margin-bottom: 4px; text-align: center;">投球腕（利き腕）</label>
+          <label style="display: block; margin-bottom: 4px; text-align: center; font-weight: bold; color: var(--accent);">
+            投げる腕（利き腕）を選択
+          </label>
           <div class="toggle-group">
-            <button type="button" class="toggle-btn active" id="btn-arm-right">右投げ ⚾</button>
-            <button type="button" class="toggle-btn" id="btn-arm-left">左投げ ⚾</button>
+            <button type="button" class="toggle-btn" id="btn-arm-right">右投げ ⚾</button>
+            <button type="button" class="toggle-btn active" id="btn-arm-left">左投げ ⚾</button>
           </div>
         </div>
 
@@ -462,7 +459,7 @@
       </div>
 
       <button class="btn" id="btn-start-analysis" style="font-size: 1.1rem; padding: 12px 28px;">
-        🚀 OK！固定腕バイオメカ解析スタート
+        🚀 OK！リンク拘束解析スタート
       </button>
     </section>
 
@@ -475,7 +472,7 @@
           <div class="card-max" id="max-stride">最大: -- cm (0%身)</div>
         </div>
         <div class="card">
-          <div class="card-title" id="card-mer-title">💪 うでのしなり (右肩外旋)</div>
+          <div class="card-title" id="card-mer-title">💪 うでのしなり (左肩外旋)</div>
           <div class="card-val" id="val-elbow">-- °</div>
           <div class="card-max" id="max-mer">最大: -- °</div>
         </div>
@@ -539,7 +536,7 @@
     let animationFrameId = null;
 
     let userHeightCm = 140;
-    let selectedThrowArm = 'RIGHT'; // 'RIGHT' or 'LEFT'
+    let selectedThrowArm = 'LEFT'; // Default set to LEFT for this dataset
     let videoFileUrl = null;
 
     let initialAnchor = { x: 0.15, y: 0.1, w: 0.7, h: 0.8, isActive: false };
@@ -641,8 +638,8 @@
         smoothLandmarks: false,
         enableSegmentation: false,
         smoothSegmentation: false,
-        minDetectionConfidence: 0.25,
-        minTrackingConfidence: 0.25
+        minDetectionConfidence: 0.20,
+        minTrackingConfidence: 0.20
       });
 
       pose.onResults(onPoseResults);
@@ -1070,41 +1067,52 @@
     }
 
     /* ========================================================
-       RIGID KINEMATIC CHAIN RESOLVER WITH DEDICATED THROW ARM
+       RIGID SOUTHPAW / ORTHODOX KINEMATIC RESOLVER
     ======================================================== */
-    function resolveKinematicArm(shoulder, elbow, wristRaw, b) {
+    function resolveKinematicArm(shoulder, elbow, wristRaw, b, isSouthpaw) {
       const armLengthUpper = Math.hypot((elbow.x - shoulder.x) * b.w, (elbow.y - shoulder.y) * b.h);
       if (armLengthUpper > 15) {
         if (!stableUpperArmPx || armLengthUpper > stableUpperArmPx * 0.9) {
           stableUpperArmPx = armLengthUpper;
-          stableForearmPx = armLengthUpper * 0.88;
+          stableForearmPx = armLengthUpper * 0.92;
         }
       }
 
-      const expectedForearmPx = stableForearmPx || (armLengthUpper * 0.88);
+      const expectedForearmPx = stableForearmPx || (armLengthUpper * 0.92);
       const rawForearmPx = wristRaw ? Math.hypot((wristRaw.x - elbow.x) * b.w, (wristRaw.y - elbow.y) * b.h) : 0;
       
-      const isWristReliable = wristRaw && (wristRaw.visibility || 0) > 0.38 && rawForearmPx > expectedForearmPx * 0.55 && rawForearmPx < expectedForearmPx * 1.45;
+      const isWristReliable = wristRaw && 
+                              (wristRaw.visibility || 0) > 0.40 && 
+                              rawForearmPx > expectedForearmPx * 0.6 && 
+                              rawForearmPx < expectedForearmPx * 1.40 &&
+                              wristRaw.y < elbow.y + 0.1;
 
       if (isWristReliable) {
-        return { x: wristRaw.x, y: wristRaw.y, visibility: 0.95, isSynthetic: false };
+        return { x: wristRaw.x, y: wristRaw.y, visibility: 0.95 };
       }
 
-      const uX = (elbow.x - shoulder.x);
-      const uY = (elbow.y - shoulder.y);
-      const uMag = Math.hypot(uX * b.w, uY * b.h);
+      // Kinematic projection from Shoulder -> Elbow -> Forward/Upward Release Point
+      let uX = (elbow.x - shoulder.x);
+      let uY = (elbow.y - shoulder.y);
+      let uMag = Math.hypot(uX * b.w, uY * b.h);
 
       let forwardX = (uMag > 1e-4) ? (uX / uMag) : 0;
       let forwardY = (uMag > 1e-4) ? (uY / uMag) : -1;
 
-      if (forwardY > 0.3) {
-        forwardY = -Math.abs(forwardY);
+      // Force upward projection for high release (always above shoulder/elbow)
+      if (forwardY > -0.25) {
+        forwardY = -Math.max(0.75, Math.abs(forwardY));
+      }
+
+      // Left hander lateral bias correction (towards home plate direction)
+      if (isSouthpaw && Math.abs(forwardX) < 0.1) {
+        forwardX = -0.35;
       }
 
       const synthX = elbow.x + (forwardX * expectedForearmPx) / b.w;
       const synthY = elbow.y + (forwardY * expectedForearmPx) / b.h;
 
-      return { x: synthX, y: synthY, visibility: 0.85, isSynthetic: true };
+      return { x: synthX, y: synthY, visibility: 0.85 };
     }
 
     function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
@@ -1198,20 +1206,20 @@
         const L_TOE = landmarks[31];
         const R_TOE = landmarks[32];
 
-        const isRightHandThrow = (selectedThrowArm === 'RIGHT');
-        const throwShoulder = isRightHandThrow ? R_SHOULDER : L_SHOULDER;
-        const throwElbow = isRightHandThrow ? R_ELBOW : L_ELBOW;
-        const rawThrowWrist = isRightHandThrow ? R_WRIST_RAW : L_WRIST_RAW;
+        const isSouthpaw = (selectedThrowArm === 'LEFT');
+        const throwShoulder = isSouthpaw ? L_SHOULDER : R_SHOULDER;
+        const throwElbow = isSouthpaw ? L_ELBOW : R_ELBOW;
+        const rawThrowWrist = isSouthpaw ? L_WRIST_RAW : R_WRIST_RAW;
 
-        const resolvedWrist = resolveKinematicArm(throwShoulder, throwElbow, rawThrowWrist, b);
+        const resolvedWrist = resolveKinematicArm(throwShoulder, throwElbow, rawThrowWrist, b, isSouthpaw);
 
-        if (isRightHandThrow) {
-          landmarks[16] = { ...landmarks[16], x: resolvedWrist.x, y: resolvedWrist.y, visibility: resolvedWrist.visibility };
-        } else {
+        if (isSouthpaw) {
           landmarks[15] = { ...landmarks[15], x: resolvedWrist.x, y: resolvedWrist.y, visibility: resolvedWrist.visibility };
+        } else {
+          landmarks[16] = { ...landmarks[16], x: resolvedWrist.x, y: resolvedWrist.y, visibility: resolvedWrist.visibility };
         }
 
-        drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isRightHandThrow);
+        drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw);
 
         /* ========================================================
            SKELETAL SUMMATION CALIBRATION
@@ -1322,7 +1330,7 @@
       outputCtx.restore();
     }
 
-    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isRightThrow) {
+    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw) {
       const connections = [
         [11, 12], [11, 13], [13, 15],
         [12, 14], [14, 16],
@@ -1345,7 +1353,7 @@
       });
 
       const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
-      const throwWristIdx = isRightThrow ? 16 : 15;
+      const throwWristIdx = isSouthpaw ? 15 : 16;
 
       keyJoints.forEach(idx => {
         const p = landmarks[idx];
@@ -1354,7 +1362,7 @@
           outputCtx.arc(ox + p.x * bw, oy + p.y * bh, (idx === throwWristIdx ? 7 : (idx >= 29 ? 4.5 : 5.5)), 0, Math.PI * 2);
           
           if (idx === throwWristIdx) {
-            outputCtx.fillStyle = "#ef4444"; // Highlight Throwing Wrist in Red
+            outputCtx.fillStyle = "#ef4444"; // Fixed Throwing Wrist in Red
           } else if (idx === 15 || idx === 16) {
             outputCtx.fillStyle = "#f59e0b";
           } else {
