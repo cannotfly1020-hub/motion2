@@ -233,6 +233,10 @@
       font-weight: bold;
       border-color: #ff922b;
     }
+    .touch-mode-btn.target-mode.active {
+      background: #d6336c !important;
+      border-color: #f783ac !important;
+    }
 
     .tab-bar {
       display: flex;
@@ -388,8 +392,9 @@
 
     <!-- 操作モード切り替え -->
     <div class="touch-mode-bar">
-      <button class="touch-mode-btn active" id="btnTouchModeZoom">🔍 ズーム / 移動モード</button>
-      <button class="touch-mode-btn" id="btnTouchModeEdit">✏️ ポイント調整モード</button>
+      <button class="touch-mode-btn active" id="btnTouchModeZoom">🔍 ズーム / 移動</button>
+      <button class="touch-mode-btn" id="btnTouchModeEdit">✏️ 点調整</button>
+      <button class="touch-mode-btn target-mode" id="btnTouchModeTarget">🎯 対象選手を指定</button>
     </div>
 
     <div class="tab-bar">
@@ -481,7 +486,11 @@
     };
 
     let currentMode = 'split';
-    let currentTouchMode = 'zoom'; // 'zoom' または 'edit'
+    let currentTouchMode = 'zoom'; // 'zoom' | 'edit' | 'target'
+
+    // 指定対象（ターゲット）の中心座標 { x, y }
+    let lockedTargetA = null;
+    let lockedTargetB = null;
 
     const selectedOverlays = new Set(['r_knee']);
     const selectedTrails = new Set(['headTop', 'chin', 'trunkCenter']);
@@ -521,6 +530,7 @@
     const btnModeOverlay = document.getElementById('btnModeOverlay');
     const btnTouchModeZoom = document.getElementById('btnTouchModeZoom');
     const btnTouchModeEdit = document.getElementById('btnTouchModeEdit');
+    const btnTouchModeTarget = document.getElementById('btnTouchModeTarget');
 
     const rowSeekB = document.getElementById('rowSeekB');
     const togglePanelBtn = document.getElementById('togglePanelBtn');
@@ -552,22 +562,19 @@
     const angleChipsRow = document.getElementById('angleChipsRow');
     const trailChipsRow = document.getElementById('trailChipsRow');
 
-    btnTouchModeZoom.addEventListener('click', () => {
-      currentTouchMode = 'zoom';
-      btnTouchModeZoom.classList.add('active');
-      btnTouchModeEdit.classList.remove('active');
-    });
+    function setTouchMode(mode) {
+      currentTouchMode = mode;
+      btnTouchModeZoom.classList.toggle('active', mode === 'zoom');
+      btnTouchModeEdit.classList.toggle('active', mode === 'edit');
+      btnTouchModeTarget.classList.toggle('active', mode === 'target');
+    }
 
-    btnTouchModeEdit.addEventListener('click', () => {
-      currentTouchMode = 'edit';
-      btnTouchModeEdit.classList.add('active');
-      btnTouchModeZoom.classList.remove('active');
-    });
+    btnTouchModeZoom.addEventListener('click', () => setTouchMode('zoom'));
+    btnTouchModeEdit.addEventListener('click', () => setTouchMode('edit'));
+    btnTouchModeTarget.addEventListener('click', () => setTouchMode('target'));
 
-    // 【完全幾何逆算】親Pane基準のタッチ座標から動画正規化座標(0.0~1.0)を算出
     function getNormalizedVideoCoord(clientX, clientY, pane, canvas, scale, panX, panY) {
       const paneRect = pane.getBoundingClientRect();
-      // 1. 親Pane内でのローカルピクセル座標
       const localX = clientX - paneRect.left;
       const localY = clientY - paneRect.top;
 
@@ -575,13 +582,11 @@
       const paneH = paneRect.height;
       if (paneW === 0 || paneH === 0 || !canvas.width || !canvas.height) return { normX: 0, normY: 0 };
 
-      // 2. Paneの中心を原点とした拡大・パンの逆算
       const centerX = paneW / 2;
       const centerY = paneH / 2;
       const unscaledX = (localX - centerX - panX) / scale + centerX;
       const unscaledY = (localY - centerY - panY) / scale + centerY;
 
-      // 3. object-fit: contain のアスペクト比余白を計算
       const canvasAspect = canvas.width / canvas.height;
       const paneAspect = paneW / paneH;
 
@@ -598,13 +603,26 @@
         drawY = (paneH - drawH) / 2;
       }
 
-      // 4. 描画領域内での正規化座標(0.0 〜 1.0)
       const normX = (unscaledX - drawX) / drawW;
       const normY = (unscaledY - drawY) / drawH;
       return { normX, normY };
     }
 
-    function setupInteractions(pane, canvas, offsets, getResults, drawCallback) {
+    function calculateCenter(lm) {
+      if (!lm) return null;
+      let sx = 0, sy = 0, count = 0;
+      const coreJoints = [0, 11, 12, 23, 24];
+      coreJoints.forEach(i => {
+        if (lm[i] && lm[i].visibility > 0.3) {
+          sx += lm[i].x;
+          sy += lm[i].y;
+          count++;
+        }
+      });
+      return count > 0 ? { x: sx / count, y: sy / count } : null;
+    }
+
+    function setupInteractions(pane, canvas, offsets, getResults, drawCallback, isPaneA) {
       let scale = 1.0;
       let panX = 0, panY = 0;
       let startDist = 0;
@@ -619,7 +637,6 @@
       }
 
       function handleStart(e) {
-        // 2本指ピンチ：いかなる場合もズーム優先
         if (e.touches && e.touches.length === 2) {
           isPanning = false;
           draggingLandmarkIdx = null;
@@ -634,14 +651,29 @@
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        // 【ポイント調整モード】のときだけポイントの当たり判定を実施
+        // 【対象指定モード】タップした位置に対象ターゲットを設定
+        if (currentTouchMode === 'target') {
+          const { normX, normY } = getNormalizedVideoCoord(clientX, clientY, pane, canvas, scale, panX, panY);
+          if (normX >= 0 && normX <= 1 && normY >= 0 && normY <= 1) {
+            if (isPaneA) {
+              lockedTargetA = { x: normX, y: normY };
+            } else {
+              lockedTargetB = { x: normX, y: normY };
+            }
+            // 指定完了後はズームモードに自動移行
+            setTouchMode('zoom');
+            drawCallback();
+          }
+          return;
+        }
+
+        // 【ポイント調整モード】
         if (currentTouchMode === 'edit') {
           const { normX, normY } = getNormalizedVideoCoord(clientX, clientY, pane, canvas, scale, panX, panY);
           const results = getResults();
 
           if (results && results.poseLandmarks) {
             const lm = results.poseLandmarks;
-            // ズームしている時は判定半径を画面ピクセル基準に保つため scale で割る
             const minD = 0.07 / Math.sqrt(scale);
             let targetIdx = null;
             let closestDist = minD;
@@ -663,7 +695,7 @@
               return;
             }
           }
-          return; // ポイント調整モード時はパンを禁止
+          return;
         }
 
         // 【ズーム/移動モード】
@@ -700,7 +732,6 @@
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        // ポイント移動中
         if (draggingLandmarkIdx !== null && currentTouchMode === 'edit') {
           e.preventDefault();
           const { normX, normY } = getNormalizedVideoCoord(clientX, clientY, pane, canvas, scale, panX, panY);
@@ -716,7 +747,6 @@
           return;
         }
 
-        // ズームパン移動
         if (isPanning && scale > 1.0 && currentTouchMode === 'zoom') {
           e.preventDefault();
           panX = clientX - startX;
@@ -742,12 +772,12 @@
     }
 
     setupInteractions(paneA, canvasA, manualOffsetsA, () => lastResultsA, () => {
-      if (lastResultsA) drawFrame(canvasA, ctxA, videoA, lastResultsA, trailsA, "#00e5ff", "A", manualOffsetsA);
-    });
+      if (lastResultsA) drawFrame(canvasA, ctxA, videoA, lastResultsA, trailsA, "#00e5ff", "A", manualOffsetsA, lockedTargetA);
+    }, true);
 
     setupInteractions(paneB, canvasB, manualOffsetsB, () => lastResultsB, () => {
-      if (lastResultsB) drawFrame(canvasB, ctxB, videoB, lastResultsB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB);
-    });
+      if (lastResultsB) drawFrame(canvasB, ctxB, videoB, lastResultsB, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, lockedTargetB);
+    }, false);
 
     togglePanelBtn.addEventListener('click', () => {
       dataPanel.classList.toggle('collapsed');
@@ -810,6 +840,8 @@
     btnResetAdjust.addEventListener('click', () => {
       Object.keys(manualOffsetsA).forEach(k => delete manualOffsetsA[k]);
       Object.keys(manualOffsetsB).forEach(k => delete manualOffsetsB[k]);
+      lockedTargetA = null;
+      lockedTargetB = null;
       renderSafe();
     });
 
@@ -822,9 +854,28 @@
     const poseA = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
     poseA.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     poseA.onResults(results => {
+      // ターゲットロック判定：対象から大きく離れた検出（他人）はフィルタリング
+      if (results.poseLandmarks) {
+        const center = calculateCenter(results.poseLandmarks);
+        if (center) {
+          if (!lockedTargetA) {
+            lockedTargetA = center;
+          } else {
+            const dist = Math.hypot(center.x - lockedTargetA.x, center.y - lockedTargetA.y);
+            if (dist < 0.35) { // 許容移動距離内なら更新
+              lockedTargetA = center;
+            } else {
+              // ターゲットが他人に飛んだ場合は以前の描画を維持
+              isPoseA_Busy = false;
+              return;
+            }
+          }
+        }
+      }
+
       lastResultsA = results;
       try {
-        drawFrame(canvasA, ctxA, videoA, results, trailsA, "#00e5ff", "A", manualOffsetsA);
+        drawFrame(canvasA, ctxA, videoA, results, trailsA, "#00e5ff", "A", manualOffsetsA, lockedTargetA);
       } catch (err) {
         console.warn("PoseA draw error:", err);
       } finally {
@@ -835,9 +886,26 @@
     const poseB = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
     poseB.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     poseB.onResults(results => {
+      if (results.poseLandmarks) {
+        const center = calculateCenter(results.poseLandmarks);
+        if (center) {
+          if (!lockedTargetB) {
+            lockedTargetB = center;
+          } else {
+            const dist = Math.hypot(center.x - lockedTargetB.x, center.y - lockedTargetB.y);
+            if (dist < 0.35) {
+              lockedTargetB = center;
+            } else {
+              isPoseB_Busy = false;
+              return;
+            }
+          }
+        }
+      }
+
       lastResultsB = results;
       try {
-        drawFrame(canvasB, ctxB, videoB, results, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB);
+        drawFrame(canvasB, ctxB, videoB, results, trailsB, currentMode === 'overlay' ? "#ff922b" : "#00e5ff", "B", manualOffsetsB, lockedTargetB);
       } catch (err) {
         console.warn("PoseB draw error:", err);
       } finally {
@@ -850,7 +918,7 @@
       if (tb[key].length > MAX_TRAIL_LENGTH) tb[key].shift();
     }
 
-    function drawFrame(canvas, ctx, video, results, trailBuf, skeletonColor, label, offsets = {}) {
+    function drawFrame(canvas, ctx, video, results, trailBuf, skeletonColor, label, offsets = {}, targetCenter = null) {
       if (!video.videoWidth || !video.videoHeight) return;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -860,6 +928,18 @@
       ctx.save();
       ctx.clearRect(0, 0, w, h);
       ctx.drawImage(results.image, 0, 0, w, h);
+
+      // 対象ロック時のターゲットインジケーター（ピンクのターゲット枠）
+      if (targetCenter) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(247, 131, 172, 0.85)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(targetCenter.x * w, targetCenter.y * h, 28, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.restore();
+      }
 
       if (results.poseLandmarks) {
         const lm = results.poseLandmarks.map((pt, idx) => {
@@ -1161,6 +1241,7 @@
       if (!file) return;
       Object.keys(trailsA).forEach(k => trailsA[k].length = 0);
       Object.keys(manualOffsetsA).forEach(k => delete manualOffsetsA[k]);
+      lockedTargetA = null;
       videoA.src = URL.createObjectURL(file);
       videoA.load();
       videoA.onloadedmetadata = () => {
@@ -1178,6 +1259,7 @@
       if (!file) return;
       Object.keys(trailsB).forEach(k => trailsB[k].length = 0);
       Object.keys(manualOffsetsB).forEach(k => delete manualOffsetsB[k]);
+      lockedTargetB = null;
       videoB.src = URL.createObjectURL(file);
       videoB.load();
       videoB.onloadedmetadata = () => {
