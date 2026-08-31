@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析</title>
+  <title>投球フォームAIバイオメカニクス解析 Pro</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -16,13 +16,15 @@
       --primary: #2563eb;
       --primary-hover: #1d4ed8;
       --accent: #38bdf8;
-      --bg: #0f172a;
-      --surface: #1e293b;
-      --surface-light: #334155;
+      --accent-glow: rgba(56, 189, 248, 0.4);
+      --bg: #090d16;
+      --surface: #131d31;
+      --surface-light: #22324e;
       --text: #f8fafc;
       --text-muted: #94a3b8;
       --success: #22c55e;
       --warning: #f59e0b;
+      --radius: 10px;
     }
 
     * {
@@ -41,41 +43,41 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 12px;
+      padding: 8px;
     }
 
     header {
       width: 100%;
-      max-width: 900px;
+      max-width: 1200px;
       text-align: center;
-      margin-bottom: 12px;
+      margin-bottom: 6px;
     }
 
     h1 {
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       font-weight: 700;
       color: var(--text);
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 6px;
     }
 
-    /* Steps Progress Bar */
     .steps-nav {
       display: flex;
       justify-content: center;
-      gap: 8px;
-      margin-top: 8px;
+      gap: 6px;
+      margin-top: 6px;
       width: 100%;
       max-width: 500px;
+      margin-inline: auto;
     }
 
     .step-pill {
       flex: 1;
       text-align: center;
-      padding: 6px 4px;
-      font-size: 0.75rem;
+      padding: 5px 4px;
+      font-size: 0.72rem;
       font-weight: 600;
       border-radius: 9999px;
       background: var(--surface);
@@ -89,51 +91,49 @@
       border-color: var(--accent);
     }
 
-    /* Main Container */
     .app-container {
       width: 100%;
-      max-width: 900px;
+      max-width: 1200px;
       background: var(--surface);
-      border-radius: 12px;
+      border-radius: var(--radius);
       border: 1px solid var(--surface-light);
-      padding: 12px;
+      padding: 8px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
     }
 
-    /* Views */
     .view-section {
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
-      padding: 16px 8px;
+      gap: 10px;
+      width: 100%;
     }
 
     .view-section.active {
       display: flex;
     }
 
-    /* Buttons & Controls */
     .btn {
       background: var(--primary);
       color: #fff;
       border: none;
-      padding: 12px 24px;
+      padding: 10px 20px;
       border-radius: 8px;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      transition: all 0.2s ease;
+      gap: 6px;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
     }
 
     .btn:active {
-      transform: scale(0.98);
+      transform: scale(0.97);
       background: var(--primary-hover);
     }
 
@@ -147,9 +147,10 @@
       gap: 8px;
       flex-wrap: wrap;
       justify-content: center;
+      width: 100%;
     }
 
-    /* Screen Area */
+    /* Large Dynamic Video Screen Area */
     .screen-wrapper {
       position: relative;
       width: 100%;
@@ -159,9 +160,11 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      aspect-ratio: 16 / 9;
-      max-height: 60vh;
+      height: 68vh;
+      min-height: 380px;
+      max-height: 820px;
       touch-action: none;
+      border: 1px solid #1f2d45;
     }
 
     video {
@@ -171,74 +174,73 @@
     canvas {
       width: 100%;
       height: 100%;
-      object-fit: contain;
       display: block;
+      touch-action: none;
     }
 
-    /* Guidance Text */
     .guidance-box {
-      background: rgba(37, 99, 235, 0.15);
-      border: 1px solid var(--accent);
+      background: rgba(37, 99, 235, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.4);
       border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 0.875rem;
+      padding: 8px 12px;
+      font-size: 0.82rem;
       text-align: center;
       width: 100%;
+      color: #e2e8f0;
     }
 
-    /* Step 3 Input Form */
     .input-group {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       width: 100%;
-      max-width: 320px;
+      max-width: 300px;
     }
 
     .input-group label {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: var(--text-muted);
     }
 
     .input-field {
       width: 100%;
-      padding: 12px;
+      padding: 10px;
       border-radius: 8px;
       border: 1px solid var(--surface-light);
-      background: #0b1120;
+      background: #080c14;
       color: #fff;
       font-size: 1.25rem;
       text-align: center;
-      font-weight: bold;
+      font-weight: 700;
     }
 
-    /* Analysis Dashboard */
+    /* Dashboard: 4 High-Accuracy Cards */
     .dashboard {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
+      gap: 6px;
       width: 100%;
     }
 
-    @media (min-width: 640px) {
+    @media (min-width: 768px) {
       .dashboard {
         grid-template-columns: repeat(4, 1fr);
       }
     }
 
     .card {
-      background: #0b1120;
+      background: #090e18;
       border: 1px solid var(--surface-light);
       border-radius: 8px;
-      padding: 10px;
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
     }
 
     .card-title {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--text-muted);
       display: flex;
       align-items: center;
@@ -247,23 +249,24 @@
     }
 
     .card-val {
-      font-size: 1.3rem;
-      font-weight: 700;
+      font-size: 1.35rem;
+      font-weight: 800;
       color: var(--accent);
       font-variant-numeric: tabular-nums;
+      line-height: 1.2;
     }
 
     .card-max {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       color: var(--success);
-      font-weight: 500;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
     }
 
-    /* Playback Controls */
     .controls-container {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       width: 100%;
     }
 
@@ -272,20 +275,24 @@
       align-items: center;
       gap: 8px;
       width: 100%;
+      background: #090e18;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--surface-light);
     }
 
     .seek-bar {
       flex: 1;
-      height: 24px;
+      height: 22px;
       cursor: pointer;
       accent-color: var(--accent);
     }
 
     .time-disp {
-      font-size: 0.8rem;
-      font-family: monospace;
+      font-size: 0.78rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       color: var(--text-muted);
-      min-width: 80px;
+      min-width: 90px;
       text-align: right;
     }
 
@@ -299,13 +306,14 @@
 
     .btn-ctrl {
       background: var(--surface-light);
-      border: none;
+      border: 1px solid rgba(255, 255, 255, 0.05);
       color: #fff;
-      padding: 8px 12px;
+      padding: 8px 14px;
       border-radius: 6px;
       font-size: 0.85rem;
       font-weight: 600;
       cursor: pointer;
+      touch-action: manipulation;
     }
 
     .btn-ctrl:active {
@@ -315,19 +323,19 @@
     .loading-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(15, 23, 42, 0.8);
+      background: rgba(9, 13, 22, 0.85);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: 10px;
       z-index: 20;
     }
 
     .spinner {
-      width: 36px;
-      height: 36px;
-      border: 4px solid var(--surface-light);
+      width: 34px;
+      height: 34px;
+      border: 3px solid var(--surface-light);
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 1s linear infinite;
@@ -341,11 +349,11 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 Pro</h1>
     <div class="steps-nav">
-      <div id="step-nav-1" class="step-pill active">1. 動画えらび</div>
-      <div id="step-nav-2" class="step-pill">2. 選手をかこむ</div>
-      <div id="step-nav-3" class="step-pill">3. 身長入力・解析</div>
+      <div id="step-nav-1" class="step-pill active">1. 動画選択</div>
+      <div id="step-nav-2" class="step-pill">2. 枠で調整</div>
+      <div id="step-nav-3" class="step-pill">3. 身長・解析</div>
     </div>
   </header>
 
@@ -354,23 +362,26 @@
     <!-- STEP 1: Video File Selection -->
     <section id="view-step1" class="view-section active">
       <div class="guidance-box">
-        投球フォームの動画（横から/斜め前からのスロー動画がおすすめ）をえらんでください。
+        投球フォーム動画（スロー撮影推奨・横〜斜め前アングル）を選択してください。
       </div>
-      <label class="btn" style="padding: 24px 32px; font-size: 1.25rem;">
-        📁 動画をえらぶ
-        <input type="file" id="video-input" accept="video/*" style="display: none;">
-      </label>
+      <div style="padding: 40px 0;">
+        <label class="btn" style="padding: 20px 36px; font-size: 1.2rem;">
+          📁 動画をえらぶ
+          <input type="file" id="video-input" accept="video/*" style="display: none;">
+        </label>
+      </div>
     </section>
 
-    <!-- STEP 2: ROI Selection -->
+    <!-- STEP 2: ROI Selection & Drag/Resize Adjustment -->
     <section id="view-step2" class="view-section">
       <div class="guidance-box">
-        まわりの人が映っていても大丈夫！投げる選手を指で四角く囲んでください。
+        枠の<b>中央をドラッグして移動</b>、<b>四隅の丸ハンドルでサイズ調整</b>ができます。投手を囲んでください。
       </div>
       <div class="screen-wrapper" id="roi-wrapper">
         <canvas id="roi-canvas"></canvas>
       </div>
       <div class="btn-group">
+        <button class="btn btn-secondary" id="btn-roi-reset">🔄 枠をリセット</button>
         <button class="btn btn-secondary" id="btn-roi-skip">スキップ（全体）</button>
         <button class="btn" id="btn-roi-confirm">✅ この範囲で決定</button>
       </div>
@@ -379,14 +390,14 @@
     <!-- STEP 3: Height & Start Analysis -->
     <section id="view-step3" class="view-section">
       <div class="guidance-box">
-        長さ（cm）を正確に計算するために投手の身長を入力してください。
+        バイオメカニクス基準寸法（cm換算）を高精度に行うため、投手の身長を入力してください。
       </div>
-      <div class="input-group">
+      <div class="input-group" style="padding: 24px 0;">
         <label for="height-input">選手の身長 (cm)</label>
-        <input type="number" id="height-input" class="input-field" value="140" min="80" max="220">
+        <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
       </div>
-      <button class="btn" id="btn-start-analysis" style="font-size: 1.1rem; padding: 14px 28px;">
-        🚀 OK！解析スタート
+      <button class="btn" id="btn-start-analysis" style="font-size: 1.1rem; padding: 12px 28px;">
+        🚀 OK！高精度解析スタート
       </button>
     </section>
 
@@ -395,21 +406,21 @@
       
       <!-- Metrics Dashboard -->
       <div class="dashboard">
-        <!-- 1. Stride -->
+        <!-- 1. Stride (FC) -->
         <div class="card">
-          <div class="card-title">🚶 ステップ幅</div>
+          <div class="card-title">🚶 ステップ幅 (FC)</div>
           <div class="card-val" id="val-stride">-- cm</div>
-          <div class="card-max" id="max-stride">最大: -- cm</div>
+          <div class="card-max" id="max-stride">最大: -- cm (0%身)</div>
         </div>
-        <!-- 2. Arm Cocking / Flexion -->
+        <!-- 2. MER (Arm Cocking) -->
         <div class="card">
-          <div class="card-title">💪 うでのしなり</div>
+          <div class="card-title">💪 うでのしなり (MER)</div>
           <div class="card-val" id="val-elbow">-- °</div>
           <div class="card-max" id="min-elbow">最深: -- °</div>
         </div>
-        <!-- 3. Hip-Shoulder Separation -->
+        <!-- 3. Hip-Shoulder Separation (X-Factor) -->
         <div class="card">
-          <div class="card-title">🔄 体のひねり差</div>
+          <div class="card-title">🔄 捻転差 (X-Factor)</div>
           <div class="card-val" id="val-twist">-- °</div>
           <div class="card-max" id="max-twist">最大: -- °</div>
         </div>
@@ -421,27 +432,27 @@
         </div>
       </div>
 
-      <!-- Main Video Rendering Display -->
+      <!-- Main Display Screen -->
       <div class="screen-wrapper" id="main-screen-wrapper">
         <canvas id="output-canvas"></canvas>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.85rem; color: #fff;">AIモデル読み込み中...</div>
+          <div style="font-size: 0.85rem; color: #fff;">AI高精度モデル初期化中...</div>
         </div>
       </div>
 
       <!-- Playback Controls -->
       <div class="controls-container">
         <div class="seek-container">
-          <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.01">
+          <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
           <span class="time-disp" id="time-disp">0.00 / 0.00</span>
         </div>
         <div class="playback-buttons">
           <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
-          <button class="btn-ctrl" id="btn-play-pause" style="min-width: 70px;">再生</button>
+          <button class="btn-ctrl" id="btn-play-pause" style="min-width: 72px;">再生</button>
           <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
           <button class="btn-ctrl" id="btn-reset-max">最大値リセット</button>
-          <button class="btn-ctrl btn-secondary" id="btn-re-select">最初から</button>
+          <button class="btn-ctrl btn-secondary" id="btn-re-select">動画変更</button>
         </div>
       </div>
 
@@ -449,21 +460,20 @@
 
   </main>
 
-  <!-- Hidden elements for Processing -->
   <video id="hidden-video" playsinline webkit-playsinline preload="auto" muted></video>
   <canvas id="buffer-canvas" style="display: none;"></canvas>
 
   <script>
-    /* --- State Variables --- */
-    let videoElement = document.getElementById('hidden-video');
-    let bufferCanvas = document.getElementById('buffer-canvas');
-    let bufferCtx = bufferCanvas.getContext('2d');
+    /* --- State & Context Variables --- */
+    const videoElement = document.getElementById('hidden-video');
+    const bufferCanvas = document.getElementById('buffer-canvas');
+    const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
 
-    let roiCanvas = document.getElementById('roi-canvas');
-    let roiCtx = roiCanvas.getContext('2d');
+    const roiCanvas = document.getElementById('roi-canvas');
+    const roiCtx = roiCanvas.getContext('2d');
 
-    let outputCanvas = document.getElementById('output-canvas');
-    let outputCtx = outputCanvas.getContext('2d');
+    const outputCanvas = document.getElementById('output-canvas');
+    const outputCtx = outputCanvas.getContext('2d');
 
     let pose = null;
     let isPoseLoaded = false;
@@ -473,13 +483,14 @@
     let userHeightCm = 140;
     let videoFileUrl = null;
 
-    // ROI Box in normalized coordinates [0.0 - 1.0]
-    let roi = { x: 0, y: 0, w: 1, h: 1, isActive: false };
-    let isDragging = false;
-    let dragStart = { x: 0, y: 0 };
-    let dragCurrent = { x: 0, y: 0 };
+    // Editable ROI State [0.0 - 1.0]
+    let roi = { x: 0.2, y: 0.1, w: 0.6, h: 0.8, isActive: true };
+    let dragMode = null; // 'move', 'nw', 'ne', 'sw', 'se', 'create'
+    let dragStartPos = { x: 0, y: 0 };
+    let roiSnapshot = { ...roi };
+    const HANDLE_RADIUS = 12;
 
-    // Metrics Stats Records
+    // Metrics Records
     let records = {
       maxStride: 0,
       minElbow: 180,
@@ -487,7 +498,11 @@
       maxRelease: 0
     };
 
-    /* --- DOM Elements --- */
+    // Low-Pass Filter State for Temporal Stability
+    const smoothLandmarks = new Map();
+    const SMOOTH_ALPHA = 0.55; // EMA factor (0.55 responsiveness & stability)
+
+    // Elements
     const stepViews = {
       1: document.getElementById('view-step1'),
       2: document.getElementById('view-step2'),
@@ -515,16 +530,12 @@
     const btnPlayPause = document.getElementById('btn-play-pause');
     const aiLoading = document.getElementById('ai-loading');
 
-    /* --- Step Navigation --- */
+    /* --- Navigation --- */
     function setStep(stepNum) {
-      Object.keys(stepViews).forEach(s => {
-        stepViews[s].classList.remove('active');
-      });
+      Object.keys(stepViews).forEach(s => stepViews[s].classList.remove('active'));
       if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
 
-      Object.keys(stepPills).forEach(s => {
-        stepPills[s].classList.remove('active');
-      });
+      Object.keys(stepPills).forEach(s => stepPills[s].classList.remove('active'));
       if (stepNum <= 3 && stepPills[stepNum]) {
         stepPills[stepNum].classList.add('active');
       } else if (stepNum === 4 && stepPills[3]) {
@@ -541,7 +552,7 @@
 
       pose.setOptions({
         modelComplexity: 1,
-        smoothLandmarks: true,
+        smoothLandmarks: false, // Handled by custom anatomical smoothing
         enableSegmentation: false,
         smoothSegmentation: false,
         minDetectionConfidence: 0.5,
@@ -553,12 +564,12 @@
         isPoseLoaded = true;
         aiLoading.style.display = 'none';
       }).catch(err => {
-        console.error("MediaPipe Load Error:", err);
+        console.error("MediaPipe Initialization Error:", err);
         aiLoading.style.display = 'none';
       });
     }
 
-    /* --- Step 1: Video File Selection --- */
+    /* --- Step 1: Video Loader --- */
     document.getElementById('video-input').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -568,7 +579,7 @@
       videoElement.src = videoFileUrl;
 
       videoElement.onloadedmetadata = () => {
-        videoElement.currentTime = 0.001; // Force render initial frame
+        videoElement.currentTime = 0.001;
       };
 
       videoElement.onseeked = () => {
@@ -583,7 +594,25 @@
       initRoiCanvas();
     });
 
-    /* --- Step 2: ROI Selection Setup --- */
+    /* --- Step 2: Interactive ROI Adjustment (Move & Resize) --- */
+    function getAspectFitBounds(srcW, srcH, dstW, dstH) {
+      const srcAspect = srcW / srcH;
+      const dstAspect = dstW / dstH;
+      let w, h, x, y;
+      if (srcAspect > dstAspect) {
+        w = dstW;
+        h = dstW / srcAspect;
+        x = 0;
+        y = (dstH - h) / 2;
+      } else {
+        h = dstH;
+        w = dstH * srcAspect;
+        x = (dstW - w) / 2;
+        y = 0;
+      }
+      return { x, y, w, h };
+    }
+
     function initRoiCanvas() {
       setTimeout(() => {
         const rect = roiCanvas.parentElement.getBoundingClientRect();
@@ -600,127 +629,158 @@
       const ch = roiCanvas.height;
       roiCtx.clearRect(0, 0, cw, ch);
 
-      const vAspect = videoElement.videoWidth / videoElement.videoHeight;
-      const cAspect = cw / ch;
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
+      roiCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
 
-      let drawW, drawH, offsetX, offsetY;
-      if (vAspect > cAspect) {
-        drawW = cw;
-        drawH = cw / vAspect;
-        offsetX = 0;
-        offsetY = (ch - drawH) / 2;
-      } else {
-        drawH = ch;
-        drawW = ch * vAspect;
-        offsetX = (cw - drawW) / 2;
-        offsetY = 0;
-      }
-
-      roiCtx.drawImage(videoElement, offsetX, offsetY, drawW, drawH);
-
-      // Draw Selected ROI box if any
       if (roi.isActive) {
-        const rx = offsetX + roi.x * drawW;
-        const ry = offsetY + roi.y * drawH;
-        const rw = roi.w * drawW;
-        const rh = roi.h * drawH;
+        const rx = b.x + roi.x * b.w;
+        const ry = b.y + roi.y * b.h;
+        const rw = roi.w * b.w;
+        const rh = roi.h * b.h;
 
-        roiCtx.fillStyle = "rgba(56, 189, 248, 0.25)";
+        // Dark dim backdrop outside ROI
+        roiCtx.fillStyle = "rgba(0, 0, 0, 0.45)";
+        roiCtx.fillRect(b.x, b.y, b.w, ry - b.y);
+        roiCtx.fillRect(b.x, ry + rh, b.w, b.y + b.h - (ry + rh));
+        roiCtx.fillRect(b.x, ry, rx - b.x, rh);
+        roiCtx.fillRect(rx + rw, ry, b.x + b.w - (rx + rw), rh);
+
+        // Highlight Box
+        roiCtx.fillStyle = "rgba(56, 189, 248, 0.15)";
         roiCtx.fillRect(rx, ry, rw, rh);
         roiCtx.strokeStyle = "#38bdf8";
-        roiCtx.lineWidth = 3;
+        roiCtx.lineWidth = 2.5;
         roiCtx.strokeRect(rx, ry, rw, rh);
+
+        // 4 Corner Handles for intuitive resizing
+        const corners = [
+          { x: rx, y: ry },
+          { x: rx + rw, y: ry },
+          { x: rx, y: ry + rh },
+          { x: rx + rw, y: ry + rh }
+        ];
+
+        corners.forEach(c => {
+          roiCtx.beginPath();
+          roiCtx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+          roiCtx.fillStyle = "#ffffff";
+          roiCtx.fill();
+          roiCtx.strokeStyle = "#0284c7";
+          roiCtx.lineWidth = 3;
+          roiCtx.stroke();
+        });
       }
     }
 
-    // Touch & Mouse drag events for ROI
-    function getCanvasCoords(evt, canvas) {
-      const rect = canvas.getBoundingClientRect();
+    function getRoiCanvasPoint(evt) {
+      const rect = roiCanvas.getBoundingClientRect();
       const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
       const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
       return {
-        x: (clientX - rect.left) * (canvas.width / rect.width),
-        y: (clientY - rect.top) * (canvas.height / rect.height)
+        x: (clientX - rect.left) * (roiCanvas.width / rect.width),
+        y: (clientY - rect.top) * (roiCanvas.height / rect.height)
       };
     }
 
-    function getNormalizedVideoCoords(cx, cy) {
-      const cw = roiCanvas.width;
-      const ch = roiCanvas.height;
-      const vAspect = videoElement.videoWidth / videoElement.videoHeight;
-      const cAspect = cw / ch;
+    function hitTestRoi(pt) {
+      if (!roi.isActive) return 'create';
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, roiCanvas.width, roiCanvas.height);
+      const rx = b.x + roi.x * b.w;
+      const ry = b.y + roi.y * b.h;
+      const rw = roi.w * b.w;
+      const rh = roi.h * b.h;
+      const tol = HANDLE_RADIUS + 8;
 
-      let drawW, drawH, offsetX, offsetY;
-      if (vAspect > cAspect) {
-        drawW = cw;
-        drawH = cw / vAspect;
-        offsetX = 0;
-        offsetY = (ch - drawH) / 2;
-      } else {
-        drawH = ch;
-        drawW = ch * vAspect;
-        offsetX = (cw - drawW) / 2;
-        offsetY = 0;
+      if (Math.hypot(pt.x - rx, pt.y - ry) <= tol) return 'nw';
+      if (Math.hypot(pt.x - (rx + rw), pt.y - ry) <= tol) return 'ne';
+      if (Math.hypot(pt.x - rx, pt.y - (ry + rh)) <= tol) return 'sw';
+      if (Math.hypot(pt.x - (rx + rw), pt.y - (ry + rh)) <= tol) return 'se';
+
+      if (pt.x >= rx && pt.x <= rx + rw && pt.y >= ry && pt.y <= ry + rh) {
+        return 'move';
+      }
+      return 'create';
+    }
+
+    function onRoiPointerDown(e) {
+      const pt = getRoiCanvasPoint(e);
+      dragMode = hitTestRoi(pt);
+      dragStartPos = pt;
+      roiSnapshot = { ...roi };
+
+      if (dragMode === 'create') {
+        const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, roiCanvas.width, roiCanvas.height);
+        const normX = Math.max(0, Math.min(1, (pt.x - b.x) / b.w));
+        const normY = Math.max(0, Math.min(1, (pt.y - b.y) / b.h));
+        roi = { x: normX, y: normY, w: 0.01, h: 0.01, isActive: true };
+      }
+    }
+
+    function onRoiPointerMove(e) {
+      if (!dragMode) return;
+      const pt = getRoiCanvasPoint(e);
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, roiCanvas.width, roiCanvas.height);
+      const dx = (pt.x - dragStartPos.x) / b.w;
+      const dy = (pt.y - dragStartPos.y) / b.h;
+
+      if (dragMode === 'move') {
+        roi.x = Math.max(0, Math.min(1 - roiSnapshot.w, roiSnapshot.x + dx));
+        roi.y = Math.max(0, Math.min(1 - roiSnapshot.h, roiSnapshot.y + dy));
+      } else if (dragMode === 'nw') {
+        const right = roiSnapshot.x + roiSnapshot.w;
+        const bottom = roiSnapshot.y + roiSnapshot.h;
+        roi.x = Math.max(0, Math.min(right - 0.1, roiSnapshot.x + dx));
+        roi.y = Math.max(0, Math.min(bottom - 0.1, roiSnapshot.y + dy));
+        roi.w = right - roi.x;
+        roi.h = bottom - roi.y;
+      } else if (dragMode === 'ne') {
+        const bottom = roiSnapshot.y + roiSnapshot.h;
+        roi.y = Math.max(0, Math.min(bottom - 0.1, roiSnapshot.y + dy));
+        roi.w = Math.max(0.1, Math.min(1 - roiSnapshot.x, roiSnapshot.w + dx));
+        roi.h = bottom - roi.y;
+      } else if (dragMode === 'sw') {
+        const right = roiSnapshot.x + roiSnapshot.w;
+        roi.x = Math.max(0, Math.min(right - 0.1, roiSnapshot.x + dx));
+        roi.w = right - roi.x;
+        roi.h = Math.max(0.1, Math.min(1 - roiSnapshot.y, roiSnapshot.h + dy));
+      } else if (dragMode === 'se') {
+        roi.w = Math.max(0.1, Math.min(1 - roiSnapshot.x, roiSnapshot.w + dx));
+        roi.h = Math.max(0.1, Math.min(1 - roiSnapshot.y, roiSnapshot.h + dy));
+      } else if (dragMode === 'create') {
+        const pNormX = Math.max(0, Math.min(1, (pt.x - b.x) / b.w));
+        const pNormY = Math.max(0, Math.min(1, (pt.y - b.y) / b.h));
+        const startNormX = Math.max(0, Math.min(1, (dragStartPos.x - b.x) / b.w));
+        const startNormY = Math.max(0, Math.min(1, (dragStartPos.y - b.y) / b.h));
+
+        roi.x = Math.min(startNormX, pNormX);
+        roi.y = Math.min(startNormY, pNormY);
+        roi.w = Math.abs(startNormX - pNormX);
+        roi.h = Math.abs(startNormY - pNormY);
       }
 
-      const normX = Math.max(0, Math.min(1, (cx - offsetX) / drawW));
-      const normY = Math.max(0, Math.min(1, (cy - offsetY) / drawH));
-      return { normX, normY };
-    }
-
-    function onPointerDown(e) {
-      isDragging = true;
-      const coords = getCanvasCoords(e, roiCanvas);
-      dragStart = coords;
-      dragCurrent = coords;
-    }
-
-    function onPointerMove(e) {
-      if (!isDragging) return;
-      dragCurrent = getCanvasCoords(e, roiCanvas);
-
       drawRoiSetupFrame();
-
-      // Draw real-time selection rectangle
-      const x = Math.min(dragStart.x, dragCurrent.x);
-      const y = Math.min(dragStart.y, dragCurrent.y);
-      const w = Math.abs(dragStart.x - dragCurrent.x);
-      const h = Math.abs(dragStart.y - dragCurrent.y);
-
-      roiCtx.fillStyle = "rgba(56, 189, 248, 0.3)";
-      roiCtx.fillRect(x, y, w, h);
-      roiCtx.strokeStyle = "#38bdf8";
-      roiCtx.lineWidth = 2;
-      roiCtx.strokeRect(x, y, w, h);
     }
 
-    function onPointerUp(e) {
-      if (!isDragging) return;
-      isDragging = false;
-
-      const p1 = getNormalizedVideoCoords(dragStart.x, dragStart.y);
-      const p2 = getNormalizedVideoCoords(dragCurrent.x, dragCurrent.y);
-
-      const x = Math.min(p1.normX, p2.normX);
-      const y = Math.min(p1.normY, p2.normY);
-      const w = Math.abs(p1.normX - p2.normX);
-      const h = Math.abs(p1.normY - p2.normY);
-
-      if (w > 0.05 && h > 0.05) {
-        roi = { x, y, w, h, isActive: true };
-      } else {
-        roi = { x: 0, y: 0, w: 1, h: 1, isActive: false };
+    function onRoiPointerUp() {
+      if (dragMode === 'create' && (roi.w < 0.05 || roi.h < 0.05)) {
+        roi = { x: 0.1, y: 0.05, w: 0.8, h: 0.9, isActive: true };
       }
+      dragMode = null;
       drawRoiSetupFrame();
     }
 
-    roiCanvas.addEventListener('mousedown', onPointerDown);
-    roiCanvas.addEventListener('mousemove', onPointerMove);
-    window.addEventListener('mouseup', onPointerUp);
+    roiCanvas.addEventListener('mousedown', onRoiPointerDown);
+    roiCanvas.addEventListener('mousemove', onRoiPointerMove);
+    window.addEventListener('mouseup', onRoiPointerUp);
 
-    roiCanvas.addEventListener('touchstart', onPointerDown, { passive: true });
-    roiCanvas.addEventListener('touchmove', onPointerMove, { passive: true });
-    window.addEventListener('touchend', onPointerUp);
+    roiCanvas.addEventListener('touchstart', onRoiPointerDown, { passive: true });
+    roiCanvas.addEventListener('touchmove', onRoiPointerMove, { passive: true });
+    window.addEventListener('touchend', onRoiPointerUp);
+
+    document.getElementById('btn-roi-reset').addEventListener('click', () => {
+      roi = { x: 0.15, y: 0.05, w: 0.7, h: 0.9, isActive: true };
+      drawRoiSetupFrame();
+    });
 
     document.getElementById('btn-roi-skip').addEventListener('click', () => {
       roi = { x: 0, y: 0, w: 1, h: 1, isActive: false };
@@ -731,10 +791,10 @@
       setStep(3);
     });
 
-    /* --- Step 3: Height & Start Workspace --- */
+    /* --- Step 3: Start & Calibration --- */
     document.getElementById('btn-start-analysis').addEventListener('click', () => {
       const hVal = parseFloat(document.getElementById('height-input').value);
-      userHeightCm = (!isNaN(hVal) && hVal > 50) ? hVal : 140;
+      userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
 
       if (!pose) initMediaPipe();
 
@@ -760,14 +820,13 @@
       }
     });
 
-    /* --- Step 4: Pose Processing & Double Buffering --- */
+    /* --- Double Buffering Single-Frame Processor --- */
     function processSingleFrame() {
       if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) return;
 
       const vw = videoElement.videoWidth;
       const vh = videoElement.videoHeight;
 
-      // Extract ROI sub-region or full frame into Offscreen Buffer
       let sx = 0, sy = 0, sw = vw, sh = vh;
       if (roi.isActive) {
         sx = roi.x * vw;
@@ -782,47 +841,65 @@
 
       isProcessing = true;
       pose.send({ image: bufferCanvas }).catch(err => {
-        console.error("Inference Error:", err);
+        console.error("Frame Inference Error:", err);
       }).finally(() => {
         isProcessing = false;
       });
     }
 
-    /* --- Biomechanics Calculation Helpers --- */
-    function calcAngle(a, b, c) {
+    /* --- High Accuracy Biomechanics Math & Landmark Filter --- */
+    function smoothLandmark(idx, raw) {
+      if (!smoothLandmarks.has(idx)) {
+        smoothLandmarks.set(idx, { x: raw.x, y: raw.y, z: raw.z, visibility: raw.visibility });
+        return raw;
+      }
+      const prev = smoothLandmarks.get(idx);
+      const curr = {
+        x: prev.x * (1 - SMOOTH_ALPHA) + raw.x * SMOOTH_ALPHA,
+        y: prev.y * (1 - SMOOTH_ALPHA) + raw.y * SMOOTH_ALPHA,
+        z: prev.z * (1 - SMOOTH_ALPHA) + raw.z * SMOOTH_ALPHA,
+        visibility: raw.visibility
+      };
+      smoothLandmarks.set(idx, curr);
+      return curr;
+    }
+
+    function calc3DAngle(a, b, c) {
       if (!a || !b || !c) return NaN;
       const v1x = a.x - b.x;
       const v1y = a.y - b.y;
+      const v1z = (a.z - b.z) || 0;
+
       const v2x = c.x - b.x;
       const v2y = c.y - b.y;
+      const v2z = (c.z - b.z) || 0;
 
-      const mag1 = Math.sqrt(v1x * v1x + v1y * v1y);
-      const mag2 = Math.sqrt(v2x * v2x + v2y * v2y);
+      const dot = v1x * v2x + v1y * v2y + v1z * v2z;
+      const mag1 = Math.sqrt(v1x * v1x + v1y * v1y + v1z * v1z);
+      const mag2 = Math.sqrt(v2x * v2x + v2y * v2y + v2z * v2z);
       if (mag1 < 1e-6 || mag2 < 1e-6) return NaN;
 
-      const dot = v1x * v2x + v1y * v2y;
       const cosVal = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
-      const angle = (Math.acos(cosVal) * 180.0) / Math.PI;
-      return isNaN(angle) ? NaN : angle;
+      return (Math.acos(cosVal) * 180.0) / Math.PI;
     }
 
-    function getLineAngleDeg(p1, p2) {
+    function getSegmentAngle3D(p1, p2) {
       if (!p1 || !p2) return NaN;
-      const rad = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-      return (rad * 180.0) / Math.PI;
+      // Calculate rotation in transversal/coronal planes using atan2
+      return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
     }
 
     function mapRoiToVideoCoords(lm) {
-      if (!roi.isActive) return { x: lm.x, y: lm.y, z: lm.z, visibility: lm.visibility };
+      if (!roi.isActive) return { ...lm };
       return {
         x: roi.x + lm.x * roi.w,
         y: roi.y + lm.y * roi.h,
-        z: lm.z,
+        z: lm.z * roi.w,
         visibility: lm.visibility
       };
     }
 
-    /* --- MediaPipe Results Handler --- */
+    /* --- High Accuracy Results & Rendering Loop --- */
     function onPoseResults(results) {
       const cw = outputCanvas.width;
       const ch = outputCanvas.height;
@@ -830,44 +907,22 @@
 
       outputCtx.clearRect(0, 0, cw, ch);
 
-      // Maintain Aspect Ratio & Zero Offset Alignment
-      const vAspect = videoElement.videoWidth / videoElement.videoHeight;
-      const cAspect = cw / ch;
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
+      outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
 
-      let drawW, drawH, offsetX, offsetY;
-      if (vAspect > cAspect) {
-        drawW = cw;
-        drawH = cw / vAspect;
-        offsetX = 0;
-        offsetY = (ch - drawH) / 2;
-      } else {
-        drawH = ch;
-        drawW = ch * vAspect;
-        offsetX = (cw - drawW) / 2;
-        offsetY = 0;
-      }
-
-      // Draw Base Video Frame
-      outputCtx.drawImage(videoElement, offsetX, offsetY, drawW, drawH);
-
-      // If ROI active, draw subtle indicator
       if (roi.isActive) {
         outputCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
         outputCtx.lineWidth = 1;
-        outputCtx.strokeRect(
-          offsetX + roi.x * drawW,
-          offsetY + roi.y * drawH,
-          roi.w * drawW,
-          roi.h * drawH
-        );
+        outputCtx.strokeRect(b.x + roi.x * b.w, b.y + roi.y * b.h, roi.w * b.w, roi.h * b.h);
       }
 
       if (!results.poseLandmarks) return;
 
-      // Transform landmarks to Full Video Space
-      const landmarks = results.poseLandmarks.map(mapRoiToVideoCoords);
+      // Transform and smooth landmarks
+      const rawLandmarks = results.poseLandmarks.map(mapRoiToVideoCoords);
+      const landmarks = rawLandmarks.map((lm, idx) => smoothLandmark(idx, lm));
 
-      // Key Biomechanics Landmarks (MediaPipe Indices)
+      // Key Joints
       const NOSE = landmarks[0];
       const L_SHOULDER = landmarks[11];
       const R_SHOULDER = landmarks[12];
@@ -877,80 +932,97 @@
       const R_WRIST = landmarks[16];
       const L_HIP = landmarks[23];
       const R_HIP = landmarks[24];
+      const L_KNEE = landmarks[25];
+      const R_KNEE = landmarks[26];
       const L_ANKLE = landmarks[27];
       const R_ANKLE = landmarks[28];
       const L_HEEL = landmarks[29];
       const R_HEEL = landmarks[30];
 
-      // Draw Custom Skeleton
-      drawCustomSkeleton(landmarks, offsetX, offsetY, drawW, drawH);
+      // Draw Biomechanical Skeleton
+      drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h);
 
-      // --- Biomechanics Metrics Calculation ---
+      /* ========================================================
+         BIOMECHANICAL ACCURACY CALIBRATION ENGINE
+      ======================================================== */
 
-      // 1. Pixel-to-cm Scale Calibration
-      // Estimate pixel height based on body landmarks (Nose / Shoulder to Ankle)
-      const topRef = NOSE || { x: (L_SHOULDER.x + R_SHOULDER.x) / 2, y: (L_SHOULDER.y + R_SHOULDER.y) / 2 };
-      const lowestAnkleY = Math.max(
-        L_HEEL?.y || L_ANKLE?.y || 1,
-        R_HEEL?.y || R_ANKLE?.y || 1
-      );
-      const estBodyHeightPx = Math.abs(lowestAnkleY - topRef.y) * drawH * 1.15; // 1.15 factor from head-crown to ground
-      const pxPerCm = (estBodyHeightPx > 30) ? (estBodyHeightPx / userHeightCm) : (drawH * 0.7 / userHeightCm);
+      // Segmental Anatomical Calibration (Calculates pxPerCm via segment summation)
+      // Height = HeadToShoulder(0.18) + Trunk(0.29) + Thigh(0.25) + Shank(0.24) + Foot(0.04)
+      const trunkPx = (Math.hypot(
+        ((L_SHOULDER.x + R_SHOULDER.x)/2) - ((L_HIP.x + R_HIP.x)/2),
+        ((L_SHOULDER.y + R_SHOULDER.y)/2) - ((L_HIP.y + R_HIP.y)/2)
+      )) * b.h;
 
-      // 1. Stride Width (Distance between Left and Right Ankle/Heel)
-      const footLx = (L_HEEL?.x || L_ANKLE?.x || 0) * drawW;
-      const footLy = (L_HEEL?.y || L_ANKLE?.y || 0) * drawH;
-      const footRx = (R_HEEL?.x || R_ANKLE?.x || 0) * drawW;
-      const footRy = (R_HEEL?.y || R_ANKLE?.y || 0) * drawH;
-      const stridePx = Math.sqrt(Math.pow(footLx - footRx, 2) + Math.pow(footLy - footRy, 2));
+      const thighPx = (Math.hypot(L_HIP.x - L_KNEE.x, L_HIP.y - L_KNEE.y) + Math.hypot(R_HIP.x - R_KNEE.x, R_HIP.y - R_KNEE.y)) / 2 * b.h;
+      const shankPx = (Math.hypot(L_KNEE.x - L_ANKLE.x, L_KNEE.y - L_ANKLE.y) + Math.hypot(R_KNEE.x - R_ANKLE.x, R_KNEE.y - R_ANKLE.y)) / 2 * b.h;
+
+      let pxPerCm = 0;
+      if (trunkPx > 10 && thighPx > 10 && shankPx > 10) {
+        // Sum of anatomical segments = approx 78% of total standing stature
+        const segmentTotalPx = trunkPx + thighPx + shankPx;
+        pxPerCm = segmentTotalPx / (userHeightCm * 0.78);
+      } else {
+        // Fallback to bounding span
+        const topY = NOSE ? NOSE.y : ((L_SHOULDER.y + R_SHOULDER.y)/2);
+        const bottomY = Math.max(L_ANKLE.y, R_ANKLE.y, L_HEEL.y, R_HEEL.y);
+        const totalSpanPx = Math.abs(bottomY - topY) * b.h * 1.14;
+        pxPerCm = totalSpanPx / userHeightCm;
+      }
+
+      if (pxPerCm < 0.2) pxPerCm = (b.h * 0.75) / userHeightCm;
+
+      // 1. Stride Width (Distance between both heels/ankles)
+      const footL = { x: (L_HEEL.x || L_ANKLE.x) * b.w, y: (L_HEEL.y || L_ANKLE.y) * b.h };
+      const footR = { x: (R_HEEL.x || R_ANKLE.x) * b.w, y: (R_HEEL.y || R_ANKLE.y) * b.h };
+      const stridePx = Math.hypot(footL.x - footR.x, footL.y - footR.y);
       const strideCm = Math.round(stridePx / pxPerCm);
 
-      if (!isNaN(strideCm) && strideCm > 10 && strideCm < 250) {
+      if (!isNaN(strideCm) && strideCm > 15 && strideCm < 250) {
+        const strideRatio = Math.round((strideCm / userHeightCm) * 100);
         valStride.textContent = `約 ${strideCm} cm`;
         if (strideCm > records.maxStride) {
           records.maxStride = strideCm;
-          maxStride.textContent = `最大: ${strideCm} cm`;
+          maxStride.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
         }
       }
 
-      // 2. Throwing Arm Cocking / MER (Elbow Flexion Angle)
-      // Automatically identify throwing hand (higher wrist)
+      // 2. Arm Cocking / MER Flexion (Automatic throwing arm identification)
       const isRightHandThrow = (R_WRIST.y < L_WRIST.y);
       const throwShoulder = isRightHandThrow ? R_SHOULDER : L_SHOULDER;
       const throwElbow = isRightHandThrow ? R_ELBOW : L_ELBOW;
       const throwWrist = isRightHandThrow ? R_WRIST : L_WRIST;
 
-      const elbowAngle = calcAngle(throwShoulder, throwElbow, throwWrist);
-      if (!isNaN(elbowAngle)) {
-        const roundedElbow = Math.round(elbowAngle);
+      const elbowFlexion = calc3DAngle(throwShoulder, throwElbow, throwWrist);
+      if (!isNaN(elbowFlexion)) {
+        const roundedElbow = Math.round(elbowFlexion);
         valElbow.textContent = `${roundedElbow} °`;
-        if (roundedElbow < records.minElbow && roundedElbow > 30) {
+        if (roundedElbow < records.minElbow && roundedElbow > 35) {
           records.minElbow = roundedElbow;
           minElbow.textContent = `最深: ${roundedElbow} °`;
         }
       }
 
-      // 3. Hip-Shoulder Separation (X-Factor / Pelvis vs Thorax Twist)
-      const shoulderAngle = getLineAngleDeg(L_SHOULDER, R_SHOULDER);
-      const hipAngle = getLineAngleDeg(L_HIP, R_HIP);
+      // 3. Hip-Shoulder Separation (X-Factor with anatomical twist correction)
+      const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
+      const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
       if (!isNaN(shoulderAngle) && !isNaN(hipAngle)) {
         let diff = Math.abs(shoulderAngle - hipAngle);
         if (diff > 180) diff = 360 - diff;
         const roundedTwist = Math.round(diff);
         valTwist.textContent = `${roundedTwist} °`;
-        if (roundedTwist > records.maxTwist && roundedTwist < 120) {
+        if (roundedTwist > records.maxTwist && roundedTwist < 110) {
           records.maxTwist = roundedTwist;
           maxTwist.textContent = `最大: ${roundedTwist} °`;
         }
       }
 
-      // 4. Ball Release Ground Clearance
-      const groundY = lowestAnkleY * drawH;
-      const releaseHandY = throwWrist.y * drawH;
-      const releaseHeightPx = Math.max(0, groundY - releaseHandY);
+      // 4. Release Height (Vertical distance from lowest ground contact point)
+      const lowestGroundY = Math.max(L_HEEL.y, R_HEEL.y, L_ANKLE.y, R_ANKLE.y) * b.h;
+      const throwingHandY = throwWrist.y * b.h;
+      const releaseHeightPx = Math.max(0, lowestGroundY - throwingHandY);
       const releaseHeightCm = Math.round(releaseHeightPx / pxPerCm);
 
-      if (!isNaN(releaseHeightCm) && releaseHeightCm > 20 && releaseHeightCm < 280) {
+      if (!isNaN(releaseHeightCm) && releaseHeightCm > 30 && releaseHeightCm < 280) {
         valRelease.textContent = `約 ${releaseHeightCm} cm`;
         if (releaseHeightCm > records.maxRelease) {
           records.maxRelease = releaseHeightCm;
@@ -959,46 +1031,46 @@
       }
     }
 
-    function drawCustomSkeleton(landmarks, offsetX, offsetY, drawW, drawH) {
+    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh) {
       const connections = [
         [11, 12], [11, 13], [13, 15], // Left Arm
         [12, 14], [14, 16],           // Right Arm
         [11, 23], [12, 24], [23, 24], // Torso
-        [23, 25], [25, 27],           // Left Leg
-        [24, 26], [26, 28]            // Right Leg
+        [23, 25], [25, 27], [27, 29], // Left Leg & Foot
+        [24, 26], [26, 28], [28, 30]  // Right Leg & Foot
       ];
 
-      // Draw Lines
+      // Bone Segments
       outputCtx.strokeStyle = "#22c55e";
-      outputCtx.lineWidth = 3;
+      outputCtx.lineWidth = 3.5;
       connections.forEach(([i, j]) => {
         const p1 = landmarks[i];
         const p2 = landmarks[j];
-        if (p1 && p2 && (p1.visibility || 1) > 0.3 && (p2.visibility || 1) > 0.3) {
+        if (p1 && p2 && (p1.visibility || 1) > 0.25 && (p2.visibility || 1) > 0.25) {
           outputCtx.beginPath();
-          outputCtx.moveTo(offsetX + p1.x * drawW, offsetY + p1.y * drawH);
-          outputCtx.lineTo(offsetX + p2.x * drawW, offsetY + p2.y * drawH);
+          outputCtx.moveTo(ox + p1.x * bw, oy + p1.y * bh);
+          outputCtx.lineTo(ox + p2.x * bw, oy + p2.y * bh);
           outputCtx.stroke();
         }
       });
 
-      // Draw Landmark Dots
-      landmarks.forEach((p, idx) => {
-        if ([11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28].includes(idx)) {
-          if ((p.visibility || 1) > 0.3) {
-            outputCtx.beginPath();
-            outputCtx.arc(offsetX + p.x * drawW, offsetY + p.y * drawH, 5, 0, 2 * Math.PI);
-            outputCtx.fillStyle = (idx === 15 || idx === 16) ? "#f59e0b" : "#38bdf8";
-            outputCtx.fill();
-            outputCtx.strokeStyle = "#ffffff";
-            outputCtx.lineWidth = 1.5;
-            outputCtx.stroke();
-          }
+      // Joint Nodes
+      const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30];
+      keyJoints.forEach(idx => {
+        const p = landmarks[idx];
+        if (p && (p.visibility || 1) > 0.25) {
+          outputCtx.beginPath();
+          outputCtx.arc(ox + p.x * bw, oy + p.y * bh, 5.5, 0, Math.PI * 2);
+          outputCtx.fillStyle = (idx === 15 || idx === 16) ? "#f59e0b" : "#38bdf8";
+          outputCtx.fill();
+          outputCtx.strokeStyle = "#ffffff";
+          outputCtx.lineWidth = 1.5;
+          outputCtx.stroke();
         }
       });
     }
 
-    /* --- Video Playback Engine & Events --- */
+    /* --- Video Playback Engine --- */
     function updatePlayState() {
       if (videoElement.paused) {
         btnPlayPause.textContent = "再生";
@@ -1056,7 +1128,8 @@
 
     document.getElementById('btn-reset-max').addEventListener('click', () => {
       records = { maxStride: 0, minElbow: 180, maxTwist: 0, maxRelease: 0 };
-      maxStride.textContent = "最大: -- cm";
+      smoothLandmarks.clear();
+      maxStride.textContent = "最大: -- cm (0%身)";
       minElbow.textContent = "最深: -- °";
       maxTwist.textContent = "最大: -- °";
       maxRelease.textContent = "最高: -- cm";
@@ -1065,6 +1138,7 @@
     document.getElementById('btn-re-select').addEventListener('click', () => {
       videoElement.pause();
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      smoothLandmarks.clear();
       setStep(1);
     });
   </script>
