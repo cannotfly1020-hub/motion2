@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析 Calibrated Pro</title>
+  <title>投球フォームAIバイオメカニクス解析 True-MER</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -371,7 +371,7 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析 Calibrated Pro</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 True-MER</h1>
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. 動画選択</div>
       <div id="step-nav-2" class="step-pill">2. 選手指定</div>
@@ -423,7 +423,7 @@
         <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
       </div>
       <button class="btn" id="btn-start-analysis" style="font-size: 1.1rem; padding: 12px 28px;">
-        🚀 OK！キャリブレーション解析スタート
+        🚀 OK！肩外旋（しなり）解析スタート
       </button>
     </section>
 
@@ -438,11 +438,11 @@
           <div class="card-val" id="val-stride">-- cm</div>
           <div class="card-max" id="max-stride">最大: -- cm (0%身)</div>
         </div>
-        <!-- 2. MER -->
+        <!-- 2. True MER (Shoulder External Rotation) -->
         <div class="card">
-          <div class="card-title">💪 うでのしなり (MER)</div>
+          <div class="card-title">💪 うでのしなり (肩外旋 MER)</div>
           <div class="card-val" id="val-elbow">-- °</div>
-          <div class="card-max" id="min-elbow">最深: -- °</div>
+          <div class="card-max" id="max-mer">最大: -- °</div>
         </div>
         <!-- 3. Twist X-Factor -->
         <div class="card">
@@ -530,12 +530,12 @@
     // Metrics Peak Records
     let records = {
       maxStride: 0,
-      minElbow: 180,
+      maxMER: 0,
       maxTwist: 0,
       maxRelease: 0
     };
 
-    // Stature Calibration Scale (px/cm) - Calculated from uncompressed skeletal length
+    // Stature Calibration Scale (px/cm)
     let calibratedPxPerCm = null;
 
     // Temporal Smoothing Filter
@@ -559,7 +559,7 @@
     const valStride = document.getElementById('val-stride');
     const maxStride = document.getElementById('max-stride');
     const valElbow = document.getElementById('val-elbow');
-    const minElbow = document.getElementById('min-elbow');
+    const maxMER = document.getElementById('max-mer');
     const valTwist = document.getElementById('val-twist');
     const maxTwist = document.getElementById('max-twist');
     const valRelease = document.getElementById('val-release');
@@ -1029,28 +1029,58 @@
       return curr;
     }
 
-    function calc3DAngle(a, b, c) {
-      if (!a || !b || !c) return NaN;
-      const v1x = a.x - b.x;
-      const v1y = a.y - b.y;
-      const v1z = (a.z - b.z) || 0;
-
-      const v2x = c.x - b.x;
-      const v2y = c.y - b.y;
-      const v2z = (c.z - b.z) || 0;
-
-      const dot = v1x * v2x + v1y * v2y + v1z * v2z;
-      const mag1 = Math.sqrt(v1x * v1x + v1y * v1y + v1z * v1z);
-      const mag2 = Math.sqrt(v2x * v2x + v2y * v2y + v2z * v2z);
-      if (mag1 < 1e-6 || mag2 < 1e-6) return NaN;
-
-      const cosVal = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
-      return (Math.acos(cosVal) * 180.0) / Math.PI;
-    }
-
     function getSegmentAngle3D(p1, p2) {
       if (!p1 || !p2) return NaN;
       return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
+    }
+
+    /* ========================================================
+       TRUE BIOMECHANICS SHOULDER EXTERNAL ROTATION (MER)
+       Calculates forearm layback angle relative to the trunk axis
+    ======================================================== */
+    function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist, isRightThrow) {
+      if (!shoulderL || !shoulderR || !hipL || !hipR || !elbow || !wrist) return NaN;
+
+      // 1. Trunk Longitudinal Axis Vector (Mid-Hip -> Mid-Shoulder)
+      const midShoulder = {
+        x: (shoulderL.x + shoulderR.x) / 2,
+        y: (shoulderL.y + shoulderR.y) / 2,
+        z: ((shoulderL.z || 0) + (shoulderR.z || 0)) / 2
+      };
+      const midHip = {
+        x: (hipL.x + hipR.x) / 2,
+        y: (hipL.y + hipR.y) / 2,
+        z: ((hipL.z || 0) + (hipR.z || 0)) / 2
+      };
+
+      const trunkV = {
+        x: midShoulder.x - midHip.x,
+        y: midShoulder.y - midHip.y,
+        z: midShoulder.z - midHip.z
+      };
+
+      // 2. Forearm Vector (Elbow -> Wrist)
+      const forearmV = {
+        x: wrist.x - elbow.x,
+        y: wrist.y - elbow.y,
+        z: (wrist.z || 0) - (elbow.z || 0)
+      };
+
+      const trunkMag = Math.hypot(trunkV.x, trunkV.y, trunkV.z);
+      const forearmMag = Math.hypot(forearmV.x, forearmV.y, forearmV.z);
+      if (trunkMag < 1e-6 || forearmMag < 1e-6) return NaN;
+
+      // 3. 3D Angle between Spine/Trunk Longitudinal Vector and Forearm
+      const dot = trunkV.x * forearmV.x + trunkV.y * forearmV.y + trunkV.z * forearmV.z;
+      const cosVal = Math.max(-1.0, Math.min(1.0, dot / (trunkMag * forearmMag)));
+      const baseAngle = (Math.acos(cosVal) * 180.0) / Math.PI;
+
+      // Clinical Standard Alignment:
+      // Neutral forearm pointing upright = 90°
+      // Full Cocking / Layback (MER) = 150° ~ 185°
+      // Internal Rotation (Follow-through) = 0° ~ 80°
+      const trueMER = 180.0 - baseAngle;
+      return trueMER;
     }
 
     function getRobustFootPosition(hip, knee, ankle, heel, toe) {
@@ -1111,7 +1141,7 @@
         drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h);
 
         /* ========================================================
-           ROBUST SKELETAL SUMMATION CALIBRATION (IMMUNE TO SQUATTING)
+           ROBUST SKELETAL SUMMATION CALIBRATION
         ======================================================== */
         const trunkLen = Math.hypot(
           ((L_SHOULDER.x + R_SHOULDER.x)/2) - ((L_HIP.x + R_HIP.x)/2),
@@ -1124,13 +1154,11 @@
 
         const measuredSkeletonPx = trunkLen + avgLegLen;
 
-        // Trunk + Legs constitutes approx 78% of total standing anatomical height
         if (measuredSkeletonPx > 40) {
           const currentPxPerCm = measuredSkeletonPx / (userHeightCm * 0.78);
           if (calibratedPxPerCm === null) {
             calibratedPxPerCm = currentPxPerCm;
           } else {
-            // Keep maximum observed uncompressed skeleton scale to prevent scale-explosion during lunges
             if (currentPxPerCm > calibratedPxPerCm) {
               calibratedPxPerCm = currentPxPerCm;
             }
@@ -1140,7 +1168,7 @@
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
         /* ========================================================
-           METRICS CALCULATION WITH OUTLIER & SPIKE FILTERING
+           METRICS CALCULATION
         ======================================================== */
 
         // 1. Stride Width (FC)
@@ -1150,7 +1178,6 @@
         const stridePx = Math.hypot((footL.x - footR.x) * b.w, (footL.y - footR.y) * b.h);
         const strideCm = Math.round(stridePx / activePxPerCm);
 
-        // Valid physiological stride constraint (20cm to 110% of stature)
         if (!isNaN(strideCm) && strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
           const strideRatio = Math.round((strideCm / userHeightCm) * 100);
           valStride.textContent = `約 ${strideCm} cm`;
@@ -1163,31 +1190,32 @@
           valStride.textContent = `-- cm`;
         }
 
-        // 2. MER Flexion (Throwing Arm)
+        // 2. True Shoulder External Rotation (MER / Layback)
         const isRightHandThrow = (R_WRIST.y < L_WRIST.y);
         const throwShoulder = isRightHandThrow ? R_SHOULDER : L_SHOULDER;
         const throwElbow = isRightHandThrow ? R_ELBOW : L_ELBOW;
         const throwWrist = isRightHandThrow ? R_WRIST : L_WRIST;
 
         const armVisible = (throwShoulder.visibility || 0) > 0.4 && (throwElbow.visibility || 0) > 0.4 && (throwWrist.visibility || 0) > 0.4;
-        const elbowFlexion = calc3DAngle(throwShoulder, throwElbow, throwWrist);
+        
+        const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist, isRightHandThrow);
 
-        if (!isNaN(elbowFlexion) && elbowFlexion >= 45 && elbowFlexion <= 175) {
-          const roundedElbow = Math.round(elbowFlexion);
-          valElbow.textContent = `${roundedElbow} °`;
+        if (!isNaN(trueMerDeg) && trueMerDeg >= 40 && trueMerDeg <= 200) {
+          const roundedMER = Math.round(trueMerDeg);
+          valElbow.textContent = `${roundedMER} °`;
 
-          // MER peak requires hand above shoulder level
-          if (armVisible && throwWrist.y < throwShoulder.y + 0.1) {
-            if (roundedElbow < records.minElbow && roundedElbow >= 50) {
-              records.minElbow = roundedElbow;
-              minElbow.textContent = `最深: ${roundedElbow} °`;
+          // Cocking Phase Gate: Throwing hand is elevated around/above shoulder height
+          if (armVisible && throwWrist.y < throwShoulder.y + 0.15) {
+            if (roundedMER > records.maxMER && roundedMER <= 190) {
+              records.maxMER = roundedMER;
+              maxMER.textContent = `最大: ${roundedMER} °`;
             }
           }
         } else {
           valElbow.textContent = `-- °`;
         }
 
-        // 3. Twist X-Factor (Shoulder vs Pelvis angle difference)
+        // 3. Twist X-Factor (Shoulder vs Pelvis difference)
         const torsoVisible = (L_SHOULDER.visibility || 0) > 0.4 && (R_SHOULDER.visibility || 0) > 0.4 && (L_HIP.visibility || 0) > 0.4 && (R_HIP.visibility || 0) > 0.4;
         const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
         const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
@@ -1208,13 +1236,12 @@
           }
         }
 
-        // 4. Release Height (Wrist height relative to lowest ground contact)
+        // 4. Release Height
         const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
         const throwingHandY = throwWrist.y * b.h;
         const releaseHeightPx = Math.max(0, lowestGroundY - throwingHandY);
         const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
 
-        // Release height strictly bounded by player height geometry
         if (!isNaN(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.35)) {
           valRelease.textContent = `約 ${releaseHeightCm} cm`;
           
@@ -1338,11 +1365,11 @@
     });
 
     document.getElementById('btn-reset-max').addEventListener('click', () => {
-      records = { maxStride: 0, minElbow: 180, maxTwist: 0, maxRelease: 0 };
+      records = { maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0 };
       calibratedPxPerCm = null;
       smoothLandmarks.clear();
       maxStride.textContent = "最大: -- cm (0%身)";
-      minElbow.textContent = "最深: -- °";
+      maxMER.textContent = "最大: -- °";
       maxTwist.textContent = "最大: -- °";
       maxRelease.textContent = "最高: -- cm";
     });
