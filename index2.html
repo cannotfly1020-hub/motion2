@@ -116,6 +116,7 @@
       flex: 1;
       min-height: 0;
       overflow: hidden;
+      position: relative;
     }
 
     .view-section {
@@ -251,6 +252,21 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
 
+    .player-tag-badge {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid #38bdf8;
+      color: #facc15;
+      font-size: 0.62rem;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
     .guidance-box {
       background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%);
       border: 1.5px solid #38bdf8;
@@ -270,19 +286,19 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       width: 100%;
       max-width: 300px;
     }
 
     .input-field {
       width: 100%;
-      padding: 8px;
+      padding: 6px;
       border-radius: 10px;
-      border: 2.5px solid #38bdf8;
+      border: 2px solid #38bdf8;
       background: #ffffff;
       color: #0284c7;
-      font-size: 1.25rem;
+      font-size: 1.05rem;
       text-align: center;
       font-weight: 900;
       box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
@@ -300,7 +316,7 @@
 
     .toggle-btn {
       flex: 1;
-      padding: 7px;
+      padding: 6px;
       border-radius: 8px;
       border: none;
       background: transparent;
@@ -431,7 +447,7 @@
       background: #ffffff;
       border: 1.5px solid #cbd5e1;
       color: #334155;
-      padding: 6px 4px;
+      padding: 6px 3px;
       border-radius: 8px;
       font-size: 0.72rem;
       font-weight: 900;
@@ -456,11 +472,14 @@
       color: #ffffff;
       border-color: #ffffff;
       box-shadow: 0 1.5px 0 #047857;
-      flex: 1.3;
+      flex: 1.25;
     }
 
-    .btn-fc-trigger:active {
-      background: #047857;
+    .btn-save-trigger {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #ffffff;
+      border-color: #ffffff;
+      box-shadow: 0 1.5px 0 #b45309;
     }
 
     .loading-overlay {
@@ -489,6 +508,87 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    /* カルテモーダル */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 10px;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      border-radius: 16px;
+      border: 3px solid #38bdf8;
+      width: 100%;
+      max-width: 500px;
+      max-height: 85dvh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #ffffff;
+      padding: 10px 14px;
+      font-weight: 900;
+      font-size: 0.95rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-body {
+      padding: 10px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-card {
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .history-card-head {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 900;
+      font-size: 0.78rem;
+      color: #0369a1;
+      border-bottom: 1px dashed #cbd5e1;
+      padding-bottom: 3px;
+    }
+
+    .history-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+      font-size: 0.7rem;
+      font-weight: 800;
+    }
+
+    .history-grid div {
+      background: #ffffff;
+      padding: 3px 6px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
   </style>
 </head>
 <body>
@@ -498,7 +598,7 @@
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. どうが選択</div>
       <div id="step-nav-2" class="step-pill">2. 姿勢スキャン</div>
-      <div id="step-nav-3" class="step-pill">3. 投げる腕・身長</div>
+      <div id="step-nav-3" class="step-pill">3. 選手情報</div>
     </div>
   </header>
 
@@ -518,6 +618,9 @@
           🎯 正面（斜め前）から撮った動画を選ぶ
           <input type="file" id="video-input-front" accept="video/*" style="display: none;">
         </label>
+        <button class="btn btn-secondary" id="btn-open-carte-top" style="padding: 10px; font-size: 0.88rem;">
+          📋 保存した選手カルテを見る
+        </button>
       </div>
       <div></div>
     </section>
@@ -552,12 +655,19 @@
     <!-- STEP 3: Arm & Stature Input -->
     <section id="view-step3" class="view-section">
       <div class="guidance-box">
-        🔥 <b>投げる腕（利き腕）をえらんで、身長を入れてね！</b>
+        🔥 <b>せんしゅの名前・投げる腕・身長を入れてね！</b>
       </div>
       
-      <div class="input-group" style="padding: 2px 0; gap: 6px;">
+      <div class="input-group" style="padding: 2px 0; gap: 4px;">
         <div style="width: 100%;">
-          <label style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; color: #0369a1; font-size: 0.85rem;">
+          <label for="player-name-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.8rem; color: #0369a1;">
+            選手名（なまえ）
+          </label>
+          <input type="text" id="player-name-input" class="input-field" value="せんしゅ1" placeholder="なまえを入力">
+        </div>
+
+        <div style="width: 100%;">
+          <label style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; color: #0369a1; font-size: 0.8rem;">
             投げる腕（ききうで）
           </label>
           <div class="toggle-group">
@@ -567,8 +677,8 @@
         </div>
 
         <div style="width: 100%;">
-          <label for="height-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.85rem; color: #0369a1;">
-            ピッチャーの身長 (cm)
+          <label for="height-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.8rem; color: #0369a1;">
+            身長 (cm)
           </label>
           <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
         </div>
@@ -630,6 +740,7 @@
         <canvas id="output-canvas"></canvas>
         <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
         <div class="angle-mode-badge" id="angle-mode-badge">横向き解析</div>
+        <div class="player-tag-badge" id="player-tag-badge">👤 せんしゅ1 (140cm)</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
           <div style="font-size: 0.75rem; color: #0284c7; font-weight: 900;">⚡ AI同期中...</div>
@@ -650,12 +761,14 @@
             <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
             <button class="btn-ctrl btn-fc-trigger" id="btn-manual-fc">👟 着地決定</button>
           </div>
-          <!-- 下段: ツール・リセット操作 -->
+          <!-- 下段: カルテ保存・ツール操作 -->
           <div class="btn-row">
-            <button class="btn-ctrl" id="btn-toggle-skeleton">🦴 骨格OFF</button>
-            <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム解除</button>
+            <button class="btn-ctrl btn-save-trigger" id="btn-save-record">💾 保存</button>
+            <button class="btn-ctrl" id="btn-open-carte">📋 カルテ</button>
+            <button class="btn-ctrl" id="btn-toggle-skeleton">🦴 骨格</button>
+            <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム</button>
             <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
-            <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 別の動画</button>
+            <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 選択</button>
           </div>
         </div>
       </div>
@@ -663,6 +776,24 @@
     </section>
 
   </main>
+
+  <!-- カルテ・履歴モーダル -->
+  <div class="modal-overlay" id="carte-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span>📋 選手カルテ・測定履歴</span>
+        <button id="btn-close-carte" style="background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; font-weight: 900;">✕</button>
+      </div>
+      <div style="padding: 6px 10px; background: #e0f2fe; display: flex; gap: 6px; align-items: center; justify-content: space-between;">
+        <select id="player-select-filter" style="padding: 4px 8px; border-radius: 8px; border: 1.5px solid #38bdf8; font-weight: 900; font-size: 0.78rem; flex: 1;"></select>
+        <button id="btn-export-csv" class="btn" style="padding: 4px 8px; font-size: 0.72rem;">📥 CSV出力</button>
+        <button id="btn-clear-history" class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.72rem;">🗑️ 削除</button>
+      </div>
+      <div class="modal-body" id="carte-history-list">
+        <!-- 履歴カードが動的に挿入されます -->
+      </div>
+    </div>
+  </div>
 
   <video id="hidden-video" playsinline webkit-playsinline preload="auto" muted></video>
   <canvas id="buffer-canvas" style="display: none;"></canvas>
@@ -683,12 +814,13 @@
     let isProcessing = false;
     let animationFrameId = null;
 
+    let playerName = "せんしゅ1";
     let userHeightCm = 140;
     let selectedThrowArm = 'LEFT';
     let videoFileUrl = null;
     let selectedAngleMode = 'SIDE';
 
-    let isSkeletonVisible = true; // 骨格AIの表示・非表示フラグ
+    let isSkeletonVisible = true;
 
     let tuneRuler = {
       isActive: false,
@@ -783,6 +915,7 @@
     const c6Max = document.getElementById('c6-max');
 
     const angleModeBadge = document.getElementById('angle-mode-badge');
+    const playerTagBadge = document.getElementById('player-tag-badge');
 
     const scanSeekBar = document.getElementById('scan-seek-bar');
     const scanTimeDisp = document.getElementById('scan-time-disp');
@@ -798,6 +931,11 @@
     const btnArmRight = document.getElementById('btn-arm-right');
     const btnArmLeft = document.getElementById('btn-arm-left');
     const btnToggleSkeleton = document.getElementById('btn-toggle-skeleton');
+
+    const carteModal = document.getElementById('carte-modal');
+    const btnCloseCarte = document.getElementById('btn-close-carte');
+    const carteHistoryList = document.getElementById('carte-history-list');
+    const playerSelectFilter = document.getElementById('player-select-filter');
 
     function updateCardLabels() {
       const isLeft = (selectedThrowArm === 'LEFT');
@@ -838,15 +976,14 @@
       updateCardLabels();
     });
 
-    // 骨格表示トグル
     btnToggleSkeleton.addEventListener('click', () => {
       isSkeletonVisible = !isSkeletonVisible;
       if (isSkeletonVisible) {
-        btnToggleSkeleton.textContent = "🦴 骨格OFF";
+        btnToggleSkeleton.textContent = "🦴 骨格";
         btnToggleSkeleton.style.background = "#ffffff";
         btnToggleSkeleton.style.color = "#334155";
       } else {
-        btnToggleSkeleton.textContent = "🦴 骨格ON";
+        btnToggleSkeleton.textContent = "🦴 非表示";
         btnToggleSkeleton.style.background = "linear-gradient(135deg, #38bdf8, #0284c7)";
         btnToggleSkeleton.style.color = "#ffffff";
       }
@@ -1164,8 +1301,13 @@
 
     /* --- Start Analysis Workspace --- */
     document.getElementById('btn-start-analysis').addEventListener('click', () => {
+      const pName = document.getElementById('player-name-input').value.trim();
+      playerName = pName || "せんしゅ1";
+
       const hVal = parseFloat(document.getElementById('height-input').value);
       userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
+
+      playerTagBadge.textContent = `👤 ${playerName} (${userHeightCm}cm)`;
 
       setStep(4);
       setTimeout(() => {
@@ -1293,6 +1435,189 @@
       } else {
         records.fcKneeAngle = currentCalculatedState.kneeFlexAngle;
         c5Max.textContent = `着地決定: ${currentCalculatedState.kneeFlexAngle}° (伸展:${records.maxKnee}°)`;
+      }
+    });
+
+    /* ========================================================
+       カルテ（データ保存・履歴管理）システム
+    ======================================================== */
+    const STORAGE_KEY = 'pitching_ai_records_v1';
+
+    function getSavedRecords() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        return data ? JSON.parse(data) : [];
+      } catch (e) {
+        console.error("Storage Load Error", e);
+        return [];
+      }
+    }
+
+    function saveCurrentRecord() {
+      const allRecords = getSavedRecords();
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+      const newEntry = {
+        id: Date.now(),
+        date: dateStr,
+        playerName: playerName,
+        height: userHeightCm,
+        throwArm: selectedThrowArm,
+        mode: selectedAngleMode,
+        metrics: selectedAngleMode === 'SIDE' ? {
+          stride: records.maxStride,
+          strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
+          mer: records.maxMER,
+          twist: records.maxTwist,
+          releaseH: records.maxRelease,
+          kneeFlex: records.fcKneeAngle || records.minKnee,
+          kneeExt: records.maxKnee,
+          trunkTilt: records.maxTrunkTilt
+        } : {
+          toeAngle: records.fcToeAngle !== null ? records.fcToeAngle : 0,
+          toeLabel: records.fcToeLabel || "未測定",
+          valgus: records.ffValgusAngle !== null ? records.ffValgusAngle : records.maxValgus,
+          valgusLabel: records.ffValgusLabel || "未測定",
+          trunkLateral: records.maxTrunkLateral,
+          armSlot: records.maxArmSlot,
+          inStep: records.maxInStepCm,
+          releaseLateral: records.maxReleaseLateral
+        }
+      };
+
+      allRecords.unshift(newEntry);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+        alert(`✅ ${playerName}君の測定データをカルテに保存しました！`);
+      } catch (e) {
+        alert("⚠️ 保存容量がいっぱいです");
+      }
+    }
+
+    document.getElementById('btn-save-record').addEventListener('click', saveCurrentRecord);
+
+    function openCarteModal() {
+      renderCarteList();
+      carteModal.style.display = 'flex';
+    }
+
+    function closeCarteModal() {
+      carteModal.style.display = 'none';
+    }
+
+    document.getElementById('btn-open-carte').addEventListener('click', openCarteModal);
+    document.getElementById('btn-open-carte-top').addEventListener('click', openCarteModal);
+    btnCloseCarte.addEventListener('click', closeCarteModal);
+
+    function renderCarteList() {
+      const allRecords = getSavedRecords();
+      carteHistoryList.innerHTML = '';
+
+      // 選手名一覧のドロップダウン更新
+      const playerNames = Array.from(new Set(allRecords.map(r => r.playerName)));
+      playerSelectFilter.innerHTML = '<option value="ALL">🌟 全員のカルテを表示</option>';
+      playerNames.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = `👤 ${p}`;
+        if (p === playerName) opt.selected = true;
+        playerSelectFilter.appendChild(opt);
+      });
+
+      const selectedFilter = playerSelectFilter.value;
+      const filtered = selectedFilter === 'ALL' ? allRecords : allRecords.filter(r => r.playerName === selectedFilter);
+
+      if (filtered.length === 0) {
+        carteHistoryList.innerHTML = '<div style="text-align:center; padding: 20px; color:#64748b; font-weight:800;">まだ保存されたカルテがありません</div>';
+        return;
+      }
+
+      filtered.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'history-card';
+        const isSide = (r.mode === 'SIDE');
+
+        card.innerHTML = `
+          <div class="history-card-head">
+            <span>👤 ${r.playerName} (${r.height}cm・${r.throwArm === 'RIGHT' ? '右' : '左'})</span>
+            <span style="color:#64748b; font-size:0.68rem;">${r.date} [${isSide ? '横向き' : '正面'}]</span>
+          </div>
+          <div class="history-grid">
+            ${isSide ? `
+              <div>🚶 歩幅: <b>${r.metrics.stride}cm (${r.metrics.strideRatio}%)</b></div>
+              <div>💪 肩外旋: <b>${r.metrics.mer}°</b></div>
+              <div>🔄 捻転差: <b>${r.metrics.twist}°</b></div>
+              <div>⚾ リリース高: <b>${r.metrics.releaseH}cm</b></div>
+              <div>🦵 着地ヒザ: <b>${r.metrics.kneeFlex}° (伸展:${r.metrics.kneeExt}°)</b></div>
+              <div>📐 前傾角: <b>${r.metrics.trunkTilt}°</b></div>
+            ` : `
+              <div>👟 つま先: <b>${r.metrics.toeAngle}°</b></div>
+              <div>🦵 膝内外反: <b>${r.metrics.valgus}°</b></div>
+              <div>📐 体幹側屈: <b>${r.metrics.trunkLateral}°</b></div>
+              <div>💪 腕の高さ: <b>${r.metrics.armSlot}°</b></div>
+              <div>🚶 踏出ズレ: <b>${r.metrics.inStep}cm</b></div>
+              <div>⚾ リリース横: <b>${r.metrics.releaseLateral}cm</b></div>
+            `}
+          </div>
+        `;
+        carteHistoryList.appendChild(card);
+      });
+    }
+
+    playerSelectFilter.addEventListener('change', renderCarteList);
+
+    // CSVエクスポート機能
+    document.getElementById('btn-export-csv').addEventListener('click', () => {
+      const allRecords = getSavedRecords();
+      if (allRecords.length === 0) {
+        alert("保存されたデータがありません");
+        return;
+      }
+
+      let csvContent = "\uFEFF日時,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),着地ヒザ(deg),最大伸展(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm)\n";
+
+      allRecords.forEach(r => {
+        const isSide = (r.mode === 'SIDE');
+        const row = [
+          `"${r.date}"`,
+          `"${r.playerName}"`,
+          r.height,
+          r.throwArm === 'RIGHT' ? "右" : "左",
+          isSide ? "横向き" : "正面",
+          isSide ? r.metrics.stride : "",
+          isSide ? r.metrics.strideRatio : "",
+          isSide ? r.metrics.mer : "",
+          isSide ? r.metrics.twist : "",
+          isSide ? r.metrics.releaseH : "",
+          isSide ? r.metrics.kneeFlex : "",
+          isSide ? r.metrics.kneeExt : "",
+          isSide ? r.metrics.trunkTilt : "",
+          !isSide ? r.metrics.toeAngle : "",
+          !isSide ? r.metrics.valgus : "",
+          !isSide ? r.metrics.trunkLateral : "",
+          !isSide ? r.metrics.armSlot : "",
+          !isSide ? r.metrics.inStep : "",
+          !isSide ? r.metrics.releaseLateral : ""
+        ];
+        csvContent += row.join(",") + "\n";
+      });
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `投球AIカルテ_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    // 履歴クリア
+    document.getElementById('btn-clear-history').addEventListener('click', () => {
+      if (confirm("本当にすべての保存データを削除しますか？")) {
+        localStorage.removeItem(STORAGE_KEY);
+        renderCarteList();
       }
     });
 
@@ -1473,7 +1798,6 @@
           };
         }
 
-        // 骨格表示がONの時のみスケルトンを描画
         if (isSkeletonVisible) {
           drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
         }
@@ -1633,7 +1957,6 @@
 
               c1Val.textContent = `${displayAngle} °`;
 
-              // 自動着地検知によるロック
               if (isKinematicFC && records.fcToeAngle === null) {
                 records.fcToeAngle = displayAngle;
                 records.fcToeLabel = `着地時: ${displayAngle}° (${stateLabel})`;
@@ -1671,7 +1994,6 @@
 
             c2Val.textContent = `${absDev} °`;
 
-            // 自動接地検知によるロック
             if (isKinematicFC && records.ffValgusAngle === null) {
               records.ffValgusAngle = absDev;
               records.ffValgusLabel = `べた足時: ${absDev}° (${valgusStatus})`;
