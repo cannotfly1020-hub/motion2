@@ -24,7 +24,7 @@
       --text-muted: #64748b;
       --border-color: #cbd5e1;
       --card-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-      --radius: 16px;
+      --radius: 14px;
     }
 
     * {
@@ -44,7 +44,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 4px 6px;
+      padding: 2px 4px calc(2px + env(safe-area-inset-bottom, 0px)) 4px;
       overflow: hidden;
       justify-content: flex-start;
     }
@@ -53,26 +53,27 @@
       width: 100%;
       max-width: 1200px;
       text-align: center;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
+      flex-shrink: 0;
     }
 
     h1 {
-      font-size: 1.05rem;
+      font-size: 0.92rem;
       font-weight: 900;
       color: #0369a1;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      text-shadow: 0 2px 0 #ffffff;
-      letter-spacing: 0.5px;
+      gap: 4px;
+      text-shadow: 0 1px 0 #ffffff;
+      line-height: 1.1;
     }
 
     .steps-nav {
       display: flex;
       justify-content: center;
-      gap: 6px;
-      margin-top: 3px;
+      gap: 4px;
+      margin-top: 2px;
       width: 100%;
       max-width: 480px;
       margin-inline: auto;
@@ -81,14 +82,14 @@
     .step-pill {
       flex: 1;
       text-align: center;
-      padding: 4px 2px;
-      font-size: 0.72rem;
+      padding: 2px 2px;
+      font-size: 0.65rem;
       font-weight: 900;
       border-radius: 9999px;
       background: #ffffff;
       color: #64748b;
-      border: 2px solid #cbd5e1;
-      box-shadow: 0 2px 0 #94a3b8;
+      border: 1.5px solid #cbd5e1;
+      box-shadow: 0 1px 0 #94a3b8;
       transition: all 0.2s ease;
     }
 
@@ -96,7 +97,7 @@
       background: linear-gradient(135deg, #ff9f43, #ff5252);
       color: #ffffff;
       border-color: #fff;
-      box-shadow: 0 3px 0 #c0392b;
+      box-shadow: 0 2px 0 #c0392b;
       transform: translateY(-1px);
     }
 
@@ -106,21 +107,22 @@
       background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(8px);
       border-radius: var(--radius);
-      border: 3px solid #38bdf8;
-      box-shadow: 0 6px 16px rgba(14, 165, 233, 0.2);
-      padding: 6px;
+      border: 2px solid #38bdf8;
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.18);
+      padding: 4px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
       flex: 1;
       min-height: 0;
+      overflow: hidden;
     }
 
     .view-section {
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
       width: 100%;
       height: 100%;
       justify-content: space-between;
@@ -134,70 +136,70 @@
       background: linear-gradient(135deg, #38bdf8, #0284c7);
       color: #fff;
       border: 2px solid #fff;
-      padding: 9px 16px;
-      border-radius: 12px;
-      font-size: 0.92rem;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.88rem;
       font-weight: 900;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      box-shadow: 0 3px 0 #0369a1;
+      gap: 4px;
+      box-shadow: 0 2px 0 #0369a1;
       transition: all 0.15s ease;
       touch-action: manipulation;
     }
 
     .btn:active {
-      transform: translateY(2px);
+      transform: translateY(1px);
       box-shadow: 0 1px 0 #0369a1;
     }
 
     .btn-secondary {
       background: linear-gradient(135deg, #94a3b8, #64748b);
       color: #ffffff;
-      box-shadow: 0 3px 0 #475569;
+      box-shadow: 0 2px 0 #475569;
     }
 
     .btn-scan {
       background: linear-gradient(135deg, #10b981, #059669);
-      font-size: 0.9rem;
-      padding: 8px 12px;
-      box-shadow: 0 3px 0 #047857;
+      font-size: 0.85rem;
+      padding: 6px 10px;
+      box-shadow: 0 2px 0 #047857;
       flex: 1.4;
     }
 
     .btn-action-next {
       background: linear-gradient(135deg, #f59e0b, #d97706);
-      font-size: 1rem;
-      padding: 10px 16px;
+      font-size: 0.92rem;
+      padding: 8px 14px;
       width: 100%;
-      box-shadow: 0 3px 0 #b45309;
+      box-shadow: 0 2px 0 #b45309;
     }
 
     .btn-group {
       display: flex;
-      gap: 6px;
+      gap: 4px;
       flex-wrap: nowrap;
       justify-content: center;
       width: 100%;
+      flex-shrink: 0;
     }
 
     .screen-wrapper {
       position: relative;
       width: 100%;
       background: #0f172a;
-      border-radius: 12px;
+      border-radius: 10px;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
       flex: 1;
-      min-height: 160px;
-      max-height: 36vh;
+      min-height: 120px;
       touch-action: none;
-      border: 3px solid #7dd3fc;
-      box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+      border: 2px solid #7dd3fc;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
     }
 
     video {
@@ -219,67 +221,68 @@
 
     .zoom-badge {
       position: absolute;
-      top: 6px;
-      left: 6px;
-      background: rgba(255, 255, 255, 0.9);
-      border: 2px solid #0284c7;
+      top: 4px;
+      left: 4px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1.5px solid #0284c7;
       color: #0284c7;
-      font-size: 0.68rem;
+      font-size: 0.62rem;
       font-weight: 900;
-      padding: 2px 8px;
+      padding: 1px 6px;
       border-radius: 9999px;
       pointer-events: none;
       z-index: 10;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
     }
 
     .angle-mode-badge {
       position: absolute;
-      top: 6px;
-      right: 6px;
+      top: 4px;
+      right: 4px;
       background: linear-gradient(135deg, #10b981, #059669);
-      border: 2px solid #ffffff;
+      border: 1.5px solid #ffffff;
       color: #ffffff;
-      font-size: 0.68rem;
+      font-size: 0.62rem;
       font-weight: 900;
-      padding: 2px 8px;
+      padding: 1px 6px;
       border-radius: 9999px;
       pointer-events: none;
       z-index: 10;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
 
     .guidance-box {
       background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%);
-      border: 2px solid #38bdf8;
-      border-radius: 12px;
-      padding: 6px 10px;
-      font-size: 0.78rem;
+      border: 1.5px solid #38bdf8;
+      border-radius: 10px;
+      padding: 4px 8px;
+      font-size: 0.72rem;
       font-weight: 800;
       text-align: center;
       width: 100%;
       color: #0369a1;
-      line-height: 1.3;
-      box-shadow: 0 2px 4px rgba(56, 189, 248, 0.15);
+      line-height: 1.25;
+      box-shadow: 0 1px 3px rgba(56, 189, 248, 0.15);
+      flex-shrink: 0;
     }
 
     .input-group {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       width: 100%;
-      max-width: 320px;
+      max-width: 300px;
     }
 
     .input-field {
       width: 100%;
-      padding: 10px;
-      border-radius: 12px;
-      border: 3px solid #38bdf8;
+      padding: 8px;
+      border-radius: 10px;
+      border: 2.5px solid #38bdf8;
       background: #ffffff;
       color: #0284c7;
-      font-size: 1.4rem;
+      font-size: 1.25rem;
       text-align: center;
       font-weight: 900;
       box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
@@ -289,20 +292,20 @@
       display: flex;
       width: 100%;
       background: #e2e8f0;
-      border-radius: 12px;
-      border: 2px solid #cbd5e1;
-      padding: 3px;
-      gap: 4px;
+      border-radius: 10px;
+      border: 1.5px solid #cbd5e1;
+      padding: 2px;
+      gap: 3px;
     }
 
     .toggle-btn {
       flex: 1;
-      padding: 9px;
-      border-radius: 9px;
+      padding: 7px;
+      border-radius: 8px;
       border: none;
       background: transparent;
       color: #64748b;
-      font-size: 0.92rem;
+      font-size: 0.85rem;
       font-weight: 900;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -314,12 +317,13 @@
       box-shadow: 0 2px 4px rgba(255, 82, 82, 0.3);
     }
 
-    /* Gamified 6-Card Grid Dashboard */
+    /* Gamified 6-Card Compact Grid Dashboard */
     .dashboard {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 5px;
+      gap: 3px;
       width: 100%;
+      flex-shrink: 0;
     }
 
     @media (min-width: 768px) {
@@ -330,79 +334,82 @@
 
     .card {
       background: #ffffff;
-      border: 2px solid #bae6fd;
-      border-radius: 10px;
-      padding: 4px 6px;
+      border: 1.5px solid #bae6fd;
+      border-radius: 8px;
+      padding: 2px 5px;
       display: flex;
       flex-direction: column;
       gap: 1px;
-      box-shadow: 0 3px 0 #e2e8f0;
+      box-shadow: 0 2px 0 #e2e8f0;
       position: relative;
     }
 
     .card-title {
-      font-size: 0.65rem;
+      font-size: 0.60rem;
       font-weight: 900;
       color: #0369a1;
       display: flex;
       align-items: center;
       gap: 2px;
       white-space: nowrap;
+      line-height: 1.1;
     }
 
     .card-val {
-      font-size: 1.05rem;
+      font-size: 0.95rem;
       font-weight: 900;
       color: #ea580c;
       font-variant-numeric: tabular-nums;
-      line-height: 1.05;
+      line-height: 1.0;
       text-shadow: 0 1px 0 rgba(255,255,255,0.8);
     }
 
     .card-max {
-      font-size: 0.6rem;
+      font-size: 0.55rem;
       color: #0284c7;
       font-weight: 800;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
       background: #f0f9ff;
-      border-radius: 4px;
-      padding: 1px 3px;
+      border-radius: 3px;
+      padding: 0.5px 2px;
+      line-height: 1.1;
     }
 
     .controls-container {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
       width: 100%;
       z-index: 15;
+      flex-shrink: 0;
     }
 
     .seek-container {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       width: 100%;
       background: #ffffff;
-      padding: 4px 8px;
-      border-radius: 10px;
-      border: 2px solid #bae6fd;
-      box-shadow: 0 2px 0 #e2e8f0;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1.5px solid #bae6fd;
+      box-shadow: 0 1px 0 #e2e8f0;
     }
 
     .seek-bar {
       flex: 1;
-      height: 18px;
+      height: 14px;
       cursor: pointer;
       accent-color: #ff5e36;
     }
 
     .time-disp {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       font-family: ui-monospace, monospace;
       color: #0369a1;
       font-weight: 900;
-      min-width: 72px;
+      min-width: 66px;
       text-align: right;
     }
 
@@ -410,30 +417,31 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       flex-wrap: nowrap;
       width: 100%;
     }
 
     .btn-ctrl {
       background: #ffffff;
-      border: 2px solid #cbd5e1;
+      border: 1.5px solid #cbd5e1;
       color: #334155;
-      padding: 7px 4px;
-      border-radius: 8px;
-      font-size: 0.74rem;
+      padding: 5px 2px;
+      border-radius: 6px;
+      font-size: 0.68rem;
       font-weight: 900;
       cursor: pointer;
-      box-shadow: 0 2px 0 #94a3b8;
+      box-shadow: 0 1.5px 0 #94a3b8;
       touch-action: manipulation;
       flex: 1;
+      min-width: 0;
       text-align: center;
       white-space: nowrap;
       transition: all 0.1s;
     }
 
     .btn-ctrl:active {
-      transform: translateY(2px);
+      transform: translateY(1px);
       box-shadow: 0 0 0 #94a3b8;
       background: #f1f5f9;
     }
@@ -446,15 +454,15 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 4px;
       z-index: 30;
       pointer-events: none;
     }
 
     .spinner {
-      width: 32px;
-      height: 32px;
-      border: 4px solid #e0f2fe;
+      width: 28px;
+      height: 28px;
+      border: 3.5px solid #e0f2fe;
       border-top-color: #ff5e36;
       border-right-color: #ffe600;
       border-radius: 50%;
@@ -484,12 +492,12 @@
       <div class="guidance-box">
         🌟 <b>撮影した向きをえらんで、動画を選択してね！</b>
       </div>
-      <div style="padding: 14px 0; display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 320px;">
-        <label class="btn" id="label-side-video" style="padding: 16px 20px; font-size: 1.05rem; border-radius: 14px; background: linear-gradient(135deg, #38bdf8, #0284c7); box-shadow: 0 4px 0 #0369a1;">
+      <div style="padding: 10px 0; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px;">
+        <label class="btn" id="label-side-video" style="padding: 14px 18px; font-size: 0.98rem; border-radius: 12px; background: linear-gradient(135deg, #38bdf8, #0284c7); box-shadow: 0 3px 0 #0369a1;">
           ⚾ 横から撮った動画を選ぶ
           <input type="file" id="video-input-side" accept="video/*" style="display: none;">
         </label>
-        <label class="btn" id="label-front-video" style="padding: 16px 20px; font-size: 1.05rem; border-radius: 14px; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 0 #047857;">
+        <label class="btn" id="label-front-video" style="padding: 14px 18px; font-size: 0.98rem; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 3px 0 #047857;">
           🎯 正面（斜め前）から撮った動画を選ぶ
           <input type="file" id="video-input-front" accept="video/*" style="display: none;">
         </label>
@@ -507,7 +515,7 @@
         <canvas id="scan-canvas"></canvas>
         <div class="loading-overlay" id="scan-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.8rem; color: #0284c7; font-weight: 900;">🚀 AIがからだを探しているよ...</div>
+          <div style="font-size: 0.75rem; color: #0284c7; font-weight: 900;">🚀 AIがからだを探しているよ...</div>
         </div>
       </div>
 
@@ -530,9 +538,9 @@
         🔥 <b>投げる腕（利き腕）をえらんで、身長を入れてね！</b>
       </div>
       
-      <div class="input-group" style="padding: 4px 0; gap: 8px;">
+      <div class="input-group" style="padding: 2px 0; gap: 6px;">
         <div style="width: 100%;">
-          <label style="display: block; margin-bottom: 3px; text-align: center; font-weight: 900; color: #0369a1; font-size: 0.9rem;">
+          <label style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; color: #0369a1; font-size: 0.85rem;">
             投げる腕（ききうで）
           </label>
           <div class="toggle-group">
@@ -542,16 +550,16 @@
         </div>
 
         <div style="width: 100%;">
-          <label for="height-input" style="display: block; margin-bottom: 3px; text-align: center; font-weight: 900; font-size: 0.9rem; color: #0369a1;">
+          <label for="height-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.85rem; color: #0369a1;">
             ピッチャーの身長 (cm)
           </label>
           <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
         </div>
       </div>
 
-      <div class="btn-group" style="margin-top: 4px;">
+      <div class="btn-group" style="margin-top: 2px;">
         <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 やり直す</button>
-        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 3px 0 #047857;">
+        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 2px 0 #047857;">
           🚀 解析スタート！
         </button>
       </div>
@@ -607,7 +615,7 @@
         <div class="angle-mode-badge" id="angle-mode-badge">横向き解析</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.8rem; color: #0284c7; font-weight: 900;">⚡ AI同期中...</div>
+          <div style="font-size: 0.75rem; color: #0284c7; font-weight: 900;">⚡ AI同期中...</div>
         </div>
       </div>
 
@@ -618,12 +626,12 @@
           <span class="time-disp" id="time-disp">0.00 / 0.00</span>
         </div>
         <div class="playback-buttons">
-          <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
-          <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: 0 2px 0 #c0392b; flex: 1.2;">再生 ▶</button>
-          <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
-          <button class="btn-ctrl" id="btn-zoom-reset">🔍 リセット</button>
+          <button class="btn-ctrl" id="btn-frame-prev">◀ -1</button>
+          <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: 0 1.5px 0 #c0392b; flex: 1.1;">再生 ▶</button>
+          <button class="btn-ctrl" id="btn-frame-next">+1 ▶</button>
+          <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム</button>
           <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
-          <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 別の動画</button>
+          <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 選択</button>
         </div>
       </div>
 
