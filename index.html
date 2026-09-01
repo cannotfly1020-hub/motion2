@@ -822,7 +822,6 @@
  <section id="view-step1" class="view-section active">
  
 <div class="top-mode-grid">
- <!-- 横向きカード -->
  <label class="mode-card mode-card-side" id="label-side-video">
  <div class="mode-card-icon">⚾</div>
  <div class="mode-card-info">
@@ -832,7 +831,6 @@
  <input type="file" id="video-input-side" accept="video/*" style="display: none;">
  </label>
 
- <!-- 正面・斜め前カード -->
  <label class="mode-card mode-card-front" id="label-front-video">
  <div class="mode-card-icon">🎯</div>
  <div class="mode-card-info">
@@ -953,7 +951,7 @@
  <div class="card">
  <div class="card-title" id="c5-title">🦵 前足のヒザ屈曲角度 (曲がり)</div>
  <div class="card-val" id="c5-val">-- °</div>
- <div class="card-max" id="c5-max">着地時: 屈曲 --° (最大伸展: --°)</div>
+ <div class="card-max" id="c5-max">着地時: 屈曲 --° (完全伸展0°)</div>
  </div>
  <!-- Card 6 -->
  <div class="card">
@@ -1665,7 +1663,7 @@
  c2Max.textContent = records.ffValgusLabel;
  } else {
  records.fcKneeFlex = currentCalculatedState.kneeFlexAngle;
- c5Max.textContent = `着地決定: 屈曲 ${currentCalculatedState.kneeFlexAngle}° (最大伸展:${records.minFlexKnee}°)`;
+ c5Max.textContent = `着地決定: 屈曲 ${currentCalculatedState.kneeFlexAngle}° (完全伸展0°)`;
  }
  });
 
@@ -1704,7 +1702,7 @@
  twist: records.maxTwist,
  releaseH: records.maxRelease,
  kneeFlex: records.fcKneeFlex !== null ? records.fcKneeFlex : records.maxFlexKnee,
- kneeExt: records.minFlexKnee,
+ kneeExt: 0,
  trunkTilt: records.maxTrunkTilt
  } : {
  toeAngle: records.fcToeAngle !== null ? records.fcToeAngle : 0,
@@ -1769,7 +1767,7 @@
  text += `・腕のしなり(肩外旋): ${r.metrics.mer}°\n`;
  text += `・捻転差: ${r.metrics.twist}°\n`;
  text += `・リリース高: ${r.metrics.releaseH}cm\n`;
- text += `・着地ヒザ屈曲: ${r.metrics.kneeFlex}° (完全伸展:${r.metrics.kneeExt}°)\n`;
+ text += `・着地ヒザ屈曲角度: ${r.metrics.kneeFlex}°\n`;
  } else {
  text += `・つま先の向き: ${r.metrics.toeAngle}°\n`;
  text += `・ヒザ内外反: ${r.metrics.valgus}°\n`;
@@ -1859,7 +1857,7 @@
  <div>💪 肩外旋: <b>${r.metrics.mer}°</b></div>
  <div>🔄 捻転差: <b>${r.metrics.twist}°</b></div>
  <div>⚾ リリース高: <b>${r.metrics.releaseH}cm</b></div>
- <div>🦵 着地ヒザ屈曲: <b>${r.metrics.kneeFlex}° (最大伸展:${r.metrics.kneeExt}°)</b></div>
+ <div>🦵 着地ヒザ屈曲: <b>${r.metrics.kneeFlex}°</b></div>
  <div>📐 前傾角: <b>${r.metrics.trunkTilt}°</b></div>
  ` : `
  <div>👟 つま先: <b>${r.metrics.toeAngle}°</b></div>
@@ -1949,7 +1947,7 @@
  return;
  }
 
- let csvContent = "\uFEFF日時,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),着地ヒザ屈曲(deg),最大伸展(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm),監督コメント\n";
+ let csvContent = "\uFEFF日時,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),着地ヒザ屈曲(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm),監督コメント\n";
 
  allRecords.forEach(r => {
  const isSide = (r.mode === 'SIDE');
@@ -1966,7 +1964,6 @@
  isSide ? r.metrics.twist : "",
  isSide ? r.metrics.releaseH : "",
  isSide ? r.metrics.kneeFlex : "",
- isSide ? r.metrics.kneeExt : "",
  isSide ? r.metrics.trunkTilt : "",
  !isSide ? r.metrics.toeAngle : "",
  !isSide ? r.metrics.valgus : "",
@@ -2259,7 +2256,6 @@
  }
 
  // 4. Release Height (セットポジション誤判定を完全除外)
- // ステップ幅が35%以上広がり、かつ手首が肩より上に上がった投球フェーズのみ計測
  const isThrowingPhase = isStepping && throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y);
 
  if (isThrowingPhase && leadHeel && pivotHeel) {
@@ -2284,7 +2280,6 @@
  if (leadHip && leadKnee && leadAnkle) {
  const rawKneeAngle = calcJointAngle3D(leadHip, leadKnee, leadAnkle);
  if (Number.isFinite(rawKneeAngle) && rawKneeAngle >= 40 && rawKneeAngle <= 180) {
- // 解剖学的屈曲角度 = 180° - 内角
  const flexAngle = Math.max(0, Math.round(180 - rawKneeAngle));
  currentCalculatedState.kneeFlexAngle = flexAngle;
  c5Val.textContent = `屈曲 ${flexAngle} °`;
@@ -2293,13 +2288,10 @@
  records.fcKneeFlex = flexAngle;
  }
 
- if (flexAngle > records.maxFlexKnee) records.maxFlexKnee = flexAngle; // 最大屈曲
- if (records.minFlexKnee === 0 || flexAngle < records.minFlexKnee) records.minFlexKnee = flexAngle; // 最大伸展（0に近い値）
-
  if (records.fcKneeFlex !== null) {
- c5Max.textContent = `着地時: 屈曲 ${records.fcKneeFlex}° (最大伸展:${records.minFlexKnee}°)`;
+ c5Max.textContent = `着地時: 屈曲 ${records.fcKneeFlex}° (完全伸展0°)`;
  } else {
- c5Max.textContent = `最大屈曲:${records.maxFlexKnee}° (最大伸展:${records.minFlexKnee}°)`;
+ c5Max.textContent = `着地時: 屈曲 --° (完全伸展0°)`;
  }
  }
  }
@@ -2649,7 +2641,7 @@
  c2Max.textContent = "最大: -- °";
  c3Max.textContent = "最大: -- °";
  c4Max.textContent = "最高: -- cm";
- c5Max.textContent = "着地時: 屈曲 --° (最大伸展: --°)";
+ c5Max.textContent = "着地時: 屈曲 --° (完全伸展0°)";
  c6Max.textContent = "最大倒れ: -- °";
  } else {
  c1Max.textContent = "状態: --";
