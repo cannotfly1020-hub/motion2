@@ -649,6 +649,12 @@
     let calibratedPxPerCm = null;
     let scanModeActive = false;
 
+    // Front Toe Manual Offset Angle & Drag State
+    let manualToeOffsetDeg = 0;
+    let isDraggingToe = false;
+    let toeDragOrigin = { x: 0, y: 0 };
+    let smoothToeDeg = 0; // EMA filter for toe angle
+
     let zoomScale = 1.0;
     let zoomPan = { x: 0, y: 0 };
     let initialPinchDistance = 0;
@@ -658,7 +664,6 @@
     let panSnapshot = { x: 0, y: 0 };
 
     let records = {
-      // Side records
       maxStride: 0,
       maxMER: 0,
       maxTwist: 0,
@@ -666,7 +671,6 @@
       minKnee: 180,
       maxKnee: 0,
       maxTrunkTilt: 0,
-      // Front records
       toeAngle: 0,
       maxValgus: 0,
       maxTrunkLateral: 0,
@@ -957,19 +961,19 @@
       scanCtx.fillText("👟 じめん ↕", centerX, bottomY + 18);
     }
 
-    function getCanvasPoint(evt) {
-      const rect = scanCanvas.getBoundingClientRect();
+    function getCanvasPoint(evt, canvas) {
+      const rect = canvas.getBoundingClientRect();
       const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
       const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
       return {
-        x: (clientX - rect.left) * (scanCanvas.width / rect.width),
-        y: (clientY - rect.top) * (scanCanvas.height / rect.height)
+        x: (clientX - rect.left) * (canvas.width / rect.width),
+        y: (clientY - rect.top) * (canvas.height / rect.height)
       };
     }
 
     function onScanPointerDown(e) {
       if (!tuneRuler.isActive) return;
-      const pt = getCanvasPoint(e);
+      const pt = getCanvasPoint(e, scanCanvas);
       const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
       
       const topY = b.y + tuneRuler.topYNorm * b.h;
@@ -991,7 +995,7 @@
 
     function onScanPointerMove(e) {
       if (!activeDragHandle || !tuneRuler.isActive) return;
-      const pt = getCanvasPoint(e);
+      const pt = getCanvasPoint(e, scanCanvas);
       const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
       const dNormY = (pt.y - dragStartY) / b.h;
 
@@ -1120,7 +1124,7 @@
       }
     });
 
-    /* --- Pinch Zoom & Pan --- */
+    /* --- Pinch Zoom & Interactive Toe Handle Dragging --- */
     function updateZoomBadge() {
       zoomBadge.textContent = `🔍 ${zoomScale.toFixed(1)}x (ピンチ可)`;
     }
@@ -1135,6 +1139,8 @@
       processSingleFrame();
     }, { passive: false });
 
+    let lastCalculatedLeadToePt = null;
+
     outputCanvas.addEventListener('touchstart', (e) => {
       if (e.touches.length === 2) {
         initialPinchDistance = Math.hypot(
@@ -1142,10 +1148,22 @@
           e.touches[0].clientY - e.touches[1].clientY
         );
         initialZoomScale = zoomScale;
-      } else if (e.touches.length === 1 && zoomScale > 1.0) {
-        isPanning = true;
-        panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        panSnapshot = { ...zoomPan };
+      } else if (e.touches.length === 1) {
+        const pt = getCanvasPoint(e, outputCanvas);
+        // Check if touching near lead toe handle (Front Mode)
+        if (selectedAngleMode === 'FRONT' && lastCalculatedLeadToePt) {
+          const distToToe = Math.hypot(pt.x - lastCalculatedLeadToePt.x, pt.y - lastCalculatedLeadToePt.y);
+          if (distToToe <= 35) {
+            isDraggingToe = true;
+            toeDragOrigin = { ...pt };
+            return;
+          }
+        }
+        if (zoomScale > 1.0) {
+          isPanning = true;
+          panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          panSnapshot = { ...zoomPan };
+        }
       }
     }, { passive: true });
 
@@ -1162,23 +1180,35 @@
           updateZoomBadge();
           processSingleFrame();
         }
-      } else if (e.touches.length === 1 && isPanning && zoomScale > 1.0) {
-        const dx = e.touches[0].clientX - panStart.x;
-        const dy = e.touches[0].clientY - panStart.y;
-        zoomPan.x = panSnapshot.x + dx;
-        zoomPan.y = panSnapshot.y + dy;
-        processSingleFrame();
+      } else if (e.touches.length === 1) {
+        if (isDraggingToe) {
+          const pt = getCanvasPoint(e, outputCanvas);
+          const dx = pt.x - toeDragOrigin.x;
+          manualToeOffsetDeg = Math.max(-30, Math.min(30, manualToeOffsetDeg + dx * 0.4));
+          toeDragOrigin = { ...pt };
+          processSingleFrame();
+        } else if (isPanning && zoomScale > 1.0) {
+          const dx = e.touches[0].clientX - panStart.x;
+          const dy = e.touches[0].clientY - panStart.y;
+          zoomPan.x = panSnapshot.x + dx;
+          zoomPan.y = panSnapshot.y + dy;
+          processSingleFrame();
+        }
       }
     }, { passive: true });
 
     outputCanvas.addEventListener('touchend', (e) => {
       if (e.touches.length < 2) initialPinchDistance = 0;
-      if (e.touches.length === 0) isPanning = false;
+      if (e.touches.length === 0) {
+        isPanning = false;
+        isDraggingToe = false;
+      }
     });
 
     document.getElementById('btn-zoom-reset').addEventListener('click', () => {
       zoomScale = 1.0;
       zoomPan = { x: 0, y: 0 };
+      manualToeOffsetDeg = 0;
       updateZoomBadge();
       processSingleFrame();
     });
@@ -1352,6 +1382,13 @@
 
         const pivotHeel = isRightHanded ? (R_HEEL || R_ANKLE) : (L_HEEL || L_ANKLE);
 
+        if (leadToe) {
+          lastCalculatedLeadToePt = {
+            x: b.x + leadToe.x * b.w,
+            y: b.y + leadToe.y * b.h
+          };
+        }
+
         drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
 
         /* ========================================================
@@ -1444,23 +1481,43 @@
           const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
           const isStepping = (currentStridePx / activePxPerCm) > 20;
 
-          // 1. Lead Toe Angle (前足つま先の開き角)
+          // 1. Lead Toe Angle (前足つま先の開き角：下腿長軸基準 ＋ EMAフィルタ ＋ 手動補正)
           if (leadHeel && leadToe && leadAnkle) {
             if (!isStepping) {
+              smoothToeDeg = 0;
               c1Val.textContent = `0 °`;
               c1Max.textContent = `◎ 構え・ストレート`;
             } else {
-              const shankDx = (leadAnkle.x - (leadKnee ? leadKnee.x : leadAnkle.x)) * b.w;
-              const footDx = (leadToe.x - leadHeel.x) * b.w;
+              // 下腿長軸ベクトル（ヒザ -> 足首）
+              const shankV = {
+                x: (leadAnkle.x - (leadKnee ? leadKnee.x : leadAnkle.x)) * b.w,
+                y: (leadAnkle.y - (leadKnee ? leadKnee.y : leadAnkle.y)) * b.h
+              };
+              // 足部長軸ベクトル（かかと -> つま先）
+              const footV = {
+                x: (leadToe.x - leadHeel.x) * b.w,
+                y: (leadToe.y - leadHeel.y) * b.h
+              };
+
+              const shankAngle = Math.atan2(shankV.y, shankV.x);
+              const footAngle = Math.atan2(footV.y, footV.x);
               
-              let rawAngle = isRightHanded ? (footDx - shankDx) : (shankDx - footDx);
-              let toeDeg = Math.max(0, Math.min(45, Math.round(rawAngle * 0.8)));
+              let rawRelDiff = (footAngle - shankAngle) * 180.0 / Math.PI;
+              if (rawRelDiff > 180) rawRelDiff -= 360;
+              if (rawRelDiff < -180) rawRelDiff += 360;
+
+              // 右投げ左足：足先が右(外)へ向くのが開き、左投げ右足：足先が左(外)へ向くのが開き
+              let rawAngle = isRightHanded ? rawRelDiff : -rawRelDiff;
+              let instantToeDeg = Math.max(0, Math.min(45, Math.round(rawAngle * 0.75 + manualToeOffsetDeg)));
+
+              // 指数移動平均(EMA)フィルタでジッターを完全抑制
+              smoothToeDeg = smoothToeDeg === 0 ? instantToeDeg : Math.round(smoothToeDeg * 0.7 + instantToeDeg * 0.3);
 
               let stateLabel = "◎ 理想 (0〜15°)";
-              if (toeDeg > 25) stateLabel = "⚠️ 開き注意";
-              else if (toeDeg > 15) stateLabel = "○ やや開き";
+              if (smoothToeDeg > 25) stateLabel = "⚠️ 開き注意";
+              else if (smoothToeDeg > 15) stateLabel = "○ やや開き";
 
-              c1Val.textContent = `${toeDeg} °`;
+              c1Val.textContent = `${smoothToeDeg} °`;
               c1Max.textContent = `${stateLabel}`;
             }
           }
@@ -1474,7 +1531,6 @@
             if (valgusDiff > 180) valgusDiff -= 360;
             if (valgusDiff < -180) valgusDiff += 360;
 
-            // 右投げ左膝：内側(画面右)への偏位が外反(Valgus)、外側(画面左)への偏位が内反(Varus)
             let devAngle = isRightHanded ? -valgusDiff : valgusDiff;
             let absDev = Math.min(30, Math.round(Math.abs(devAngle)));
 
@@ -1594,7 +1650,7 @@
           else if (idx === throwWristIdx) radius = 5.5;
           else if (idx === throwElbowIdx) radius = 5;
           else if (idx === leadKneeIdx) radius = 5.5;
-          else if (idx === leadToeIdx) radius = 5.5;
+          else if (idx === leadToeIdx) radius = 6.5;
 
           outputCtx.arc(ox + p.x * bw, oy + p.y * bh, radius, 0, Math.PI * 2);
           
@@ -1607,7 +1663,7 @@
           } else if (idx === leadKneeIdx) {
             outputCtx.fillStyle = "#facc15";
           } else if (idx === leadToeIdx) {
-            outputCtx.fillStyle = "#06b6d4";
+            outputCtx.fillStyle = "#06b6d4"; // Cyan interactive handle
           } else if ([17, 18, 21, 22].includes(idx)) {
             outputCtx.fillStyle = "#a855f7";
           } else {
@@ -1695,6 +1751,8 @@
         maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0, minKnee: 180, maxKnee: 0, maxTrunkTilt: 0,
         toeAngle: 0, maxValgus: 0, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
       };
+      smoothToeDeg = 0;
+      manualToeOffsetDeg = 0;
       if (selectedAngleMode === 'SIDE') {
         c1Max.textContent = "最大: -- cm (0%身)";
         c2Max.textContent = "最大: -- °";
@@ -1720,6 +1778,8 @@
       btnScanNextStep.style.display = 'none';
       zoomScale = 1.0;
       zoomPan = { x: 0, y: 0 };
+      smoothToeDeg = 0;
+      manualToeOffsetDeg = 0;
       updateZoomBadge();
       setStep(1);
     });
