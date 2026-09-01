@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>投球AIバイオメカニクス</title>
   
+  <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -459,6 +460,7 @@
 
   <main class="app-container">
 
+    <!-- STEP 1: Angle Selection & Video Input -->
     <section id="view-step1" class="view-section active">
       <div class="guidance-box">
         🌟 <b>撮影した向きをえらんで、動画を選択してね！</b>
@@ -476,6 +478,7 @@
       <div></div>
     </section>
 
+    <!-- STEP 2: Stature Scan & Manual Fine-Tune -->
     <section id="view-step2" class="view-section">
       <div class="guidance-box" id="scan-guide-text">
         🧍 <b>まっすぐ立っている瞬間</b>でバーを止めて「① AI自動スキャン」を押してね！
@@ -502,6 +505,7 @@
       <button class="btn btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
     </section>
 
+    <!-- STEP 3: Arm & Stature Input -->
     <section id="view-step3" class="view-section">
       <div class="guidance-box">
         🔥 <b>投げる腕（利き腕）をえらんで、身長を入れてね！</b>
@@ -534,34 +538,42 @@
       </div>
     </section>
 
+    <!-- STEP 4: Main Workspace (Dynamic Angle Dashboard) -->
     <section id="view-step4" class="view-section">
       
+      <!-- 6 Metrics Grid Dashboard -->
       <div class="dashboard">
+        <!-- Card 1 -->
         <div class="card">
           <div class="card-title" id="c1-title">🚶 ステップ幅 (歩幅)</div>
           <div class="card-val" id="c1-val">-- cm</div>
           <div class="card-max" id="c1-max">最大: -- cm (0%身)</div>
         </div>
+        <!-- Card 2 -->
         <div class="card">
           <div class="card-title" id="c2-title">💪 うでのしなり (左肩外旋)</div>
           <div class="card-val" id="c2-val">-- °</div>
           <div class="card-max" id="c2-max">最大: -- °</div>
         </div>
+        <!-- Card 3 -->
         <div class="card">
           <div class="card-title" id="c3-title">🔄 捻転差 (胸と腰のひねり)</div>
           <div class="card-val" id="c3-val">-- °</div>
           <div class="card-max" id="c3-max">最大: -- °</div>
         </div>
+        <!-- Card 4 -->
         <div class="card">
           <div class="card-title" id="c4-title">⚾ 指先リリース高</div>
           <div class="card-val" id="c4-val">-- cm</div>
           <div class="card-max" id="c4-max">最高: -- cm</div>
         </div>
+        <!-- Card 5 -->
         <div class="card">
           <div class="card-title" id="c5-title">🦵 前足のヒザ角度 (曲がり)</div>
           <div class="card-val" id="c5-val">-- °</div>
           <div class="card-max" id="c5-max">FC時: -- ° (伸展: --°)</div>
         </div>
+        <!-- Card 6 -->
         <div class="card">
           <div class="card-title" id="c6-title">📐 体幹の前傾角度 (倒れ)</div>
           <div class="card-val" id="c6-val">-- °</div>
@@ -569,6 +581,7 @@
         </div>
       </div>
 
+      <!-- Main Display Screen with Pinch Zoom -->
       <div class="screen-wrapper" id="main-screen-wrapper">
         <canvas id="output-canvas"></canvas>
         <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
@@ -579,6 +592,7 @@
         </div>
       </div>
 
+      <!-- Playback Controls -->
       <div class="controls-container">
         <div class="seek-container">
           <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
@@ -654,6 +668,7 @@
       maxTrunkTilt: 0,
       // Front records
       toeAngle: 0,
+      maxValgus: 0,
       maxTrunkLateral: 0,
       maxArmSlot: 0,
       maxInStepCm: 0,
@@ -732,10 +747,10 @@
         angleModeBadge.style.borderColor = "#10b981";
 
         c1Title.textContent = isLeft ? "👟 前足つま先の向き (右足)" : "👟 前足つま先の向き (左足)";
-        c2Title.textContent = "📐 上半身の傾き (体幹側屈)";
-        c3Title.textContent = isLeft ? "💪 アームスロット (左腕の高さ)" : "💪 アームスロット (右腕の高さ)";
-        c4Title.textContent = "🚶 踏み出しのズレ (イン/アウト)";
-        c5Title.textContent = "🔄 骨盤の開き角 (回転)";
+        c2Title.textContent = isLeft ? "🦵 前足ヒザの内外反 (右膝)" : "🦵 前足ヒザの内外反 (左膝)";
+        c3Title.textContent = "📐 上半身の傾き (体幹側屈)";
+        c4Title.textContent = isLeft ? "💪 アームスロット (左腕の高さ)" : "💪 アームスロット (右腕の高さ)";
+        c5Title.textContent = "🚶 踏み出しのズレ (イン/アウト)";
         c6Title.textContent = "⚾ リリース左右位置 (打点)";
       }
     }
@@ -1321,7 +1336,6 @@
 
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
-        // 正しい前足/軸足の割り当て
         const isRightHanded = (selectedThrowArm === 'RIGHT');
         const isSouthpaw = !isRightHanded;
 
@@ -1427,22 +1441,18 @@
         } else {
           // --- FRONT VIEW (正面・斜め前解析) ---
 
-          // ステップ判定（両足のかかと距離）
           const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
-          const isStepping = (currentStridePx / activePxPerCm) > 25; // 25cm以上踏み出しているか
+          const isStepping = (currentStridePx / activePxPerCm) > 20;
 
-          // 1. Lead Toe Angle (前足つま先の開き角：下腿軸との相対回旋で判定)
+          // 1. Lead Toe Angle (前足つま先の開き角)
           if (leadHeel && leadToe && leadAnkle) {
             if (!isStepping) {
-              // 構え・直立時はストレート固定
               c1Val.textContent = `0 °`;
               c1Max.textContent = `◎ 構え・ストレート`;
             } else {
-              // 下腿の横ズレに対する足先の向き（内外旋角）
               const shankDx = (leadAnkle.x - (leadKnee ? leadKnee.x : leadAnkle.x)) * b.w;
               const footDx = (leadToe.x - leadHeel.x) * b.w;
               
-              // 右投げ前足(左足)なら画面右への開き、左投げ前足(右足)なら画面左への開きを評価
               let rawAngle = isRightHanded ? (footDx - shankDx) : (shankDx - footDx);
               let toeDeg = Math.max(0, Math.min(45, Math.round(rawAngle * 0.8)));
 
@@ -1455,58 +1465,79 @@
             }
           }
 
-          // 2. Trunk Lateral Tilt
+          // 2. Knee Valgus / Varus (前足ヒザの内外反角: ニーイン/アウト)
+          if (leadHip && leadKnee && leadAnkle) {
+            const thighAngle = Math.atan2(leadKnee.y - leadHip.y, leadKnee.x - leadHip.x);
+            const shankAngle = Math.atan2(leadAnkle.y - leadKnee.y, leadAnkle.x - leadKnee.x);
+            
+            let valgusDiff = (shankAngle - thighAngle) * 180.0 / Math.PI;
+            if (valgusDiff > 180) valgusDiff -= 360;
+            if (valgusDiff < -180) valgusDiff += 360;
+
+            // 右投げ左膝：内側(画面右)への偏位が外反(Valgus)、外側(画面左)への偏位が内反(Varus)
+            let devAngle = isRightHanded ? -valgusDiff : valgusDiff;
+            let absDev = Math.min(30, Math.round(Math.abs(devAngle)));
+
+            let valgusStatus = "まっすぐ (◎ 正常)";
+            if (absDev > 12) {
+              valgusStatus = (devAngle > 0) ? "⚠️ ニーイン (外反)" : "⚠️ 割れ (内反)";
+            } else if (absDev > 6) {
+              valgusStatus = (devAngle > 0) ? "○ やや内入り" : "○ やや外開き";
+            }
+
+            c2Val.textContent = `${absDev} °`;
+            c2Max.textContent = `${valgusStatus}`;
+
+            if (absDev > records.maxValgus && isStepping) {
+              records.maxValgus = absDev;
+            }
+          }
+
+          // 3. Trunk Lateral Tilt (体幹側屈)
           const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
           const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
           const lateralDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
           if (!isNaN(lateralDeg) && lateralDeg <= 45) {
-            c2Val.textContent = `${lateralDeg} °`;
+            c3Val.textContent = `${lateralDeg} °`;
             if (lateralDeg > records.maxTrunkLateral) {
               records.maxTrunkLateral = lateralDeg;
-              c2Max.textContent = `最大傾き: ${lateralDeg} °`;
+              c3Max.textContent = `最大傾き: ${lateralDeg} °`;
             }
           }
 
-          // 3. Arm Slot
+          // 4. Arm Slot (アームスロット)
           const otherShoulder = isRightHanded ? L_SHOULDER : R_SHOULDER;
           const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, otherShoulder);
           if (!isNaN(armSlotAngle) && armSlotAngle >= 30 && armSlotAngle <= 180) {
             const roundedSlot = Math.round(armSlotAngle);
-            c3Val.textContent = `${roundedSlot} °`;
+            c4Val.textContent = `${roundedSlot} °`;
             if (roundedSlot > records.maxArmSlot) {
               records.maxArmSlot = roundedSlot;
-              c3Max.textContent = `最大挙上: ${roundedSlot} °`;
+              c4Max.textContent = `最大挙上: ${roundedSlot} °`;
             }
           }
 
-          // 4. In-Step / Out-Step
+          // 5. In-Step / Out-Step (踏み出しのズレ)
           if (leadHeel && pivotHeel) {
             if (!isStepping) {
-              c4Val.textContent = `0 cm`;
-              c4Max.textContent = `構え位置`;
+              c5Val.textContent = `0 cm`;
+              c5Max.textContent = `構え位置`;
             } else {
               const lateralOffsetPx = Math.abs((leadHeel.x - pivotHeel.x) * b.w);
               const lateralOffsetCm = Math.round(lateralOffsetPx / activePxPerCm);
               if (!isNaN(lateralOffsetCm) && lateralOffsetCm <= 40) {
                 const isCross = isRightHanded ? (leadHeel.x < pivotHeel.x) : (leadHeel.x > pivotHeel.x);
                 const dirText = isCross ? "インステップ" : "アウトステップ";
-                c4Val.textContent = `${lateralOffsetCm} cm`;
+                c5Val.textContent = `${lateralOffsetCm} cm`;
                 if (lateralOffsetCm > records.maxInStepCm) {
                   records.maxInStepCm = lateralOffsetCm;
-                  c4Max.textContent = `${dirText}: ${lateralOffsetCm} cm`;
+                  c5Max.textContent = `${dirText}: ${lateralOffsetCm} cm`;
                 }
               }
             }
           }
 
-          // 5. Pelvis Open Angle
-          const hipFrontAngle = Math.round(Math.abs((Math.atan2(R_HIP.y - L_HIP.y, R_HIP.x - L_HIP.x) * 180.0) / Math.PI));
-          if (!isNaN(hipFrontAngle)) {
-            c5Val.textContent = `${hipFrontAngle} °`;
-            c5Max.textContent = `骨盤傾斜: ${hipFrontAngle} °`;
-          }
-
-          // 6. Lateral Release Point
+          // 6. Lateral Release Point (リリース左右位置)
           const releaseTarget = (throwIndex && throwIndex.x) ? throwIndex : throwWrist;
           const lateralReleasePx = Math.abs((releaseTarget.x - midShoulder.x) * b.w);
           const lateralReleaseCm = Math.round(lateralReleasePx / activePxPerCm);
@@ -1551,7 +1582,6 @@
       const throwElbowIdx = isRightHanded ? 14 : 13;
       const throwIndexIdx = isRightHanded ? 20 : 19;
       
-      // 前足のハイライト
       const leadKneeIdx = isRightHanded ? 25 : 26;
       const leadToeIdx = isRightHanded ? 31 : 32;
 
@@ -1663,7 +1693,7 @@
     document.getElementById('btn-reset-max').addEventListener('click', () => {
       records = {
         maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0, minKnee: 180, maxKnee: 0, maxTrunkTilt: 0,
-        toeAngle: 0, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
+        toeAngle: 0, maxValgus: 0, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
       };
       if (selectedAngleMode === 'SIDE') {
         c1Max.textContent = "最大: -- cm (0%身)";
@@ -1674,10 +1704,10 @@
         c6Max.textContent = "最大倒れ: -- °";
       } else {
         c1Max.textContent = "状態: --";
-        c2Max.textContent = "最大傾き: -- °";
-        c3Max.textContent = "最大挙上: -- °";
-        c4Max.textContent = "最大ズレ: -- cm";
-        c5Max.textContent = "骨盤傾斜: -- °";
+        c2Max.textContent = "状態: --";
+        c3Max.textContent = "最大傾き: -- °";
+        c4Max.textContent = "最大挙上: -- °";
+        c5Max.textContent = "最大ズレ: -- cm";
         c6Max.textContent = "最大横幅: -- cm";
       }
     });
