@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>投球フォームAIバイオメカニクス解析 Easy-Scan Pro</title>
+  <title>投球フォームAIバイオメカニクス解析 Tunable-Scan Pro</title>
   
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -84,7 +84,6 @@
       background: var(--surface);
       color: var(--text-muted);
       border: 1px solid var(--surface-light);
-      transition: all 0.2s ease;
     }
 
     .step-pill.active {
@@ -147,13 +146,9 @@
 
     .btn-scan {
       background: linear-gradient(135deg, #22c55e, #16a34a);
-      font-size: 1.15rem;
-      padding: 14px 28px;
+      font-size: 1.1rem;
+      padding: 13px 26px;
       box-shadow: 0 4px 15px rgba(34, 197, 94, 0.35);
-    }
-
-    .btn-scan:active {
-      background: #15803d;
     }
 
     .btn-group {
@@ -409,17 +404,17 @@
 <body>
 
   <header>
-    <h1>⚾ 投球フォームAIバイオメカニクス解析 Easy-Scan</h1>
+    <h1>⚾ 投球フォームAIバイオメカニクス解析 Tunable-Scan</h1>
     <div class="steps-nav">
-      <div id="step-nav-1" class="step-pill active">1. どうがをえらぶ</div>
-      <div id="step-nav-2" class="step-pill">2. まっすぐ立つ場所</div>
-      <div id="step-nav-3" class="step-pill">3. うで・しんちょう</div>
+      <div id="step-nav-1" class="step-pill active">1. どうが選択</div>
+      <div id="step-nav-2" class="step-pill">2. 直立スキャン・調整</div>
+      <div id="step-nav-3" class="step-pill">3. うで・身長</div>
     </div>
   </header>
 
   <main class="app-container">
 
-    <!-- STEP 1: Video File Selection -->
+    <!-- STEP 1: Video Selection -->
     <section id="view-step1" class="view-section active">
       <div class="guidance-box">
         ⚾ 投球動画をえらんでね（スロー動画がおすすめ！）
@@ -432,10 +427,10 @@
       </div>
     </section>
 
-    <!-- STEP 2: One-Tap Auto Stature Scan -->
+    <!-- STEP 2: Stature Scan & Manual Fine-Tune -->
     <section id="view-step2" class="view-section">
-      <div class="guidance-box">
-        🧍 <b>ピッチャーが「ピーンと真っ直ぐ立っているところ」</b>でバーを止めて、緑のボタンを押してね！
+      <div class="guidance-box" id="scan-guide-text">
+        🧍 <b>まっすぐ立っている瞬間</b>で「AIスキャン」を押し、ズレがあれば<b>丸いハンドルを指で上下に動かして調整</b>してね！
       </div>
 
       <div class="screen-wrapper" id="scan-screen-wrapper">
@@ -446,7 +441,7 @@
         </div>
       </div>
 
-      <!-- Frame Selector for Stature -->
+      <!-- Video Seeker for Stature -->
       <div class="seek-container">
         <input type="range" id="scan-seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
         <span class="time-disp" id="scan-time-disp">0.00 / 0.00</span>
@@ -454,12 +449,13 @@
 
       <div class="btn-group">
         <button class="btn btn-ctrl" id="btn-scan-prev">◀ -1コマ</button>
-        <button class="btn btn-scan" id="btn-scan-confirm">📏 この姿勢でAIスキャン！</button>
+        <button class="btn btn-scan" id="btn-scan-action">📏 ① AI自動スキャン</button>
         <button class="btn btn-ctrl" id="btn-scan-next">+1コマ ▶</button>
+        <button class="btn" id="btn-scan-next-step" style="display: none; background: #0284c7;">✅ ② これで決定して次へ</button>
       </div>
     </section>
 
-    <!-- STEP 3: Throw Arm & Height Confirmation -->
+    <!-- STEP 3: Arm & Stature Input -->
     <section id="view-step3" class="view-section">
       <div class="guidance-box">
         投げる腕をえらんで、身長をいれてね！
@@ -492,30 +488,25 @@
       </div>
     </section>
 
-    <!-- STEP 4: Main Analysis Workspace -->
+    <!-- STEP 4: Main Workspace -->
     <section id="view-step4" class="view-section">
       
-      <!-- Metrics Dashboard -->
       <div class="dashboard">
-        <!-- 1. Stride -->
         <div class="card">
           <div class="card-title">🚶 ステップ幅 (FC)</div>
           <div class="card-val" id="val-stride">-- cm</div>
           <div class="card-max" id="max-stride">最大: -- cm (0%身)</div>
         </div>
-        <!-- 2. MER -->
         <div class="card">
           <div class="card-title" id="card-mer-title">💪 うでのしなり (左肩外旋)</div>
           <div class="card-val" id="val-elbow">-- °</div>
           <div class="card-max" id="max-mer">最大: -- °</div>
         </div>
-        <!-- 3. Twist -->
         <div class="card">
           <div class="card-title">🔄 捻転差 (X-Factor)</div>
           <div class="card-val" id="val-twist">-- °</div>
           <div class="card-max" id="max-twist">最大: -- °</div>
         </div>
-        <!-- 4. Finger-Tip Release Height -->
         <div class="card">
           <div class="card-title">⚾ 指先リリース高</div>
           <div class="card-val" id="val-release">-- cm</div>
@@ -523,7 +514,6 @@
         </div>
       </div>
 
-      <!-- Main Display Screen with Pinch Zoom -->
       <div class="screen-wrapper" id="main-screen-wrapper">
         <canvas id="output-canvas"></canvas>
         <div class="zoom-badge" id="zoom-badge">拡大: 1.0x (ピンチ/ホイール可)</div>
@@ -533,7 +523,6 @@
         </div>
       </div>
 
-      <!-- Playback Controls -->
       <div class="controls-container">
         <div class="seek-container">
           <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
@@ -573,13 +562,22 @@
     let animationFrameId = null;
 
     let userHeightCm = 140;
-    let selectedThrowArm = 'LEFT'; // Default LEFT
+    let selectedThrowArm = 'LEFT';
     let videoFileUrl = null;
 
-    // Direct AI Stature Calibration Scale (px/cm)
+    // Editable Ruler Data (Normalized [0.0 - 1.0] relative to fitted video box)
+    let tuneRuler = {
+      isActive: false,
+      topYNorm: 0.2,
+      bottomYNorm: 0.8,
+      centerXNorm: 0.5
+    };
+    let activeDragHandle = null; // 'top', 'bottom', 'both'
+    let dragStartY = 0;
+    let snapTop = 0, snapBottom = 0;
+
     let calibratedPxPerCm = null;
     let scanModeActive = false;
-    let lastScanLandmarks = null;
 
     // Zoom & Pan
     let zoomScale = 1.0;
@@ -628,6 +626,8 @@
     const zoomBadge = document.getElementById('zoom-badge');
     const aiLoading = document.getElementById('ai-loading');
     const scanLoading = document.getElementById('scan-loading');
+    const btnScanNextStep = document.getElementById('btn-scan-next-step');
+    const scanGuideText = document.getElementById('scan-guide-text');
 
     const btnArmRight = document.getElementById('btn-arm-right');
     const btnArmLeft = document.getElementById('btn-arm-left');
@@ -667,7 +667,6 @@
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
       });
 
-      // Model Complexity: 2 for robust joint detection
       pose.setOptions({
         modelComplexity: 2,
         smoothLandmarks: true,
@@ -761,33 +760,156 @@
         scanTimeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
       }
 
-      // If user scanned, draw glowing height ruler
-      if (lastScanLandmarks) {
-        drawScanCalibrationOverlay(lastScanLandmarks, b);
+      if (tuneRuler.isActive) {
+        drawInteractiveRuler(b);
       }
     }
+
+    /* --- Interactive Tunable Stature Ruler --- */
+    function drawInteractiveRuler(b) {
+      const topY = b.y + tuneRuler.topYNorm * b.h;
+      const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
+      const centerX = b.x + tuneRuler.centerXNorm * b.w;
+      const barWidth = 60;
+
+      // Connecting Vertical Line
+      scanCtx.strokeStyle = "#38bdf8";
+      scanCtx.lineWidth = 3;
+      scanCtx.beginPath();
+      scanCtx.moveTo(centerX, topY);
+      scanCtx.lineTo(centerX, bottomY);
+      scanCtx.stroke();
+
+      // Top Handle (Head)
+      scanCtx.strokeStyle = "#22c55e";
+      scanCtx.lineWidth = 4;
+      scanCtx.beginPath();
+      scanCtx.moveTo(centerX - barWidth, topY);
+      scanCtx.lineTo(centerX + barWidth, topY);
+      scanCtx.stroke();
+
+      scanCtx.fillStyle = "#22c55e";
+      scanCtx.beginPath();
+      scanCtx.arc(centerX, topY, 12, 0, Math.PI * 2);
+      scanCtx.fill();
+      scanCtx.strokeStyle = "#ffffff";
+      scanCtx.lineWidth = 2.5;
+      scanCtx.stroke();
+
+      scanCtx.fillStyle = "#ffffff";
+      scanCtx.font = "bold 11px sans-serif";
+      scanCtx.textAlign = "center";
+      scanCtx.fillText("頭のてっぺん ↕", centerX, topY - 16);
+
+      // Bottom Handle (Ground/Heel)
+      scanCtx.strokeStyle = "#ef4444";
+      scanCtx.lineWidth = 4;
+      scanCtx.beginPath();
+      scanCtx.moveTo(centerX - barWidth, bottomY);
+      scanCtx.lineTo(centerX + barWidth, bottomY);
+      scanCtx.stroke();
+
+      scanCtx.fillStyle = "#ef4444";
+      scanCtx.beginPath();
+      scanCtx.arc(centerX, bottomY, 12, 0, Math.PI * 2);
+      scanCtx.fill();
+      scanCtx.strokeStyle = "#ffffff";
+      scanCtx.lineWidth = 2.5;
+      scanCtx.stroke();
+
+      scanCtx.fillStyle = "#ffffff";
+      scanCtx.fillText("かかと・地面 ↕", centerX, bottomY + 24);
+    }
+
+    function getCanvasPoint(evt) {
+      const rect = scanCanvas.getBoundingClientRect();
+      const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+      return {
+        x: (clientX - rect.left) * (scanCanvas.width / rect.width),
+        y: (clientY - rect.top) * (scanCanvas.height / rect.height)
+      };
+    }
+
+    function onScanPointerDown(e) {
+      if (!tuneRuler.isActive) return;
+      const pt = getCanvasPoint(e);
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
+      
+      const topY = b.y + tuneRuler.topYNorm * b.h;
+      const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
+      const centerX = b.x + tuneRuler.centerXNorm * b.w;
+
+      const tol = 30; // touch hit tolerance
+
+      if (Math.abs(pt.y - topY) <= tol && Math.abs(pt.x - centerX) <= 70) {
+        activeDragHandle = 'top';
+      } else if (Math.abs(pt.y - bottomY) <= tol && Math.abs(pt.x - centerX) <= 70) {
+        activeDragHandle = 'bottom';
+      } else if (pt.y > topY && pt.y < bottomY && Math.abs(pt.x - centerX) <= 40) {
+        activeDragHandle = 'both';
+      }
+      dragStartY = pt.y;
+      snapTop = tuneRuler.topYNorm;
+      snapBottom = tuneRuler.bottomYNorm;
+    }
+
+    function onScanPointerMove(e) {
+      if (!activeDragHandle || !tuneRuler.isActive) return;
+      const pt = getCanvasPoint(e);
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
+      const dNormY = (pt.y - dragStartY) / b.h;
+
+      if (activeDragHandle === 'top') {
+        tuneRuler.topYNorm = Math.min(tuneRuler.bottomYNorm - 0.1, Math.max(0.01, snapTop + dNormY));
+      } else if (activeDragHandle === 'bottom') {
+        tuneRuler.bottomYNorm = Math.max(tuneRuler.topYNorm + 0.1, Math.min(0.99, snapBottom + dNormY));
+      } else if (activeDragHandle === 'both') {
+        const heightNorm = snapBottom - snapTop;
+        const newTop = Math.max(0.01, Math.min(0.99 - heightNorm, snapTop + dNormY));
+        tuneRuler.topYNorm = newTop;
+        tuneRuler.bottomYNorm = newTop + heightNorm;
+      }
+
+      renderScanFrame();
+    }
+
+    function onScanPointerUp() {
+      activeDragHandle = null;
+    }
+
+    scanCanvas.addEventListener('mousedown', onScanPointerDown);
+    scanCanvas.addEventListener('mousemove', onScanPointerMove);
+    window.addEventListener('mouseup', onScanPointerUp);
+
+    scanCanvas.addEventListener('touchstart', onScanPointerDown, { passive: true });
+    scanCanvas.addEventListener('touchmove', onScanPointerMove, { passive: true });
+    window.addEventListener('touchend', onScanPointerUp);
 
     scanSeekBar.addEventListener('input', () => {
       if (!videoElement.duration) return;
       videoElement.currentTime = (scanSeekBar.value / 100) * videoElement.duration;
-      lastScanLandmarks = null;
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
       renderScanFrame();
     });
 
     document.getElementById('btn-scan-prev').addEventListener('click', () => {
       videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
-      lastScanLandmarks = null;
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
       renderScanFrame();
     });
 
     document.getElementById('btn-scan-next').addEventListener('click', () => {
       videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
-      lastScanLandmarks = null;
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
       renderScanFrame();
     });
 
-    /* --- One-Tap AI Stature Scan Action --- */
-    document.getElementById('btn-scan-confirm').addEventListener('click', async () => {
+    /* --- Trigger AI Auto Stature Scan --- */
+    document.getElementById('btn-scan-action').addEventListener('click', async () => {
       scanLoading.style.display = 'flex';
       scanModeActive = true;
 
@@ -807,43 +929,20 @@
       }
     });
 
-    function drawScanCalibrationOverlay(landmarks, b) {
-      const NOSE = landmarks[0];
-      const L_HEEL = landmarks[29] || landmarks[27];
-      const R_HEEL = landmarks[30] || landmarks[28];
-
-      const topY = NOSE.y * b.h + b.y - (b.h * 0.08); // Estimate top of head from nose
-      const bottomY = Math.max(L_HEEL.y, R_HEEL.y) * b.h + b.y;
-      const centerX = NOSE.x * b.w + b.x;
-
-      // Draw Glowing Stature Line
-      scanCtx.strokeStyle = "#22c55e";
-      scanCtx.lineWidth = 4;
-      scanCtx.beginPath();
-      scanCtx.moveTo(centerX, topY);
-      scanCtx.lineTo(centerX, bottomY);
-      scanCtx.stroke();
-
-      // Top & Bottom Horizontal Marks
-      scanCtx.lineWidth = 5;
-      scanCtx.beginPath();
-      scanCtx.moveTo(centerX - 24, topY);
-      scanCtx.lineTo(centerX + 24, topY);
-      scanCtx.moveTo(centerX - 24, bottomY);
-      scanCtx.lineTo(centerX + 24, bottomY);
-      scanCtx.stroke();
-
-      // Badge
-      scanCtx.fillStyle = "rgba(34, 197, 94, 0.9)";
-      scanCtx.fillRect(centerX - 70, (topY + bottomY)/2 - 14, 140, 28);
-      scanCtx.fillStyle = "#ffffff";
-      scanCtx.font = "bold 13px sans-serif";
-      scanCtx.textAlign = "center";
-      scanCtx.fillText("✅ スキャン完了！", centerX, (topY + bottomY)/2 + 5);
-    }
+    /* --- Confirm Stature Calibration Scale --- */
+    btnScanNextStep.addEventListener('click', () => {
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
+      const pixelHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) * b.h;
+      
+      if (pixelHeight > 30) {
+        calibratedPxPerCm = pixelHeight / userHeightCm;
+      }
+      setStep(3);
+    });
 
     document.getElementById('btn-re-scan').addEventListener('click', () => {
-      lastScanLandmarks = null;
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
       setStep(2);
       setTimeout(() => {
         updateScanScreenSize();
@@ -855,6 +954,13 @@
     document.getElementById('btn-start-analysis').addEventListener('click', () => {
       const hVal = parseFloat(document.getElementById('height-input').value);
       userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
+
+      // Re-evaluate scale with finalized userHeightCm
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
+      const pixelHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) * b.h;
+      if (pixelHeight > 30) {
+        calibratedPxPerCm = pixelHeight / userHeightCm;
+      }
 
       setStep(4);
       setTimeout(() => {
@@ -1027,30 +1133,22 @@
 
     /* --- MediaPipe Inference Results --- */
     function onPoseResults(results) {
-      // 1. Handling Scan Mode Confirmation
+      // 1. Handling Scan Mode Initial Auto-Placement
       if (scanModeActive) {
         if (results.poseLandmarks) {
           const landmarks = results.poseLandmarks;
-          const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
-          
           const NOSE = landmarks[0];
           const L_HEEL = landmarks[29] || landmarks[27];
           const R_HEEL = landmarks[30] || landmarks[28];
           
-          const topHeadY = (NOSE.y - 0.08) * b.h;
-          const lowestFootY = Math.max(L_HEEL.y, R_HEEL.y) * b.h;
-          const staturePx = Math.abs(lowestFootY - topHeadY);
+          tuneRuler.isActive = true;
+          tuneRuler.topYNorm = Math.max(0.02, NOSE.y - 0.08);
+          tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
+          tuneRuler.centerXNorm = NOSE.x;
 
-          if (staturePx > 30) {
-            calibratedPxPerCm = staturePx / userHeightCm;
-            lastScanLandmarks = landmarks;
-            renderScanFrame();
-            
-            // Advance smoothly to Step 3
-            setTimeout(() => {
-              setStep(3);
-            }, 600);
-          }
+          btnScanNextStep.style.display = 'inline-flex';
+          scanGuideText.innerHTML = "🎯 <b>AIが検知しました！</b> ズレがあれば<b>丸いハンドルを上下にドラッグ</b>して頭と足元にピッタリ合わせてね！";
+          renderScanFrame();
         }
         return;
       }
@@ -1089,7 +1187,7 @@
         const L_HEEL = landmarks[29];
         const R_HEEL = landmarks[30];
 
-        // Use AI Scanned Stature Scale (Fallback to standard proportion if skipped)
+        // Use Calibrated Scale from Tuned Stature Ruler
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
         const isSouthpaw = (selectedThrowArm === 'LEFT');
@@ -1203,7 +1301,6 @@
         const p = landmarks[idx];
         if (p) {
           outputCtx.beginPath();
-          
           let radius = 5;
           if (idx === throwIndexIdx) radius = 7;
           else if (idx === throwWristIdx) radius = 6;
@@ -1212,13 +1309,13 @@
           outputCtx.arc(ox + p.x * bw, oy + p.y * bh, radius, 0, Math.PI * 2);
           
           if (idx === throwIndexIdx) {
-            outputCtx.fillStyle = "#ec4899"; // Finger-Tip Target
+            outputCtx.fillStyle = "#ec4899";
           } else if (idx === throwWristIdx) {
-            outputCtx.fillStyle = "#ef4444"; // Throwing Wrist
+            outputCtx.fillStyle = "#ef4444";
           } else if (idx === throwElbowIdx) {
-            outputCtx.fillStyle = "#f59e0b"; // Throwing Elbow
+            outputCtx.fillStyle = "#f59e0b";
           } else if ([17, 18, 21, 22].includes(idx)) {
-            outputCtx.fillStyle = "#a855f7"; // Hand
+            outputCtx.fillStyle = "#a855f7";
           } else {
             outputCtx.fillStyle = "#38bdf8";
           }
@@ -1311,7 +1408,8 @@
       videoElement.pause();
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
       calibratedPxPerCm = null;
-      lastScanLandmarks = null;
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
       zoomScale = 1.0;
       zoomPan = { x: 0, y: 0 };
       updateZoomBadge();
