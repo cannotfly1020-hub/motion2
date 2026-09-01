@@ -1,6 +1,6 @@
 const CACHE_NAME = 'pitching-ai-v3';
 const urlsToCache = [
-  './index2.html',
+  './index.html',
   './manifest.json'
 ];
 
