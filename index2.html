@@ -452,7 +452,7 @@
       </div>
       <div style="padding: 20px 0;">
         <label class="btn" style="padding: 14px 28px; font-size: 1.05rem; border-radius: 12px;">
-          📁 どうがをえらぶ ⚾
+          📁 ボールを投げてる動画を選ぶ ⚾
           <input type="file" id="video-input" accept="video/*" style="display: none;">
         </label>
       </div>
@@ -511,7 +511,7 @@
         </div>
       </div>
 
-      <div class="btn-group">
+      <div class="btn-group" style="margin-top: 4px;">
         <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 スキャンやり直し</button>
         <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 2px 0 #047857;">
           🚀 解析スタート！
@@ -535,7 +535,6 @@
           <div class="card-max" id="max-mer">最大: -- °</div>
         </div>
         <div class="card">
-          <!-- 小学生向け部位説明付き表記 -->
           <div class="card-title">🔄 捻転差 (胸と腰のひねり)</div>
           <div class="card-val" id="val-twist">-- °</div>
           <div class="card-max" id="max-twist">最大: -- °</div>
@@ -550,7 +549,7 @@
       <!-- Main Display Screen with Pinch Zoom -->
       <div class="screen-wrapper" id="main-screen-wrapper">
         <canvas id="output-canvas"></canvas>
-        <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチで拡大)</div>
+        <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
           <div style="font-size: 0.75rem; color: #fff; font-weight: 800;">⚡ AI同期中...</div>
