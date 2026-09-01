@@ -975,6 +975,7 @@
     let isPoseLoaded = false;
     let isProcessing = false;
     let animationFrameId = null;
+    let scanModeActive = false; // 変数宣言を追加
 
     let playerName = "せんしゅ1";
     let userHeightCm = 140;
@@ -1218,7 +1219,10 @@
       if (!file) return;
       selectedAngleMode = angleMode;
 
-      if (videoFileUrl) URL.revokeObjectURL(videoFileUrl);
+      if (videoFileUrl) {
+        URL.revokeObjectURL(videoFileUrl);
+        videoFileUrl = null;
+      }
       videoFileUrl = URL.createObjectURL(file);
       
       videoElement.src = videoFileUrl;
@@ -1270,7 +1274,7 @@
       const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
       scanCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
 
-      if (videoElement.duration) {
+      if (Number.isFinite(videoElement.duration) && videoElement.duration > 0) {
         scanSeekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
         scanTimeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
       }
@@ -1406,7 +1410,7 @@
     window.addEventListener('touchend', onScanPointerUp);
 
     scanSeekBar.addEventListener('input', () => {
-      if (!videoElement.duration) return;
+      if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
       videoElement.currentTime = (scanSeekBar.value / 100) * videoElement.duration;
       tuneRuler.isActive = false;
       btnScanNextStep.style.display = 'none';
@@ -1468,7 +1472,7 @@
       playerName = pName || "せんしゅ1";
 
       const hVal = parseFloat(document.getElementById('height-input').value);
-      userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
+      userHeightCm = (Number.isFinite(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
 
       playerTagBadge.textContent = `👤 ${playerName} (${userHeightCm}cm)`;
 
@@ -1943,14 +1947,16 @@
           const L_HEEL = landmarks[29] || landmarks[27];
           const R_HEEL = landmarks[30] || landmarks[28];
           
-          tuneRuler.isActive = true;
-          tuneRuler.topYNorm = Math.max(0.02, NOSE.y - 0.08);
-          tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
-          tuneRuler.centerXNorm = NOSE.x;
+          if (NOSE && L_HEEL && R_HEEL) {
+            tuneRuler.isActive = true;
+            tuneRuler.topYNorm = Math.max(0.02, NOSE.y - 0.08);
+            tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
+            tuneRuler.centerXNorm = NOSE.x;
 
-          btnScanNextStep.style.display = 'block';
-          scanGuideText.innerHTML = "🎯 <b>AIが検知したよ！</b> ズレがあれば<b>丸いハンドルを上下にドラッグ</b>して頭と足元にピッタリ合わせてね！";
-          renderScanFrame();
+            btnScanNextStep.style.display = 'block';
+            scanGuideText.innerHTML = "🎯 <b>AIが検知したよ！</b> ズレがあれば<b>丸いハンドルを上下にドラッグ</b>して頭と足元にピッタリ合わせてね！";
+            renderScanFrame();
+          }
         }
         return;
       }
@@ -2023,25 +2029,30 @@
         /* ========================================================
            FC (Foot Contact) 高精度運動学検知エンジン
         ======================================================== */
-        const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
-        const currentStrideCm = currentStridePx / activePxPerCm;
-        const isStepping = currentStrideCm > 22;
-
+        let currentStrideCm = 0;
+        let isStepping = false;
         let isKinematicFC = false;
-        if (leadHeel && isStepping) {
-          const currentLeadY = leadHeel.y;
-          if (prevLeadHeelY !== null) {
-            const verticalVel = (currentLeadY - prevLeadHeelY);
-            if (Math.abs(verticalVel) < 0.003 && currentLeadY >= (pivotHeel.y - 0.08)) {
-              leadFootStationaryCount++;
-              if (leadFootStationaryCount === 2) {
-                isKinematicFC = true;
+        
+        if (leadHeel && pivotHeel) {
+          const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
+          currentStrideCm = currentStridePx / activePxPerCm;
+          isStepping = currentStrideCm > 22;
+
+          if (isStepping) {
+            const currentLeadY = leadHeel.y;
+            if (prevLeadHeelY !== null) {
+              const verticalVel = (currentLeadY - prevLeadHeelY);
+              if (Math.abs(verticalVel) < 0.003 && currentLeadY >= (pivotHeel.y - 0.08)) {
+                leadFootStationaryCount++;
+                if (leadFootStationaryCount === 2) {
+                  isKinematicFC = true;
+                }
+              } else {
+                leadFootStationaryCount = 0;
               }
-            } else {
-              leadFootStationaryCount = 0;
             }
+            prevLeadHeelY = currentLeadY;
           }
-          prevLeadHeelY = currentLeadY;
         }
 
         /* ========================================================
@@ -2050,88 +2061,102 @@
 
         if (selectedAngleMode === 'SIDE') {
           // 1. Stride Width
-          const strideCm = Math.round(currentStrideCm);
-          if (!isNaN(strideCm) && strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
-            const strideRatio = Math.round((strideCm / userHeightCm) * 100);
-            c1Val.textContent = `${strideCm} cm`;
-            if (strideCm > records.maxStride) {
-              records.maxStride = strideCm;
-              c1Max.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
+          if (Number.isFinite(currentStrideCm)) {
+            const strideCm = Math.round(currentStrideCm);
+            if (strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
+              const strideRatio = Math.round((strideCm / userHeightCm) * 100);
+              c1Val.textContent = `${strideCm} cm`;
+              if (strideCm > records.maxStride) {
+                records.maxStride = strideCm;
+                c1Max.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
+              }
             }
           }
 
           // 2. MER
-          const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist);
-          if (!isNaN(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
-            const roundedMER = Math.round(trueMerDeg);
-            c2Val.textContent = `${roundedMER} °`;
-            if (roundedMER > records.maxMER && roundedMER <= 190) {
-              records.maxMER = roundedMER;
-              c2Max.textContent = `最大: ${roundedMER} °`;
+          if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP && throwElbow && throwWrist) {
+            const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist);
+            if (Number.isFinite(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
+              const roundedMER = Math.round(trueMerDeg);
+              c2Val.textContent = `${roundedMER} °`;
+              if (roundedMER > records.maxMER && roundedMER <= 190) {
+                records.maxMER = roundedMER;
+                c2Max.textContent = `最大: ${roundedMER} °`;
+              }
             }
           }
 
           // 3. Twist
-          const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
-          const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
-          if (!isNaN(shoulderAngle) && !isNaN(hipAngle)) {
-            let diff = Math.abs(shoulderAngle - hipAngle);
-            if (diff > 180) diff = 360 - diff;
-            const roundedTwist = Math.round(diff);
-            if (roundedTwist <= 65) {
-              c3Val.textContent = `${roundedTwist} °`;
-              if (roundedTwist > records.maxTwist && roundedTwist >= 5) {
-                records.maxTwist = roundedTwist;
-                c3Max.textContent = `最大: ${roundedTwist} °`;
+          if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
+            const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
+            const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
+            if (Number.isFinite(shoulderAngle) && Number.isFinite(hipAngle)) {
+              let diff = Math.abs(shoulderAngle - hipAngle);
+              if (diff > 180) diff = 360 - diff;
+              const roundedTwist = Math.round(diff);
+              if (roundedTwist <= 65) {
+                c3Val.textContent = `${roundedTwist} °`;
+                if (roundedTwist > records.maxTwist && roundedTwist >= 5) {
+                  records.maxTwist = roundedTwist;
+                  c3Max.textContent = `最大: ${roundedTwist} °`;
+                }
               }
             }
           }
 
           // 4. Release Height
-          const lowestGroundY = Math.max(leadHeel.y, pivotHeel.y) * b.h;
-          const releaseTarget = (throwIndex && throwIndex.y) ? throwIndex : throwWrist;
-          const releasePointY = releaseTarget.y * b.h;
-          const releaseHeightPx = Math.max(0, lowestGroundY - releasePointY);
-          const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
+          if (leadHeel && pivotHeel) {
+            const lowestGroundY = Math.max(leadHeel.y, pivotHeel.y) * b.h;
+            const releaseTarget = (throwIndex && throwIndex.y !== undefined) ? throwIndex : throwWrist;
+            if (releaseTarget) {
+              const releasePointY = releaseTarget.y * b.h;
+              const releaseHeightPx = Math.max(0, lowestGroundY - releasePointY);
+              const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
 
-          if (!isNaN(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.45)) {
-            c4Val.textContent = `${releaseHeightCm} cm`;
-            if (releaseHeightCm > records.maxRelease) {
-              records.maxRelease = releaseHeightCm;
-              c4Max.textContent = `最高: ${releaseHeightCm} cm`;
+              if (Number.isFinite(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.45)) {
+                c4Val.textContent = `${releaseHeightCm} cm`;
+                if (releaseHeightCm > records.maxRelease) {
+                  records.maxRelease = releaseHeightCm;
+                  c4Max.textContent = `最高: ${releaseHeightCm} cm`;
+                }
+              }
             }
           }
 
           // 5. Lead Knee Flexion
-          const kneeAngle = calcJointAngle3D(leadHip, leadKnee, leadAnkle);
-          if (!isNaN(kneeAngle) && kneeAngle >= 40 && kneeAngle <= 180) {
-            const roundedKnee = Math.round(kneeAngle);
-            currentCalculatedState.kneeFlexAngle = roundedKnee;
-            c5Val.textContent = `${roundedKnee} °`;
+          if (leadHip && leadKnee && leadAnkle) {
+            const kneeAngle = calcJointAngle3D(leadHip, leadKnee, leadAnkle);
+            if (Number.isFinite(kneeAngle) && kneeAngle >= 40 && kneeAngle <= 180) {
+              const roundedKnee = Math.round(kneeAngle);
+              currentCalculatedState.kneeFlexAngle = roundedKnee;
+              c5Val.textContent = `${roundedKnee} °`;
 
-            if (isKinematicFC && records.fcKneeAngle === null) {
-              records.fcKneeAngle = roundedKnee;
-            }
+              if (isKinematicFC && records.fcKneeAngle === null) {
+                records.fcKneeAngle = roundedKnee;
+              }
 
-            if (roundedKnee < records.minKnee) records.minKnee = roundedKnee;
-            if (roundedKnee > records.maxKnee) records.maxKnee = roundedKnee;
+              if (roundedKnee < records.minKnee) records.minKnee = roundedKnee;
+              if (roundedKnee > records.maxKnee) records.maxKnee = roundedKnee;
 
-            if (records.fcKneeAngle !== null) {
-              c5Max.textContent = `着地時: ${records.fcKneeAngle}° (伸展:${records.maxKnee}°)`;
-            } else {
-              c5Max.textContent = `屈曲:${records.minKnee}° (伸展:${records.maxKnee}°)`;
+              if (records.fcKneeAngle !== null) {
+                c5Max.textContent = `着地時: ${records.fcKneeAngle}° (伸展:${records.maxKnee}°)`;
+              } else {
+                c5Max.textContent = `屈曲:${records.minKnee}° (伸展:${records.maxKnee}°)`;
+              }
             }
           }
 
           // 6. Forward Trunk Tilt
-          const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
-          const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
-          const trunkDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
-          if (!isNaN(trunkDeg) && trunkDeg <= 60) {
-            c6Val.textContent = `${trunkDeg} °`;
-            if (trunkDeg > records.maxTrunkTilt) {
-              records.maxTrunkTilt = trunkDeg;
-              c6Max.textContent = `最大前傾: ${trunkDeg} °`;
+          if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
+            const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
+            const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
+            const trunkDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
+            if (Number.isFinite(trunkDeg) && trunkDeg <= 60) {
+              c6Val.textContent = `${trunkDeg} °`;
+              if (trunkDeg > records.maxTrunkTilt) {
+                records.maxTrunkTilt = trunkDeg;
+                c6Max.textContent = `最大前傾: ${trunkDeg} °`;
+              }
             }
           }
 
@@ -2227,26 +2252,30 @@
           }
 
           // 3. Trunk Lateral Tilt
-          const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
-          const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
-          const lateralDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
-          if (!isNaN(lateralDeg) && lateralDeg <= 45) {
-            c3Val.textContent = `${lateralDeg} °`;
-            if (lateralDeg > records.maxTrunkLateral) {
-              records.maxTrunkLateral = lateralDeg;
-              c3Max.textContent = `最大傾き: ${lateralDeg} °`;
+          if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
+            const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
+            const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
+            const lateralDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
+            if (Number.isFinite(lateralDeg) && lateralDeg <= 45) {
+              c3Val.textContent = `${lateralDeg} °`;
+              if (lateralDeg > records.maxTrunkLateral) {
+                records.maxTrunkLateral = lateralDeg;
+                c3Max.textContent = `最大傾き: ${lateralDeg} °`;
+              }
             }
           }
 
           // 4. Arm Slot
-          const otherShoulder = isRightHanded ? L_SHOULDER : R_SHOULDER;
-          const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, otherShoulder);
-          if (!isNaN(armSlotAngle) && armSlotAngle >= 30 && armSlotAngle <= 180) {
-            const roundedSlot = Math.round(armSlotAngle);
-            c4Val.textContent = `${roundedSlot} °`;
-            if (roundedSlot > records.maxArmSlot) {
-              records.maxArmSlot = roundedSlot;
-              c4Max.textContent = `最大挙上: ${roundedSlot} °`;
+          if (throwWrist && throwShoulder && L_SHOULDER && R_SHOULDER) {
+            const otherShoulder = isRightHanded ? L_SHOULDER : R_SHOULDER;
+            const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, otherShoulder);
+            if (Number.isFinite(armSlotAngle) && armSlotAngle >= 30 && armSlotAngle <= 180) {
+              const roundedSlot = Math.round(armSlotAngle);
+              c4Val.textContent = `${roundedSlot} °`;
+              if (roundedSlot > records.maxArmSlot) {
+                records.maxArmSlot = roundedSlot;
+                c4Max.textContent = `最大挙上: ${roundedSlot} °`;
+              }
             }
           }
 
@@ -2258,7 +2287,7 @@
             } else {
               const lateralOffsetPx = Math.abs((leadHeel.x - pivotHeel.x) * b.w);
               const lateralOffsetCm = Math.round(lateralOffsetPx / activePxPerCm);
-              if (!isNaN(lateralOffsetCm) && lateralOffsetCm <= 40) {
+              if (Number.isFinite(lateralOffsetCm) && lateralOffsetCm <= 40) {
                 const isCross = isRightHanded ? (leadHeel.x < pivotHeel.x) : (leadHeel.x > pivotHeel.x);
                 const dirText = isCross ? "インステップ" : "アウトステップ";
                 c5Val.textContent = `${lateralOffsetCm} cm`;
@@ -2271,14 +2300,19 @@
           }
 
           // 6. Lateral Release Point
-          const releaseTarget = (throwIndex && throwIndex.x) ? throwIndex : throwWrist;
-          const lateralReleasePx = Math.abs((releaseTarget.x - midShoulder.x) * b.w);
-          const lateralReleaseCm = Math.round(lateralReleasePx / activePxPerCm);
-          if (!isNaN(lateralReleaseCm) && lateralReleaseCm <= 80) {
-            c6Val.textContent = `${lateralReleaseCm} cm`;
-            if (lateralReleaseCm > records.maxReleaseLateral) {
-              records.maxReleaseLateral = lateralReleaseCm;
-              c6Max.textContent = `最大横幅: ${lateralReleaseCm} cm`;
+          if (L_SHOULDER && R_SHOULDER) {
+            const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
+            const releaseTarget = (throwIndex && throwIndex.x !== undefined) ? throwIndex : throwWrist;
+            if (releaseTarget) {
+              const lateralReleasePx = Math.abs((releaseTarget.x - midShoulder.x) * b.w);
+              const lateralReleaseCm = Math.round(lateralReleasePx / activePxPerCm);
+              if (Number.isFinite(lateralReleaseCm) && lateralReleaseCm <= 80) {
+                c6Val.textContent = `${lateralReleaseCm} cm`;
+                if (lateralReleaseCm > records.maxReleaseLateral) {
+                  records.maxReleaseLateral = lateralReleaseCm;
+                  c6Max.textContent = `最大横幅: ${lateralReleaseCm} cm`;
+                }
+              }
             }
           }
         }
@@ -2357,10 +2391,14 @@
 
     /* --- Video Playback Engine --- */
     function updatePlayState() {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      
       if (videoElement.paused) {
         btnPlayPause.textContent = "再生 ▶";
         btnPlayPause.style.background = "linear-gradient(135deg, #ff9f43, #ff5252)";
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
       } else {
         btnPlayPause.textContent = "停止 ⏸";
         btnPlayPause.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
@@ -2377,7 +2415,7 @@
     }
 
     function updateTimeUI() {
-      if (!videoElement.duration) return;
+      if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
       seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
       timeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
     }
@@ -2395,7 +2433,9 @@
       e.stopPropagation();
       if (videoElement.paused) {
         videoElement.play().catch(err => {
-          console.warn("Video Play Interrupted:", err);
+          if (err.name !== 'AbortError') {
+            console.warn("Video Play Interrupted:", err);
+          }
         });
       } else {
         videoElement.pause();
@@ -2403,7 +2443,7 @@
     });
 
     seekBar.addEventListener('input', () => {
-      if (!videoElement.duration) return;
+      if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
       videoElement.pause();
       videoElement.currentTime = (seekBar.value / 100) * videoElement.duration;
       updateTimeUI();
@@ -2452,7 +2492,10 @@
 
     document.getElementById('btn-re-select').addEventListener('click', () => {
       videoElement.pause();
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
       tuneRuler.isActive = false;
       btnScanNextStep.style.display = 'none';
       zoomScale = 1.0;
