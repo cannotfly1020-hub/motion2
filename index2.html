@@ -673,9 +673,6 @@
     let dragStartY = 0;
     let snapTop = 0, snapBottom = 0;
 
-    let calibratedPxPerCm = null;
-    let scanModeActive = false;
-
     let manualToeOffsetDeg = 0;
     let isDraggingToe = false;
     let toeDragOrigin = { x: 0, y: 0 };
@@ -1093,12 +1090,6 @@
     });
 
     btnScanNextStep.addEventListener('click', () => {
-      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
-      const pixelHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) * b.h;
-      
-      if (pixelHeight > 30) {
-        calibratedPxPerCm = pixelHeight / userHeightCm;
-      }
       setStep(3);
     });
 
@@ -1116,12 +1107,6 @@
     document.getElementById('btn-start-analysis').addEventListener('click', () => {
       const hVal = parseFloat(document.getElementById('height-input').value);
       userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
-
-      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
-      const pixelHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) * b.h;
-      if (pixelHeight > 30) {
-        calibratedPxPerCm = pixelHeight / userHeightCm;
-      }
 
       setStep(4);
       setTimeout(() => {
@@ -1387,7 +1372,9 @@
         const L_FOOT_INDEX = landmarks[31];
         const R_FOOT_INDEX = landmarks[32];
 
-        const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
+        // 【距離ズレ解消：現在の表示サイズ(b.h)に完全追従するリアルタイム縮尺計算】
+        const normalizedStatureHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.1 ? (tuneRuler.bottomYNorm - tuneRuler.topYNorm) : 0.75;
+        const activePxPerCm = (normalizedStatureHeight * b.h) / userHeightCm;
 
         const isRightHanded = (selectedThrowArm === 'RIGHT');
         const isSouthpaw = !isRightHanded;
@@ -1504,7 +1491,7 @@
           const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
           const isStepping = (currentStridePx / activePxPerCm) > 20;
 
-          // 1. Lead Toe Angle (前足つま先の向き：幾何学的定義完全修正版)
+          // 1. Lead Toe Angle (前足つま先の向き)
           if (leadHeel && leadToe && leadAnkle) {
             if (!isStepping) {
               smoothToeDeg = 0;
@@ -1515,9 +1502,6 @@
               const deltaY = Math.max(10, (leadToe.y - leadHeel.y) * b.h);
               
               let angleDeg = (Math.atan2(deltaX, deltaY) * 180.0 / Math.PI) + manualToeOffsetDeg;
-
-              // 右投げ（左足）：画面右(一塁側, deltaX > 0) -> 開き / 画面左(三塁側, deltaX < 0) -> 閉じ
-              // 左投げ（右足）：画面左(三塁側, deltaX < 0) -> 開き / 画面右(一塁側, deltaX > 0) -> 閉じ
               let signedToeDev = isRightHanded ? angleDeg : -angleDeg;
               
               smoothToeDeg = smoothToeDeg === 0 ? signedToeDev : (smoothToeDeg * 0.7 + signedToeDev * 0.3);
@@ -1791,7 +1775,6 @@
     document.getElementById('btn-re-select').addEventListener('click', () => {
       videoElement.pause();
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
-      calibratedPxPerCm = null;
       tuneRuler.isActive = false;
       btnScanNextStep.style.display = 'none';
       zoomScale = 1.0;
