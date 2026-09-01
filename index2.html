@@ -471,7 +471,7 @@
           <input type="file" id="video-input-side" accept="video/*" style="display: none;">
         </label>
         <label class="btn" id="label-front-video" style="padding: 14px 20px; font-size: 1rem; border-radius: 12px; background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 2px 0 #064e3b;">
-          🎯 正面から撮った動画を選ぶ
+          🎯 正面（斜め前）から撮った動画を選ぶ
           <input type="file" id="video-input-front" accept="video/*" style="display: none;">
         </label>
       </div>
@@ -634,7 +634,7 @@
     let userHeightCm = 140;
     let selectedThrowArm = 'LEFT';
     let videoFileUrl = null;
-    let selectedAngleMode = 'SIDE'; // 'SIDE' or 'FRONT'
+    let selectedAngleMode = 'SIDE';
 
     let tuneRuler = {
       isActive: false,
@@ -687,7 +687,6 @@
       3: document.getElementById('step-nav-3')
     };
 
-    // Dynamic Card Elements
     const c1Title = document.getElementById('c1-title');
     const c1Val = document.getElementById('c1-val');
     const c1Max = document.getElementById('c1-max');
@@ -739,14 +738,14 @@
         c2Title.textContent = isLeft ? "💪 うでのしなり (左肩外旋)" : "💪 うでのしなり (右肩外旋)";
         c3Title.textContent = "🔄 捻転差 (胸と腰のひねり)";
         c4Title.textContent = "⚾ 指先リリース高";
-        c5Title.textContent = isLeft ? "🦵 右足ヒザ角度 (前足)" : "🦵 左足ヒザ角度 (前足)";
+        c5Title.textContent = isLeft ? "🦵 前足ヒザ角度 (右足)" : "🦵 前足ヒザ角度 (左足)";
         c6Title.textContent = "📐 体幹の前傾角度 (倒れ)";
       } else {
-        angleModeBadge.textContent = "正面解析 🎯";
+        angleModeBadge.textContent = "正面・斜め前解析 🎯";
         angleModeBadge.style.background = "rgba(16, 185, 129, 0.85)";
         angleModeBadge.style.borderColor = "#10b981";
 
-        c1Title.textContent = "👟 つま先の向き (開き角)";
+        c1Title.textContent = isLeft ? "👟 前足つま先の向き (右足)" : "👟 前足つま先の向き (左足)";
         c2Title.textContent = "📐 上半身の傾き (体幹側屈)";
         c3Title.textContent = isLeft ? "💪 アームスロット (左腕の高さ)" : "💪 アームスロット (右腕の高さ)";
         c4Title.textContent = "🚶 踏み出しのズレ (イン/アウト)";
@@ -830,7 +829,6 @@
       return { x, y, w, h };
     }
 
-    /* --- Step 1: Video File & Angle Selection --- */
     async function handleVideoLoad(file, angleMode) {
       if (!file) return;
       selectedAngleMode = angleMode;
@@ -897,7 +895,6 @@
       }
     }
 
-    /* --- Interactive Tunable Ruler --- */
     function drawInteractiveRuler(b) {
       const topY = b.y + tuneRuler.topYNorm * b.h;
       const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
@@ -1338,21 +1335,26 @@
 
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
-        const isSouthpaw = (selectedThrowArm === 'LEFT');
-        const throwShoulder = isSouthpaw ? L_SHOULDER : R_SHOULDER;
-        const throwElbow = isSouthpaw ? L_ELBOW : R_ELBOW;
-        const throwWrist = isSouthpaw ? L_WRIST : R_WRIST;
-        const throwIndex = isSouthpaw ? L_INDEX : R_INDEX;
+        // 【生体力学ルールに則った厳密な前足/軸足の割り当て】
+        // 右投げ（RIGHT） -> 投球腕=右, 前足(Lead)=左足(11/23/25/27/29/31), 軸足(Pivot)=右足(12/24/26/28/30/32)
+        // 左投げ（LEFT）  -> 投球腕=左, 前足(Lead)=右足(12/24/26/28/30/32), 軸足(Pivot)=左足(11/23/25/27/29/31)
+        const isRightHanded = (selectedThrowArm === 'RIGHT');
+        const isSouthpaw = !isRightHanded;
 
-        const leadHip = isSouthpaw ? R_HIP : L_HIP;
-        const leadKnee = isSouthpaw ? R_KNEE : L_KNEE;
-        const leadAnkle = isSouthpaw ? R_ANKLE : L_ANKLE;
-        const leadHeel = isSouthpaw ? R_HEEL : L_HEEL;
-        const leadToe = isSouthpaw ? R_FOOT_INDEX : L_FOOT_INDEX;
+        const throwShoulder = isRightHanded ? R_SHOULDER : L_SHOULDER;
+        const throwElbow = isRightHanded ? R_ELBOW : L_ELBOW;
+        const throwWrist = isRightHanded ? R_WRIST : L_WRIST;
+        const throwIndex = isRightHanded ? R_INDEX : L_INDEX;
 
-        const pivotHeel = isSouthpaw ? L_HEEL : R_HEEL;
+        const leadHip = isRightHanded ? L_HIP : R_HIP;
+        const leadKnee = isRightHanded ? L_KNEE : R_KNEE;
+        const leadAnkle = isRightHanded ? L_ANKLE : R_ANKLE;
+        const leadHeel = isRightHanded ? (L_HEEL || L_ANKLE) : (R_HEEL || R_ANKLE);
+        const leadToe = isRightHanded ? (L_FOOT_INDEX || L_ANKLE) : (R_FOOT_INDEX || R_ANKLE);
 
-        drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw);
+        const pivotHeel = isRightHanded ? (R_HEEL || R_ANKLE) : (L_HEEL || L_ANKLE);
+
+        drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
 
         /* ========================================================
            MODE-SPECIFIC BIOMECHANICS ENGINE
@@ -1362,9 +1364,7 @@
           // --- SIDE VIEW (横向き解析) ---
 
           // 1. Stride Width
-          const footL = { x: (L_HEEL?.x || L_ANKLE.x), y: (L_HEEL?.y || L_ANKLE.y) };
-          const footR = { x: (R_HEEL?.x || R_ANKLE.x), y: (R_HEEL?.y || R_ANKLE.y) };
-          const stridePx = Math.hypot((footL.x - footR.x) * b.w, (footL.y - footR.y) * b.h);
+          const stridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
           const strideCm = Math.round(stridePx / activePxPerCm);
 
           if (!isNaN(strideCm) && strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
@@ -1404,7 +1404,7 @@
           }
 
           // 4. Release Height
-          const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
+          const lowestGroundY = Math.max(leadHeel.y, pivotHeel.y) * b.h;
           const releaseTarget = (throwIndex && throwIndex.y) ? throwIndex : throwWrist;
           const releasePointY = releaseTarget.y * b.h;
           const releaseHeightPx = Math.max(0, lowestGroundY - releasePointY);
@@ -1441,21 +1441,34 @@
           }
 
         } else {
-          // --- FRONT VIEW (正面解析) ---
+          // --- FRONT VIEW (正面・斜め前解析) ---
 
-          // 1. Toe Angle
-          if (leadHeel && leadToe) {
+          // 1. Lead Toe Angle (前足つま先の開き角：ステップ軸基準補正)
+          if (leadHeel && leadToe && pivotHeel) {
+            // ステップ進行ベクトル（軸足かかと -> 前足かかと）
+            const stepVector = {
+              x: (leadHeel.x - pivotHeel.x) * b.w,
+              y: (leadHeel.y - pivotHeel.y) * b.h
+            };
+            // 前足の足軸ベクトル（前足かかと -> 前足つま先）
             const toeVector = {
               x: (leadToe.x - leadHeel.x) * b.w,
               y: (leadToe.y - leadHeel.y) * b.h
             };
-            const toeDeg = Math.round(Math.abs((Math.atan2(toeVector.y, toeVector.x) * 180.0) / Math.PI) - 90);
-            const cleanToeDeg = Math.max(0, Math.min(60, Math.abs(toeDeg)));
+
+            const stepAngle = Math.atan2(stepVector.y, stepVector.x);
+            const toeAngle = Math.atan2(toeVector.y, toeVector.x);
+            
+            let diffDeg = Math.abs((toeAngle - stepAngle) * 180.0 / Math.PI);
+            if (diffDeg > 180) diffDeg = 360 - diffDeg;
+            
+            // 進行方向に対する開き角（0〜45°に整形）
+            const cleanToeDeg = Math.min(45, Math.round(diffDeg));
             
             let stateLabel = "ストレート";
             if (cleanToeDeg <= 15) stateLabel = "◎ 理想(0〜15°)";
-            else if (cleanToeDeg <= 30) stateLabel = "○ やや開き";
-            else stateLabel = "⚠️ 開きすぎ注意";
+            else if (cleanToeDeg <= 25) stateLabel = "○ やや開き";
+            else stateLabel = "⚠️ 開き注意";
 
             c1Val.textContent = `${cleanToeDeg} °`;
             c1Max.textContent = `${stateLabel}`;
@@ -1473,8 +1486,9 @@
             }
           }
 
-          // 3. Arm Slot (Arm Elevation relative to Shoulders)
-          const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, isSouthpaw ? R_SHOULDER : L_SHOULDER);
+          // 3. Arm Slot
+          const otherShoulder = isRightHanded ? L_SHOULDER : R_SHOULDER;
+          const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, otherShoulder);
           if (!isNaN(armSlotAngle) && armSlotAngle >= 30 && armSlotAngle <= 180) {
             const roundedSlot = Math.round(armSlotAngle);
             c3Val.textContent = `${roundedSlot} °`;
@@ -1484,13 +1498,13 @@
             }
           }
 
-          // 4. In-Step / Out-Step (Lateral Foot Offset)
+          // 4. In-Step / Out-Step (投球軸直交方向の真のズレ)
           if (leadHeel && pivotHeel) {
             const lateralOffsetPx = Math.abs((leadHeel.x - pivotHeel.x) * b.w);
             const lateralOffsetCm = Math.round(lateralOffsetPx / activePxPerCm);
-            if (!isNaN(lateralOffsetCm) && lateralOffsetCm <= 50) {
-              const isCross = isSouthpaw ? (leadHeel.x > pivotHeel.x) : (leadHeel.x < pivotHeel.x);
-              const dirText = isCross ? "インステップ" : "アウトステップ";
+            if (!isNaN(lateralOffsetCm) && lateralOffsetCm <= 40) {
+              const isCross = isRightHanded ? (leadHeel.x < pivotHeel.x) : (leadHeel.x > pivotHeel.x);
+              const dirText = isCross ? "インステップ" : "ストレート/アウト";
               c4Val.textContent = `${lateralOffsetCm} cm`;
               if (lateralOffsetCm > records.maxInStepCm) {
                 records.maxInStepCm = lateralOffsetCm;
@@ -1499,14 +1513,14 @@
             }
           }
 
-          // 5. Pelvis Open Angle (Hip Line Tilt in Front Plane)
+          // 5. Pelvis Open Angle
           const hipFrontAngle = Math.round(Math.abs((Math.atan2(R_HIP.y - L_HIP.y, R_HIP.x - L_HIP.x) * 180.0) / Math.PI));
           if (!isNaN(hipFrontAngle)) {
             c5Val.textContent = `${hipFrontAngle} °`;
             c5Max.textContent = `骨盤傾斜: ${hipFrontAngle} °`;
           }
 
-          // 6. Lateral Release Point (Distance from Head/Trunk Center)
+          // 6. Lateral Release Point
           const releaseTarget = (throwIndex && throwIndex.x) ? throwIndex : throwWrist;
           const lateralReleasePx = Math.abs((releaseTarget.x - midShoulder.x) * b.w);
           const lateralReleaseCm = Math.round(lateralReleasePx / activePxPerCm);
@@ -1523,7 +1537,7 @@
       outputCtx.restore();
     }
 
-    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw) {
+    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw, isRightHanded) {
       const connections = [
         [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21],
         [12, 14], [14, 16], [16, 18], [16, 20], [16, 22],
@@ -1546,11 +1560,15 @@
       });
 
       const keyJoints = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
-      const throwWristIdx = isSouthpaw ? 15 : 16;
-      const throwElbowIdx = isSouthpaw ? 13 : 14;
-      const throwIndexIdx = isSouthpaw ? 19 : 20;
-      const leadKneeIdx = isSouthpaw ? 26 : 25;
-      const leadToeIdx = isSouthpaw ? 32 : 31;
+      
+      // 正確なハイライト定義
+      const throwWristIdx = isRightHanded ? 16 : 15;
+      const throwElbowIdx = isRightHanded ? 14 : 13;
+      const throwIndexIdx = isRightHanded ? 20 : 19;
+      
+      // 前足（右投げなら左膝25/左つま先31、左投げなら右膝26/右つま先32）
+      const leadKneeIdx = isRightHanded ? 25 : 26;
+      const leadToeIdx = isRightHanded ? 31 : 32;
 
       keyJoints.forEach(idx => {
         const p = landmarks[idx];
@@ -1572,9 +1590,9 @@
           } else if (idx === throwElbowIdx) {
             outputCtx.fillStyle = "#f59e0b"; // Throwing Elbow
           } else if (idx === leadKneeIdx) {
-            outputCtx.fillStyle = "#facc15"; // Lead Knee Accent
+            outputCtx.fillStyle = "#facc15"; // Lead Knee Accent (前足ヒザ)
           } else if (idx === leadToeIdx) {
-            outputCtx.fillStyle = "#38bdf8"; // Lead Toe Accent
+            outputCtx.fillStyle = "#06b6d4"; // Lead Toe Accent (前足つま先)
           } else if ([17, 18, 21, 22].includes(idx)) {
             outputCtx.fillStyle = "#a855f7";
           } else {
