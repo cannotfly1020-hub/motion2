@@ -643,7 +643,7 @@
       to { transform: rotate(360deg); }
     }
 
-    /* カルテ＆AI処方箋モーダル */
+    /* カルテ＆AI処方箋＆監督レポートモーダル */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -1489,6 +1489,7 @@
       scanCtx.lineTo(centerX, bottomY);
       scanCtx.stroke();
 
+      // Top Handle
       scanCtx.strokeStyle = "#10b981";
       scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
@@ -1509,6 +1510,7 @@
       scanCtx.textAlign = "center";
       scanCtx.fillText("👑 あたま ↕", centerX, topY - 14);
 
+      // Bottom Handle
       scanCtx.strokeStyle = "#f43f5e";
       scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
@@ -2364,7 +2366,16 @@
         const throwShoulder = isRightHanded ? R_SHOULDER : L_SHOULDER;
         const throwElbow = isRightHanded ? R_ELBOW : L_ELBOW;
         const throwWrist = isRightHanded ? R_WRIST : L_WRIST;
-        const throwIndex = isRightHanded ? R_INDEX : L_INDEX;
+        let throwIndex = isRightHanded ? R_INDEX : L_INDEX;
+
+        /* 指先マーカー外れ防止の幾何フィルタ */
+        if (throwWrist && throwIndex) {
+          const handDist = Math.hypot(throwIndex.x - throwWrist.x, throwIndex.y - throwWrist.y);
+          if (handDist > 0.18 || throwIndex.visibility < 0.25) {
+            // 手首から離れすぎている場合は手首位置に吸着
+            throwIndex = throwWrist;
+          }
+        }
 
         const leadHip = isRightHanded ? L_HIP : R_HIP;
         const leadKnee = isRightHanded ? L_KNEE : R_KNEE;
@@ -2708,6 +2719,19 @@
       keyJoints.forEach(idx => {
         const p = landmarks[idx];
         if (p) {
+          // 指先が手首から外れすぎている場合は描画位置を手首側へ補正
+          let drawX = ox + p.x * bw;
+          let drawY = oy + p.y * bh;
+
+          if (idx === throwIndexIdx && landmarks[throwWristIdx]) {
+            const wristP = landmarks[throwWristIdx];
+            const dist = Math.hypot(p.x - wristP.x, p.y - wristP.y);
+            if (dist > 0.18) {
+              drawX = ox + wristP.x * bw;
+              drawY = oy + wristP.y * bh;
+            }
+          }
+
           outputCtx.beginPath();
           let radius = 4.5;
           if (idx === throwIndexIdx) radius = 7;
@@ -2716,7 +2740,7 @@
           else if (idx === leadKneeIdx) radius = 6;
           else if (idx === leadToeIdx) radius = 7;
 
-          outputCtx.arc(ox + p.x * bw, oy + p.y * bh, radius, 0, Math.PI * 2);
+          outputCtx.arc(drawX, drawY, radius, 0, Math.PI * 2);
           
           if (idx === throwIndexIdx) {
             outputCtx.fillStyle = "#ff007f";
