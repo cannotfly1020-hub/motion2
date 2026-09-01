@@ -109,7 +109,7 @@
       border-radius: var(--radius);
       border: 2px solid #38bdf8;
       box-shadow: 0 4px 12px rgba(14, 165, 233, 0.18);
-      padding: 4px;
+      padding: 6px;
       display: flex;
       flex-direction: column;
       gap: 2px;
@@ -123,7 +123,7 @@
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 3px;
+      gap: 6px;
       width: 100%;
       height: 100%;
       justify-content: space-between;
@@ -133,55 +133,31 @@
       display: flex;
     }
 
-    /* --- STEP 1 TOP MENU STYLES --- */
-    .top-hero-box {
-      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-      color: #ffffff;
-      border-radius: 12px;
-      padding: 6px 10px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 3px 0 #075985;
-      flex-shrink: 0;
-    }
-
-    .top-hero-title {
-      font-size: 0.88rem;
-      font-weight: 900;
-      letter-spacing: 0.5px;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-    }
-
-    .top-hero-sub {
-      font-size: 0.64rem;
-      opacity: 0.9;
-      margin-top: 1px;
-    }
-
+    /* --- STEP 1 TOP MENU STYLES (大判レイアウト) --- */
     .top-mode-grid {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
       width: 100%;
       flex: 1;
-      justify-content: center;
-      max-width: 380px;
+      justify-content: stretch;
+      max-width: 480px;
       margin: 0 auto;
     }
 
     .mode-card {
       background: #ffffff;
-      border: 2px solid #bae6fd;
-      border-radius: 12px;
-      padding: 8px 10px;
+      border-radius: 14px;
+      padding: 12px 14px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       cursor: pointer;
-      box-shadow: 0 3px 0 #cbd5e1;
+      box-shadow: 0 4px 0 #cbd5e1;
       transition: all 0.15s ease;
       position: relative;
       overflow: hidden;
+      flex: 1;
     }
 
     .mode-card:active {
@@ -190,25 +166,25 @@
     }
 
     .mode-card-side {
-      border-color: #38bdf8;
+      border: 2.5px solid #38bdf8;
       background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
     }
 
     .mode-card-front {
-      border-color: #34d399;
+      border: 2.5px solid #34d399;
       background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
     }
 
     .mode-card-icon {
-      font-size: 1.6rem;
-      width: 42px;
-      height: 42px;
+      font-size: 2.2rem;
+      width: 58px;
+      height: 58px;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 10px;
+      border-radius: 12px;
       flex-shrink: 0;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.12);
     }
 
     .mode-card-side .mode-card-icon {
@@ -224,22 +200,22 @@
     .mode-card-info {
       display: flex;
       flex-direction: column;
-      gap: 1px;
+      gap: 3px;
       flex: 1;
       text-align: left;
     }
 
     .mode-card-title {
-      font-size: 0.85rem;
+      font-size: 1.05rem;
       font-weight: 900;
-      color: #1e293b;
+      color: #0f172a;
     }
 
     .mode-card-desc {
-      font-size: 0.62rem;
+      font-size: 0.72rem;
       font-weight: 800;
       color: #64748b;
-      line-height: 1.15;
+      line-height: 1.25;
     }
 
     .top-tips-box {
@@ -247,7 +223,7 @@
       border: 1.5px dashed #facc15;
       border-radius: 8px;
       padding: 4px 8px;
-      font-size: 0.62rem;
+      font-size: 0.65rem;
       font-weight: 800;
       color: #854d0e;
       width: 100%;
@@ -260,22 +236,24 @@
       background: linear-gradient(135deg, #f59e0b, #d97706);
       color: #ffffff;
       border: 2px solid #ffffff;
-      padding: 7px 12px;
-      border-radius: 10px;
-      font-size: 0.8rem;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 0.92rem;
       font-weight: 900;
       width: 100%;
-      box-shadow: 0 2px 0 #b45309;
+      max-width: 480px;
+      box-shadow: 0 3px 0 #b45309;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
       flex-shrink: 0;
+      margin: 0 auto;
     }
 
     .btn-carte-banner:active {
-      transform: translateY(1px);
+      transform: translateY(2px);
       box-shadow: 0 1px 0 #b45309;
     }
 
@@ -776,13 +754,9 @@
 
   <main class="app-container">
 
-    <!-- STEP 1: Angle Selection & Video Input (デザイン刷新版) -->
+    <!-- STEP 1: Angle Selection & Video Input (大判カードデザイン版) -->
     <section id="view-step1" class="view-section active">
-      <div class="top-hero-box">
-        <div class="top-hero-title">🏟️ スタジアム分析モード</div>
-        <div class="top-hero-sub">解析したい向きを選んで動画を読み込んでね！</div>
-      </div>
-
+      
       <div class="top-mode-grid">
         <!-- 横向きカード -->
         <label class="mode-card mode-card-side" id="label-side-video">
@@ -806,7 +780,7 @@
       </div>
 
       <div class="top-tips-box">
-        💡 <b>きれいに測るコツ:</b> 遠くから撮った動画は、写真アプリで投手の周りをトリミングしておくと精度がアップするよ！
+        💡 <b>きれいに測るコツ:</b> 遠くから撮った動画は、写真アプリで投手の周りをトリミングしておくとAIの精度がアップするよ！
       </div>
 
       <button class="btn-carte-banner" id="btn-open-carte-top">
@@ -967,7 +941,7 @@
 
   </main>
 
-  <!-- カルテ・履歴モーダル（削除機能拡張版） -->
+  <!-- カルテ・履歴モーダル -->
   <div class="modal-overlay" id="carte-modal">
     <div class="modal-card">
       <div class="modal-header">
