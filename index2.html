@@ -103,10 +103,10 @@
       background: var(--surface);
       border-radius: var(--radius);
       border: 1.5px solid rgba(56, 189, 248, 0.25);
-      padding: 6px;
+      padding: 5px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
       flex: 1;
       min-height: 0;
     }
@@ -115,7 +115,7 @@
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       width: 100%;
       height: 100%;
       justify-content: space-between;
@@ -188,8 +188,8 @@
       align-items: center;
       justify-content: center;
       flex: 1;
-      min-height: 180px;
-      max-height: 38vh;
+      min-height: 160px;
+      max-height: 36vh;
       touch-action: none;
       border: 1.5px solid #233867;
     }
@@ -287,32 +287,32 @@
       color: #fff;
     }
 
-    /* Compact Gamified Dashboard */
+    /* 6-Card Compact Grid Dashboard */
     .dashboard {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 4px;
+      gap: 3px;
       width: 100%;
     }
 
     @media (min-width: 768px) {
       .dashboard {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr);
       }
     }
 
     .card {
       background: linear-gradient(180deg, #18284e 0%, #131f3d 100%);
-      border: 1.5px solid #2a4175;
-      border-radius: 8px;
-      padding: 4px 6px;
+      border: 1px solid #2a4175;
+      border-radius: 6px;
+      padding: 3px 5px;
       display: flex;
       flex-direction: column;
       gap: 1px;
     }
 
     .card-title {
-      font-size: 0.65rem;
+      font-size: 0.62rem;
       font-weight: 800;
       color: var(--text-muted);
       display: flex;
@@ -322,16 +322,16 @@
     }
 
     .card-val {
-      font-size: 1.05rem;
+      font-size: 0.98rem;
       font-weight: 900;
       color: #38bdf8;
       text-shadow: 0 1px 4px rgba(56, 189, 248, 0.4);
       font-variant-numeric: tabular-nums;
-      line-height: 1.1;
+      line-height: 1.05;
     }
 
     .card-max {
-      font-size: 0.62rem;
+      font-size: 0.58rem;
       color: #facc15;
       font-weight: 800;
       font-variant-numeric: tabular-nums;
@@ -519,30 +519,46 @@
       </div>
     </section>
 
-    <!-- STEP 4: Main Workspace (Fit 1 Screen) -->
+    <!-- STEP 4: Main Workspace (6 Cards 2x3 Grid) -->
     <section id="view-step4" class="view-section">
       
-      <!-- Metrics Dashboard -->
+      <!-- 6 Metrics Grid Dashboard -->
       <div class="dashboard">
+        <!-- 1. Stride -->
         <div class="card">
           <div class="card-title">🚶 ステップ幅 (歩幅)</div>
           <div class="card-val" id="val-stride">-- cm</div>
           <div class="card-max" id="max-stride">最大: -- cm (0%身)</div>
         </div>
+        <!-- 2. MER -->
         <div class="card">
           <div class="card-title" id="card-mer-title">💪 うでのしなり (左肩外旋)</div>
           <div class="card-val" id="val-elbow">-- °</div>
           <div class="card-max" id="max-mer">最大: -- °</div>
         </div>
+        <!-- 3. Twist -->
         <div class="card">
           <div class="card-title">🔄 捻転差 (胸と腰のひねり)</div>
           <div class="card-val" id="val-twist">-- °</div>
           <div class="card-max" id="max-twist">最大: -- °</div>
         </div>
+        <!-- 4. Release Height -->
         <div class="card">
           <div class="card-title">⚾ 指先リリース高</div>
           <div class="card-val" id="val-release">-- cm</div>
           <div class="card-max" id="max-release">最高: -- cm</div>
+        </div>
+        <!-- 5. Lead Knee Angle -->
+        <div class="card">
+          <div class="card-title" id="card-knee-title">🦵 前足のヒザ角度 (曲がり)</div>
+          <div class="card-val" id="val-knee">-- °</div>
+          <div class="card-max" id="max-knee">FC時: -- ° (伸展: --°)</div>
+        </div>
+        <!-- 6. Toe Angle -->
+        <div class="card">
+          <div class="card-title">👟 つま先の向き (開き角)</div>
+          <div class="card-val" id="val-toe">-- °</div>
+          <div class="card-max" id="max-toe">状態: --</div>
         </div>
       </div>
 
@@ -624,7 +640,10 @@
       maxStride: 0,
       maxMER: 0,
       maxTwist: 0,
-      maxRelease: 0
+      maxRelease: 0,
+      minKnee: 180,
+      maxKnee: 0,
+      toeAngle: 0
     };
 
     const stepViews = {
@@ -648,7 +667,13 @@
     const maxTwist = document.getElementById('max-twist');
     const valRelease = document.getElementById('val-release');
     const maxRelease = document.getElementById('max-release');
+    const valKnee = document.getElementById('val-knee');
+    const maxKnee = document.getElementById('max-knee');
+    const valToe = document.getElementById('val-toe');
+    const maxToe = document.getElementById('max-toe');
+
     const cardMerTitle = document.getElementById('card-mer-title');
+    const cardKneeTitle = document.getElementById('card-knee-title');
 
     const scanSeekBar = document.getElementById('scan-seek-bar');
     const scanTimeDisp = document.getElementById('scan-time-disp');
@@ -669,6 +694,7 @@
       btnArmRight.classList.add('active');
       btnArmLeft.classList.remove('active');
       cardMerTitle.textContent = "💪 うでのしなり (右肩外旋)";
+      cardKneeTitle.textContent = "🦵 左足ヒザ角度 (前足)";
     });
 
     btnArmLeft.addEventListener('click', () => {
@@ -676,6 +702,7 @@
       btnArmLeft.classList.add('active');
       btnArmRight.classList.remove('active');
       cardMerTitle.textContent = "💪 うでのしなり (左肩外旋)";
+      cardKneeTitle.textContent = "🦵 右足ヒザ角度 (前足)";
     });
 
     function setStep(stepNum) {
@@ -1129,6 +1156,20 @@
       return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
     }
 
+    function calcJointAngle3D(p1, p2, p3) {
+      if (!p1 || !p2 || !p3) return NaN;
+      const v1 = { x: p1.x - p2.x, y: p1.y - p2.y, z: (p1.z || 0) - (p2.z || 0) };
+      const v2 = { x: p3.x - p2.x, y: p3.y - p2.y, z: (p3.z || 0) - (p2.z || 0) };
+
+      const mag1 = Math.hypot(v1.x, v1.y, v1.z);
+      const mag2 = Math.hypot(v2.x, v2.y, v2.z);
+      if (mag1 < 1e-6 || mag2 < 1e-6) return NaN;
+
+      const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+      const cosVal = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
+      return (Math.acos(cosVal) * 180.0) / Math.PI;
+    }
+
     function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
       if (!shoulderL || !shoulderR || !hipL || !hipR || !elbow || !wrist) return NaN;
 
@@ -1219,6 +1260,8 @@
         const R_ANKLE = landmarks[28];
         const L_HEEL = landmarks[29];
         const R_HEEL = landmarks[30];
+        const L_FOOT_INDEX = landmarks[31];
+        const R_FOOT_INDEX = landmarks[32];
 
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
@@ -1228,7 +1271,18 @@
         const throwWrist = isSouthpaw ? L_WRIST : R_WRIST;
         const throwIndex = isSouthpaw ? L_INDEX : R_INDEX;
 
+        // Lead Leg / Stride Leg Identification
+        const leadHip = isSouthpaw ? R_HIP : L_HIP;
+        const leadKnee = isSouthpaw ? R_KNEE : L_KNEE;
+        const leadAnkle = isSouthpaw ? R_ANKLE : L_ANKLE;
+        const leadHeel = isSouthpaw ? R_HEEL : L_HEEL;
+        const leadToe = isSouthpaw ? R_FOOT_INDEX : L_FOOT_INDEX;
+
         drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw);
+
+        /* ========================================================
+           6-METRICS BIOMECHANICS ENGINE
+        ======================================================== */
 
         // 1. Stride Width
         const footL = { x: (L_HEEL?.x || L_ANKLE.x), y: (L_HEEL?.y || L_ANKLE.y) };
@@ -1247,7 +1301,7 @@
           }
         }
 
-        // 2. MER
+        // 2. Shoulder External Rotation (MER)
         const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist);
 
         if (!isNaN(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
@@ -1260,7 +1314,7 @@
           }
         }
 
-        // 3. Twist X-Factor
+        // 3. Twist X-Factor (Chest-Pelvis Separation)
         const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
         const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
 
@@ -1278,7 +1332,7 @@
           }
         }
 
-        // 4. Release Height
+        // 4. Release Height (Finger-Tip Origin)
         const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
         const releaseTarget = (throwIndex && throwIndex.y) ? throwIndex : throwWrist;
         const releasePointY = releaseTarget.y * b.h;
@@ -1292,6 +1346,35 @@
             records.maxRelease = releaseHeightCm;
             maxRelease.textContent = `最高: ${releaseHeightCm} cm`;
           }
+        }
+
+        // 5. Lead Knee Flexion/Extension Angle
+        const kneeAngle = calcJointAngle3D(leadHip, leadKnee, leadAnkle);
+        if (!isNaN(kneeAngle) && kneeAngle >= 40 && kneeAngle <= 180) {
+          const roundedKnee = Math.round(kneeAngle);
+          valKnee.textContent = `${roundedKnee} °`;
+
+          if (roundedKnee < records.minKnee) records.minKnee = roundedKnee;
+          if (roundedKnee > records.maxKnee) records.maxKnee = roundedKnee;
+          maxKnee.textContent = `屈曲:${records.minKnee}° (伸展:${records.maxKnee}°)`;
+        }
+
+        // 6. Lead Foot Toe Angle (Open / Closed relative to Pitching Plane)
+        if (leadHeel && leadToe) {
+          const toeVector = {
+            x: (leadToe.x - leadHeel.x) * b.w,
+            y: (leadToe.y - leadHeel.y) * b.h
+          };
+          const toeDeg = Math.round(Math.abs((Math.atan2(toeVector.y, toeVector.x) * 180.0) / Math.PI) - 90);
+          const cleanToeDeg = Math.max(0, Math.min(60, Math.abs(toeDeg)));
+          
+          let stateLabel = "ストレート";
+          if (cleanToeDeg <= 15) stateLabel = "◎ 理想(0〜15°)";
+          else if (cleanToeDeg <= 30) stateLabel = "○ やや開き";
+          else stateLabel = "⚠️ 開きすぎ注意";
+
+          valToe.textContent = `${cleanToeDeg} °`;
+          maxToe.textContent = `${stateLabel}`;
         }
       }
 
@@ -1324,26 +1407,30 @@
       const throwWristIdx = isSouthpaw ? 15 : 16;
       const throwElbowIdx = isSouthpaw ? 13 : 14;
       const throwIndexIdx = isSouthpaw ? 19 : 20;
+      const leadKneeIdx = isSouthpaw ? 26 : 25;
 
       keyJoints.forEach(idx => {
         const p = landmarks[idx];
         if (p) {
           outputCtx.beginPath();
-          let radius = 4.5;
+          let radius = 4;
           if (idx === throwIndexIdx) radius = 6.5;
           else if (idx === throwWristIdx) radius = 5.5;
           else if (idx === throwElbowIdx) radius = 5;
+          else if (idx === leadKneeIdx) radius = 5.5;
 
           outputCtx.arc(ox + p.x * bw, oy + p.y * bh, radius, 0, Math.PI * 2);
           
           if (idx === throwIndexIdx) {
-            outputCtx.fillStyle = "#ec4899";
+            outputCtx.fillStyle = "#ec4899"; // Finger-Tip Target
           } else if (idx === throwWristIdx) {
-            outputCtx.fillStyle = "#f43f5e";
+            outputCtx.fillStyle = "#f43f5e"; // Throwing Wrist
           } else if (idx === throwElbowIdx) {
-            outputCtx.fillStyle = "#f59e0b";
+            outputCtx.fillStyle = "#f59e0b"; // Throwing Elbow
+          } else if (idx === leadKneeIdx) {
+            outputCtx.fillStyle = "#facc15"; // Lead Knee Accent
           } else if ([17, 18, 21, 22].includes(idx)) {
-            outputCtx.fillStyle = "#a855f7";
+            outputCtx.fillStyle = "#a855f7"; // Hand
           } else {
             outputCtx.fillStyle = "#38bdf8";
           }
@@ -1425,11 +1512,13 @@
     });
 
     document.getElementById('btn-reset-max').addEventListener('click', () => {
-      records = { maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0 };
+      records = { maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0, minKnee: 180, maxKnee: 0, toeAngle: 0 };
       maxStride.textContent = "最大: -- cm (0%身)";
       maxMER.textContent = "最大: -- °";
       maxTwist.textContent = "最大: -- °";
       maxRelease.textContent = "最高: -- cm";
+      maxKnee.textContent = "FC時: -- ° (伸展: --°)";
+      maxToe.textContent = "状態: --";
     });
 
     document.getElementById('btn-re-select').addEventListener('click', () => {
