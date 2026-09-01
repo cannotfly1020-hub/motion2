@@ -1181,7 +1181,6 @@
         if (isDraggingToe) {
           const pt = getCanvasPoint(e, outputCanvas);
           const dx = pt.x - toeDragOrigin.x;
-          // Dragging left/right adjusts the toe offset
           manualToeOffsetDeg = Math.max(-30, Math.min(30, manualToeOffsetDeg + dx * 0.4));
           toeDragOrigin = { ...pt };
           processSingleFrame();
@@ -1364,7 +1363,6 @@
 
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
-        // 正しい前足/軸足の割り当て
         const isRightHanded = (selectedThrowArm === 'RIGHT');
         const isSouthpaw = !isRightHanded;
 
@@ -1480,24 +1478,23 @@
           const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
           const isStepping = (currentStridePx / activePxPerCm) > 20;
 
-          // 1. Lead Toe Angle (前足つま先の向き：厳密な幾何判定)
+          // 1. Lead Toe Angle (前足つま先の向き：幾何学的定義完全修正版)
           if (leadHeel && leadToe && leadAnkle) {
             if (!isStepping) {
               smoothToeDeg = 0;
               c1Val.textContent = `0 °`;
               c1Max.textContent = `◎ 構え・ストレート`;
             } else {
-              // かかと基準でのつま先のX偏位 (画面左向きがマイナス、右向きがプラス)
+              // 画面上のX偏位 (deltaX > 0: 画面右/一塁側, deltaX < 0: 画面左/三塁側)
               const deltaX = (leadToe.x - leadHeel.x) * b.w;
               const deltaY = Math.max(10, (leadToe.y - leadHeel.y) * b.h);
               
-              // 画面上の傾斜角
               let angleDeg = (Math.atan2(deltaX, deltaY) * 180.0 / Math.PI) + manualToeOffsetDeg;
 
-              // 【定義の厳密化】
-              // 右投げ（左足）：画面左(三塁側, deltaX < 0) -> 開き(Open) / 画面右(一塁側, deltaX > 0) -> 閉じ(Closed)
-              // 左投げ（右足）：画面右(一塁側, deltaX > 0) -> 開き(Open) / 画面左(三塁側, deltaX < 0) -> 閉じ(Closed)
-              let signedToeDev = isRightHanded ? -angleDeg : angleDeg; // プラスが開く、マイナスが閉じる
+              // 【正しい判定式】
+              // 右投げ（左足）：画面右(一塁側, deltaX > 0) -> 開き(プラス) / 画面左(三塁側, deltaX < 0) -> 閉じ(マイナス)
+              // 左投げ（右足）：画面左(三塁側, deltaX < 0) -> 開き(プラス) / 画面右(一塁側, deltaX > 0) -> 閉じ(マイナス)
+              let signedToeDev = isRightHanded ? angleDeg : -angleDeg;
               
               // スムージング
               smoothToeDeg = smoothToeDeg === 0 ? signedToeDev : (smoothToeDeg * 0.7 + signedToeDev * 0.3);
@@ -1580,7 +1577,7 @@
               const lateralOffsetPx = Math.abs((leadHeel.x - pivotHeel.x) * b.w);
               const lateralOffsetCm = Math.round(lateralOffsetPx / activePxPerCm);
               if (!isNaN(lateralOffsetCm) && lateralOffsetCm <= 40) {
-                const isCross = isRightHanded ? (leadHeel.x > pivotHeel.x) : (leadHeel.x < pivotHeel.x);
+                const isCross = isRightHanded ? (leadHeel.x < pivotHeel.x) : (leadHeel.x > pivotHeel.x);
                 const dirText = isCross ? "インステップ" : "アウトステップ";
                 c5Val.textContent = `${lateralOffsetCm} cm`;
                 if (lateralOffsetCm > records.maxInStepCm) {
