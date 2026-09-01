@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>投球AIバイオメカニクス</title>
-
+  
   <!-- MediaPipe CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
@@ -34,10 +34,6 @@
       padding: 0;
       user-select: none;
       -webkit-user-select: none;
-    }
-
-    html, body {
-      height: 100%;
     }
 
     body {
@@ -222,6 +218,21 @@
       background: rgba(11, 19, 41, 0.85);
       border: 1px solid var(--accent);
       color: #38bdf8;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .angle-mode-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: rgba(16, 185, 129, 0.85);
+      border: 1px solid #10b981;
+      color: #ffffff;
       font-size: 0.65rem;
       font-weight: 800;
       padding: 2px 6px;
@@ -434,11 +445,6 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-
-    /* small responsive adjustments */
-    @media (max-width: 420px) {
-      .screen-wrapper { max-height: 46vh; min-height: 120px; }
-    }
   </style>
 </head>
 <body>
@@ -454,15 +460,19 @@
 
   <main class="app-container">
 
-    <!-- STEP 1: Video Selection -->
+    <!-- STEP 1: Angle Selection & Video Input -->
     <section id="view-step1" class="view-section active">
       <div class="guidance-box">
-        🌟 <b>投球フォームの動画をえらんでね！</b>（スロー撮影がオススメだよ）
+        🌟 <b>撮影した向きをえらんで、動画を選択してね！</b>
       </div>
-      <div style="padding: 20px 0;">
-        <label class="btn" style="padding: 14px 28px; font-size: 1.05rem; border-radius: 12px;">
-          📁 ボールを投げてる動画を選ぶ ⚾
-          <input type="file" id="video-input" accept="video/*" style="display: none;">
+      <div style="padding: 10px 0; display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px;">
+        <label class="btn" id="label-side-video" style="padding: 14px 20px; font-size: 1rem; border-radius: 12px; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+          ⚾ 横から撮った動画を選ぶ
+          <input type="file" id="video-input-side" accept="video/*" style="display: none;">
+        </label>
+        <label class="btn" id="label-front-video" style="padding: 14px 20px; font-size: 1rem; border-radius: 12px; background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 2px 0 #064e3b;">
+          🎯 正面から撮った動画を選ぶ
+          <input type="file" id="video-input-front" accept="video/*" style="display: none;">
         </label>
       </div>
       <div></div>
@@ -500,7 +510,7 @@
       <div class="guidance-box">
         🔥 <b>投げる腕（利き腕）をえらんで、身長を入れてね！</b>
       </div>
-
+      
       <div class="input-group" style="padding: 4px 0; gap: 8px;">
         <div style="width: 100%;">
           <label style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; color: #38bdf8; font-size: 0.85rem;">
@@ -528,46 +538,46 @@
       </div>
     </section>
 
-    <!-- STEP 4: Main Workspace (6 Cards 2x3 Grid) -->
+    <!-- STEP 4: Main Workspace (Dynamic Angle Dashboard) -->
     <section id="view-step4" class="view-section">
-
+      
       <!-- 6 Metrics Grid Dashboard -->
       <div class="dashboard">
-        <!-- 1. Stride -->
+        <!-- Card 1 -->
         <div class="card">
-          <div class="card-title">🚶 ステップ幅 (歩幅)</div>
-          <div class="card-val" id="val-stride">-- cm</div>
-          <div class="card-max" id="max-stride">最大: -- cm (0%身)</div>
+          <div class="card-title" id="c1-title">🚶 ステップ幅 (歩幅)</div>
+          <div class="card-val" id="c1-val">-- cm</div>
+          <div class="card-max" id="c1-max">最大: -- cm (0%身)</div>
         </div>
-        <!-- 2. MER -->
+        <!-- Card 2 -->
         <div class="card">
-          <div class="card-title" id="card-mer-title">💪 うでのしなり (左肩外旋)</div>
-          <div class="card-val" id="val-elbow">-- °</div>
-          <div class="card-max" id="max-mer">最大: -- °</div>
+          <div class="card-title" id="c2-title">💪 うでのしなり (左肩外旋)</div>
+          <div class="card-val" id="c2-val">-- °</div>
+          <div class="card-max" id="c2-max">最大: -- °</div>
         </div>
-        <!-- 3. Twist -->
+        <!-- Card 3 -->
         <div class="card">
-          <div class="card-title">🔄 捻転差 (胸と腰のひねり)</div>
-          <div class="card-val" id="val-twist">-- °</div>
-          <div class="card-max" id="max-twist">最大: -- °</div>
+          <div class="card-title" id="c3-title">🔄 捻転差 (胸と腰のひねり)</div>
+          <div class="card-val" id="c3-val">-- °</div>
+          <div class="card-max" id="c3-max">最大: -- °</div>
         </div>
-        <!-- 4. Release Height -->
+        <!-- Card 4 -->
         <div class="card">
-          <div class="card-title">⚾ 指先リリース高</div>
-          <div class="card-val" id="val-release">-- cm</div>
-          <div class="card-max" id="max-release">最高: -- cm</div>
+          <div class="card-title" id="c4-title">⚾ 指先リリース高</div>
+          <div class="card-val" id="c4-val">-- cm</div>
+          <div class="card-max" id="c4-max">最高: -- cm</div>
         </div>
-        <!-- 5. Lead Knee Angle -->
+        <!-- Card 5 -->
         <div class="card">
-          <div class="card-title" id="card-knee-title">🦵 前足のヒザ角度 (曲がり)</div>
-          <div class="card-val" id="val-knee">-- °</div>
-          <div class="card-max" id="max-knee">FC時: -- ° (伸展: --°)</div>
+          <div class="card-title" id="c5-title">🦵 前足のヒザ角度 (曲がり)</div>
+          <div class="card-val" id="c5-val">-- °</div>
+          <div class="card-max" id="c5-max">FC時: -- ° (伸展: --°)</div>
         </div>
-        <!-- 6. Toe Angle -->
+        <!-- Card 6 -->
         <div class="card">
-          <div class="card-title">👟 つま先の向き (開き角)</div>
-          <div class="card-val" id="val-toe">-- °</div>
-          <div class="card-max" id="max-toe">状態: --</div>
+          <div class="card-title" id="c6-title">📐 体幹の前傾角度 (倒れ)</div>
+          <div class="card-val" id="c6-val">-- °</div>
+          <div class="card-max" id="c6-max">最大倒れ: -- °</div>
         </div>
       </div>
 
@@ -575,6 +585,7 @@
       <div class="screen-wrapper" id="main-screen-wrapper">
         <canvas id="output-canvas"></canvas>
         <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
+        <div class="angle-mode-badge" id="angle-mode-badge">横向き解析</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
           <div style="font-size: 0.75rem; color: #fff; font-weight: 800;">⚡ AI同期中...</div>
@@ -605,7 +616,6 @@
   <canvas id="buffer-canvas" style="display: none;"></canvas>
 
   <script>
-    // Elements
     const videoElement = document.getElementById('hidden-video');
     const bufferCanvas = document.getElementById('buffer-canvas');
     const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
@@ -616,15 +626,15 @@
     const outputCanvas = document.getElementById('output-canvas');
     const outputCtx = outputCanvas.getContext('2d');
 
-    // State
     let pose = null;
     let isPoseLoaded = false;
-    let isSendingFrame = false; // prevents concurrent pose.send()
-    let rafId = null;
+    let isProcessing = false;
+    let animationFrameId = null;
 
     let userHeightCm = 140;
     let selectedThrowArm = 'LEFT';
     let videoFileUrl = null;
+    let selectedAngleMode = 'SIDE'; // 'SIDE' or 'FRONT'
 
     let tuneRuler = {
       isActive: false,
@@ -648,43 +658,61 @@
     let panSnapshot = { x: 0, y: 0 };
 
     let records = {
+      // Side records
       maxStride: 0,
       maxMER: 0,
       maxTwist: 0,
       maxRelease: 0,
       minKnee: 180,
       maxKnee: 0,
-      toeAngle: 0
+      maxTrunkTilt: 0,
+      // Front records
+      toeAngle: 0,
+      maxTrunkLateral: 0,
+      maxArmSlot: 0,
+      maxInStepCm: 0,
+      maxReleaseLateral: 0
     };
 
-    // UI refs
     const stepViews = {
       1: document.getElementById('view-step1'),
       2: document.getElementById('view-step2'),
       3: document.getElementById('view-step3'),
       4: document.getElementById('view-step4')
     };
+
     const stepPills = {
       1: document.getElementById('step-nav-1'),
       2: document.getElementById('step-nav-2'),
       3: document.getElementById('step-nav-3')
     };
 
-    const valStride = document.getElementById('val-stride');
-    const maxStride = document.getElementById('max-stride');
-    const valElbow = document.getElementById('val-elbow');
-    const maxMER = document.getElementById('max-mer');
-    const valTwist = document.getElementById('val-twist');
-    const maxTwist = document.getElementById('max-twist');
-    const valRelease = document.getElementById('val-release');
-    const maxRelease = document.getElementById('max-release');
-    const valKnee = document.getElementById('val-knee');
-    const maxKnee = document.getElementById('max-knee');
-    const valToe = document.getElementById('val-toe');
-    const maxToe = document.getElementById('max-toe');
+    // Dynamic Card Elements
+    const c1Title = document.getElementById('c1-title');
+    const c1Val = document.getElementById('c1-val');
+    const c1Max = document.getElementById('c1-max');
 
-    const cardMerTitle = document.getElementById('card-mer-title');
-    const cardKneeTitle = document.getElementById('card-knee-title');
+    const c2Title = document.getElementById('c2-title');
+    const c2Val = document.getElementById('c2-val');
+    const c2Max = document.getElementById('c2-max');
+
+    const c3Title = document.getElementById('c3-title');
+    const c3Val = document.getElementById('c3-val');
+    const c3Max = document.getElementById('c3-max');
+
+    const c4Title = document.getElementById('c4-title');
+    const c4Val = document.getElementById('c4-val');
+    const c4Max = document.getElementById('c4-max');
+
+    const c5Title = document.getElementById('c5-title');
+    const c5Val = document.getElementById('c5-val');
+    const c5Max = document.getElementById('c5-max');
+
+    const c6Title = document.getElementById('c6-title');
+    const c6Val = document.getElementById('c6-val');
+    const c6Max = document.getElementById('c6-max');
+
+    const angleModeBadge = document.getElementById('angle-mode-badge');
 
     const scanSeekBar = document.getElementById('scan-seek-bar');
     const scanTimeDisp = document.getElementById('scan-time-disp');
@@ -700,7 +728,47 @@
     const btnArmRight = document.getElementById('btn-arm-right');
     const btnArmLeft = document.getElementById('btn-arm-left');
 
-    // Helpers
+    function updateCardLabels() {
+      const isLeft = (selectedThrowArm === 'LEFT');
+      if (selectedAngleMode === 'SIDE') {
+        angleModeBadge.textContent = "横向き解析 ⚾";
+        angleModeBadge.style.background = "rgba(37, 99, 235, 0.85)";
+        angleModeBadge.style.borderColor = "#3b82f6";
+
+        c1Title.textContent = "🚶 ステップ幅 (歩幅)";
+        c2Title.textContent = isLeft ? "💪 うでのしなり (左肩外旋)" : "💪 うでのしなり (右肩外旋)";
+        c3Title.textContent = "🔄 捻転差 (胸と腰のひねり)";
+        c4Title.textContent = "⚾ 指先リリース高";
+        c5Title.textContent = isLeft ? "🦵 右足ヒザ角度 (前足)" : "🦵 左足ヒザ角度 (前足)";
+        c6Title.textContent = "📐 体幹の前傾角度 (倒れ)";
+      } else {
+        angleModeBadge.textContent = "正面解析 🎯";
+        angleModeBadge.style.background = "rgba(16, 185, 129, 0.85)";
+        angleModeBadge.style.borderColor = "#10b981";
+
+        c1Title.textContent = "👟 つま先の向き (開き角)";
+        c2Title.textContent = "📐 上半身の傾き (体幹側屈)";
+        c3Title.textContent = isLeft ? "💪 アームスロット (左腕の高さ)" : "💪 アームスロット (右腕の高さ)";
+        c4Title.textContent = "🚶 踏み出しのズレ (イン/アウト)";
+        c5Title.textContent = "🔄 骨盤の開き角 (回転)";
+        c6Title.textContent = "⚾ リリース左右位置 (打点)";
+      }
+    }
+
+    btnArmRight.addEventListener('click', () => {
+      selectedThrowArm = 'RIGHT';
+      btnArmRight.classList.add('active');
+      btnArmLeft.classList.remove('active');
+      updateCardLabels();
+    });
+
+    btnArmLeft.addEventListener('click', () => {
+      selectedThrowArm = 'LEFT';
+      btnArmLeft.classList.add('active');
+      btnArmRight.classList.remove('active');
+      updateCardLabels();
+    });
+
     function setStep(stepNum) {
       Object.keys(stepViews).forEach(s => stepViews[s].classList.remove('active'));
       if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
@@ -713,94 +781,6 @@
       }
     }
 
-    function safeFormat(n, unit = '') {
-      if (typeof n !== 'number' || !isFinite(n)) return `-- ${unit}`.trim();
-      const rounded = Math.round(n * 10) / 10;
-      return `${rounded}${unit ? ' ' + unit : ''}`;
-    }
-
-    // Angle between three points: angle at b formed by a-b-c, in degrees
-    function angleBetween(a, b, c) {
-      if (!a || !b || !c) return null;
-      const abx = a.x - b.x;
-      const aby = a.y - b.y;
-      const cbx = c.x - b.x;
-      const cby = c.y - b.y;
-      const dot = abx * cbx + aby * cby;
-      const mag1 = Math.hypot(abx, aby);
-      const mag2 = Math.hypot(cbx, cby);
-      if (mag1 === 0 || mag2 === 0) return null;
-      const cos = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
-      return (Math.acos(cos) * 180) / Math.PI;
-    }
-
-    function dist(a, b) {
-      if (!a || !b) return null;
-      return Math.hypot(a.x - b.x, a.y - b.y);
-    }
-
-    function getLandmark(results, idx) {
-      // results.poseLandmarks uses normalized coordinates relative to input image
-      if (!results || !results.poseLandmarks) return null;
-      const lm = results.poseLandmarks[idx];
-      if (!lm || typeof lm.x !== 'number' || typeof lm.y !== 'number') return null;
-      return { x: lm.x, y: lm.y, z: lm.z ?? 0, visibility: lm.visibility ?? 0 };
-    }
-
-    // Map normalized coordinates to pixel coordinates on a canvas of width/height
-    function toPixel(ptNorm, imgW, imgH) {
-      if (!ptNorm) return null;
-      return { x: ptNorm.x * imgW, y: ptNorm.y * imgH, z: ptNorm.z ?? 0 };
-    }
-
-    // Safe seek: set currentTime and await 'seeked' or timeout
-    function safeSeek(timeSec, timeoutMs = 1500) {
-      return new Promise((resolve, reject) => {
-        if (!videoElement || !('currentTime' in videoElement)) {
-          resolve();
-          return;
-        }
-        // If metadata not loaded, wait for loadedmetadata
-        if (!isFinite(videoElement.duration) || videoElement.duration === 0) {
-          const onMeta = () => {
-            videoElement.removeEventListener('loadedmetadata', onMeta);
-            trySet();
-          };
-          videoElement.addEventListener('loadedmetadata', onMeta);
-        } else {
-          trySet();
-        }
-
-        let settled = false;
-        function cleanup() {
-          settled = true;
-          videoElement.removeEventListener('seeked', onSeeked);
-          clearTimeout(timer);
-        }
-        function onSeeked() {
-          if (settled) return;
-          cleanup();
-          resolve();
-        }
-        function trySet() {
-          try {
-            videoElement.currentTime = Math.max(0, Math.min(timeSec, videoElement.duration || timeSec));
-          } catch (err) {
-            // Some browsers throw if setting currentTime while not ready; fallback to resolving
-            console.warn('safeSeek: set currentTime failed', err);
-          }
-          videoElement.addEventListener('seeked', onSeeked);
-          var timer = setTimeout(() => {
-            if (settled) return;
-            cleanup();
-            // Timeouts are non-fatal; resolve to continue
-            resolve();
-          }, timeoutMs);
-        }
-      });
-    }
-
-    // Initialize MediaPipe Pose with guards
     function initMediaPipe() {
       if (pose) return Promise.resolve();
       scanLoading.style.display = 'flex';
@@ -820,7 +800,6 @@
       });
 
       pose.onResults(onPoseResults);
-
       return pose.initialize().then(() => {
         isPoseLoaded = true;
         scanLoading.style.display = 'none';
@@ -851,49 +830,40 @@
       return { x, y, w, h };
     }
 
-    // Video selection handler
-    document.getElementById('video-input').addEventListener('change', async function (e) {
-      const file = e.target.files && e.target.files[0];
+    /* --- Step 1: Video File & Angle Selection --- */
+    async function handleVideoLoad(file, angleMode) {
       if (!file) return;
+      selectedAngleMode = angleMode;
 
-      try {
-        // revoke previous
-        if (videoFileUrl) {
-          try { URL.revokeObjectURL(videoFileUrl); } catch (e) { /* ignore */ }
-          videoFileUrl = null;
-        }
-      } catch (err) {
-        console.warn('Failed to revoke previous object URL', err);
-      }
-
+      if (videoFileUrl) URL.revokeObjectURL(videoFileUrl);
       videoFileUrl = URL.createObjectURL(file);
+      
       videoElement.src = videoFileUrl;
-      // ensure muted and inline
-      videoElement.muted = true;
-      videoElement.playsInline = true;
+      videoElement.load();
 
-      try {
-        await initMediaPipe();
-      } catch (err) {
-        console.warn('initMediaPipe error', err);
-      }
-
+      updateCardLabels();
       setStep(2);
+      await initMediaPipe();
       ensureScanVideoReady();
+    }
+
+    document.getElementById('video-input-side').addEventListener('change', function(e) {
+      handleVideoLoad(e.target.files[0], 'SIDE');
+    });
+
+    document.getElementById('video-input-front').addEventListener('change', function(e) {
+      handleVideoLoad(e.target.files[0], 'FRONT');
     });
 
     function ensureScanVideoReady() {
       videoElement.muted = true;
       videoElement.playsInline = true;
-
-      // Update scan canvas size on loadmetadata or loadeddata
-      function onLoadedData() {
+      videoElement.currentTime = 0.001;
+      
+      videoElement.onloadeddata = () => {
         updateScanScreenSize();
         renderScanFrame();
-      }
-      videoElement.addEventListener('loadeddata', onLoadedData, { once: true });
-
-      // Fallback attempt after a short delay (some browsers may already have loaded)
+      };
       setTimeout(() => {
         updateScanScreenSize();
         renderScanFrame();
@@ -903,12 +873,8 @@
     function updateScanScreenSize() {
       const rect = scanCanvas.parentElement.getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) {
-        const dpr = Math.max(1, window.devicePixelRatio || 1);
-        scanCanvas.width = Math.floor(rect.width * dpr);
-        scanCanvas.height = Math.floor(rect.height * dpr);
-        scanCanvas.style.width = rect.width + 'px';
-        scanCanvas.style.height = rect.height + 'px';
-        scanCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        scanCanvas.width = rect.width;
+        scanCanvas.height = rect.height;
       }
     }
 
@@ -919,14 +885,9 @@
 
       scanCtx.clearRect(0, 0, cw, ch);
       const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
-      try {
-        scanCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
-      } catch (err) {
-        // drawing can fail if video not yet ready; skip silently
-        // console.warn('drawImage failed on scan canvas', err);
-      }
+      scanCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
 
-      if (videoElement.duration && isFinite(videoElement.duration)) {
+      if (videoElement.duration) {
         scanSeekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
         scanTimeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
       }
@@ -936,13 +897,13 @@
       }
     }
 
+    /* --- Interactive Tunable Ruler --- */
     function drawInteractiveRuler(b) {
       const topY = b.y + tuneRuler.topYNorm * b.h;
       const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
       const centerX = b.x + tuneRuler.centerXNorm * b.w;
       const barWidth = 50;
 
-      scanCtx.save();
       scanCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
       scanCtx.lineWidth = 4;
       scanCtx.beginPath();
@@ -996,14 +957,12 @@
 
       scanCtx.fillStyle = "#ffffff";
       scanCtx.fillText("👟 じめん ↕", centerX, bottomY + 18);
-      scanCtx.restore();
     }
 
     function getCanvasPoint(evt) {
       const rect = scanCanvas.getBoundingClientRect();
-      const touch = evt.touches && evt.touches[0];
-      const clientX = touch ? touch.clientX : evt.clientX;
-      const clientY = touch ? touch.clientY : evt.clientY;
+      const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
       return {
         x: (clientX - rect.left) * (scanCanvas.width / rect.width),
         y: (clientY - rect.top) * (scanCanvas.height / rect.height)
@@ -1014,7 +973,7 @@
       if (!tuneRuler.isActive) return;
       const pt = getCanvasPoint(e);
       const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
-
+      
       const topY = b.y + tuneRuler.topYNorm * b.h;
       const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
       const centerX = b.x + tuneRuler.centerXNorm * b.w;
@@ -1056,668 +1015,681 @@
       activeDragHandle = null;
     }
 
-    // Bind pointer events (mouse + touch)
     scanCanvas.addEventListener('mousedown', onScanPointerDown);
     scanCanvas.addEventListener('mousemove', onScanPointerMove);
     window.addEventListener('mouseup', onScanPointerUp);
+
     scanCanvas.addEventListener('touchstart', onScanPointerDown, { passive: true });
     scanCanvas.addEventListener('touchmove', onScanPointerMove, { passive: true });
     window.addEventListener('touchend', onScanPointerUp);
 
-    // Seek controls (scan)
-    scanSeekBar.addEventListener('input', async () => {
-      if (!videoElement.duration || !isFinite(videoElement.duration)) return;
-      const target = (scanSeekBar.value / 100) * videoElement.duration;
-      try {
-        await safeSeek(target);
-      } catch (err) {
-        console.warn('scan seek failed', err);
-      }
+    scanSeekBar.addEventListener('input', () => {
+      if (!videoElement.duration) return;
+      videoElement.currentTime = (scanSeekBar.value / 100) * videoElement.duration;
       tuneRuler.isActive = false;
       btnScanNextStep.style.display = 'none';
       renderScanFrame();
     });
 
-    document.getElementById('btn-scan-prev').addEventListener('click', async () => {
-      try {
-        const prev = Math.max(0, (videoElement.currentTime || 0) - 0.033);
-        await safeSeek(prev);
-      } catch (err) { /* ignore */ }
+    document.getElementById('btn-scan-prev').addEventListener('click', () => {
+      videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
       tuneRuler.isActive = false;
       btnScanNextStep.style.display = 'none';
       renderScanFrame();
     });
 
-    document.getElementById('btn-scan-next').addEventListener('click', async () => {
-      try {
-        const next = Math.min(videoElement.duration || 0, (videoElement.currentTime || 0) + 0.033);
-        await safeSeek(next);
-      } catch (err) { /* ignore */ }
+    document.getElementById('btn-scan-next').addEventListener('click', () => {
+      videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
       tuneRuler.isActive = false;
       btnScanNextStep.style.display = 'none';
       renderScanFrame();
     });
 
-    // --- Auto Stature Scan ---
+    /* --- Auto Stature Scan --- */
     document.getElementById('btn-scan-action').addEventListener('click', async () => {
-      if (!isPoseLoaded) {
-        await initMediaPipe();
-      }
       scanLoading.style.display = 'flex';
       scanModeActive = true;
 
-      const vw = videoElement.videoWidth || videoElement.videoWidth;
-      const vh = videoElement.videoHeight || videoElement.videoHeight;
-
-      if (!vw || !vh) {
-        // If video size unknown, attempt to wait for metadata
-        try {
-          await new Promise((res) => {
-            const onMeta = () => { videoElement.removeEventListener('loadedmetadata', onMeta); res(); };
-            videoElement.addEventListener('loadedmetadata', onMeta);
-            setTimeout(res, 500);
-          });
-        } catch (err) { /* swallow */ }
-      }
-
-      // draw to buffer canvas at natural size
-      bufferCanvas.width = videoElement.videoWidth || 640;
-      bufferCanvas.height = videoElement.videoHeight || 480;
-      try {
-        bufferCtx.drawImage(videoElement, 0, 0, bufferCanvas.width, bufferCanvas.height);
-      } catch (err) {
-        console.warn('drawImage to buffer failed', err);
-      }
+      const vw = videoElement.videoWidth;
+      const vh = videoElement.videoHeight;
+      bufferCanvas.width = vw;
+      bufferCanvas.height = vh;
+      bufferCtx.drawImage(videoElement, 0, 0, vw, vh);
 
       try {
-        if (pose && isPoseLoaded && typeof pose.send === 'function') {
-          isSendingFrame = true;
-          await pose.send({ image: bufferCanvas });
-        }
+        await pose.send({ image: bufferCanvas });
       } catch (err) {
         console.error("Scan Error:", err);
       } finally {
         scanLoading.style.display = 'none';
         scanModeActive = false;
-        isSendingFrame = false;
       }
     });
 
-    // When user confirms ruler, compute calibratedPxPerCm and go to next step
     btnScanNextStep.addEventListener('click', () => {
       const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
       const pixelHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) * b.h;
-      if (pixelHeight > 30 && userHeightCm > 10) {
+      
+      if (pixelHeight > 30) {
         calibratedPxPerCm = pixelHeight / userHeightCm;
       }
       setStep(3);
     });
 
-    // Arm selection
-    btnArmRight.addEventListener('click', () => {
-      selectedThrowArm = 'RIGHT';
-      btnArmRight.classList.add('active');
-      btnArmLeft.classList.remove('active');
-      cardMerTitle.textContent = "💪 うでのしなり (右肩外旋)";
-      cardKneeTitle.textContent = "🦵 左足ヒザ角度 (前足)";
-    });
-
-    btnArmLeft.addEventListener('click', () => {
-      selectedThrowArm = 'LEFT';
-      btnArmLeft.classList.add('active');
-      btnArmRight.classList.remove('active');
-      cardMerTitle.textContent = "💪 うでのしなり (左肩外旋)";
-      cardKneeTitle.textContent = "🦵 右足ヒザ角度 (前足)";
-    });
-
-    // Re-scan: go back to scan step
     document.getElementById('btn-re-scan').addEventListener('click', () => {
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
       setStep(2);
+      setTimeout(() => {
+        updateScanScreenSize();
+        renderScanFrame();
+      }, 100);
     });
 
-    // Re-select video: go to step 1 and cleanup
-    document.getElementById('btn-re-select').addEventListener('click', () => {
-      // cleanup playing
-      stopPlaybackLoop();
-      resetRecords();
-      calibratedPxPerCm = null;
-      setStep(1);
+    /* --- Start Analysis Workspace --- */
+    document.getElementById('btn-start-analysis').addEventListener('click', () => {
+      const hVal = parseFloat(document.getElementById('height-input').value);
+      userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
 
-      // revoke object URL
-      if (videoFileUrl) {
-        try { URL.revokeObjectURL(videoFileUrl); } catch (e) { /* ignore */ }
-        videoFileUrl = null;
-      }
-      videoElement.removeAttribute('src');
-      videoElement.load();
-    });
-
-    // Start analysis: play video and begin continuous pose analysis
-    document.getElementById('btn-start-analysis').addEventListener('click', async () => {
-      const heightInput = document.getElementById('height-input');
-      const hVal = Number(heightInput.value);
-      if (!isFinite(hVal) || hVal < 80 || hVal > 240) {
-        alert('身長を正しい数値で入力してください（80-240 cm）');
-        return;
-      }
-      userHeightCm = hVal;
-
-      // If we don't have calibration, keep previous tuneRuler if present, else warn
-      if (!calibratedPxPerCm && tuneRuler && (tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.01 && videoElement.videoWidth) {
-        const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
-        const pixelHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) * b.h;
-        if (pixelHeight > 30) {
-          calibratedPxPerCm = pixelHeight / userHeightCm;
-        }
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
+      const pixelHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) * b.h;
+      if (pixelHeight > 30) {
+        calibratedPxPerCm = pixelHeight / userHeightCm;
       }
 
       setStep(4);
-      // start playback loop
-      startPlaybackLoop();
+      setTimeout(() => {
+        resetWorkspaceDimensions();
+        processSingleFrame();
+      }, 150);
     });
 
-    // Playback controls and seek
-    function updateTimeDisplays() {
-      if (videoElement.duration && isFinite(videoElement.duration)) {
-        const cur = isFinite(videoElement.currentTime) ? videoElement.currentTime : 0;
-        const dur = videoElement.duration;
-        seekBar.value = (cur / dur) * 100;
-        timeDisp.textContent = `${cur.toFixed(2)} / ${dur.toFixed(2)}`;
-      } else {
-        seekBar.value = 0;
-        timeDisp.textContent = `0.00 / 0.00`;
+    function resetWorkspaceDimensions() {
+      const rect = outputCanvas.parentElement.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        outputCanvas.width = rect.width;
+        outputCanvas.height = rect.height;
       }
     }
 
-    // Seek main output
-    seekBar.addEventListener('input', async () => {
-      if (!videoElement.duration || !isFinite(videoElement.duration)) return;
-      const target = (seekBar.value / 100) * videoElement.duration;
-      try {
-        await safeSeek(target);
-      } catch (err) {
-        console.warn('seek failed', err);
-      }
-      updateTimeDisplays();
-    });
-
-    document.getElementById('btn-frame-prev').addEventListener('click', async () => {
-      const prev = Math.max(0, (videoElement.currentTime || 0) - 0.033);
-      try { await safeSeek(prev); } catch (e) {}
-      updateTimeDisplays();
-    });
-
-    document.getElementById('btn-frame-next').addEventListener('click', async () => {
-      const next = Math.min(videoElement.duration || 0, (videoElement.currentTime || 0) + 0.033);
-      try { await safeSeek(next); } catch (e) {}
-      updateTimeDisplays();
-    });
-
-    // Play/pause toggling - for analysis we implement our own loop
-    let isPlaying = false;
-    btnPlayPause.addEventListener('click', () => {
-      if (!isPlaying) {
-        videoElement.play().catch(() => { /* ignore autoplay restrictions */ });
-        isPlaying = true;
-        btnPlayPause.textContent = '停止 ▮▮';
-        startPlaybackLoop();
-      } else {
-        videoElement.pause();
-        isPlaying = false;
-        btnPlayPause.textContent = '再生 ▶';
-        stopPlaybackLoop();
+    window.addEventListener('resize', () => {
+      if (stepViews[4].classList.contains('active')) {
+        resetWorkspaceDimensions();
+        processSingleFrame();
+      } else if (stepViews[2].classList.contains('active')) {
+        updateScanScreenSize();
+        renderScanFrame();
       }
     });
 
-    // Playback loop: capture frame to bufferCanvas, send to pose, and render to output
-    function startPlaybackLoop() {
-      stopPlaybackLoop(); // avoid duplicates
-      isPlaying = true;
-      // Ensure video is playing (may be blocked)
-      try { videoElement.play().catch(() => {}); } catch (e) {}
+    /* --- Pinch Zoom & Pan --- */
+    function updateZoomBadge() {
+      zoomBadge.textContent = `🔍 ${zoomScale.toFixed(1)}x (ピンチ可)`;
+    }
 
-      function loop() {
-        rafId = requestAnimationFrame(loop);
-        // draw video to buffer
-        const vw = videoElement.videoWidth || bufferCanvas.width || 640;
-        const vh = videoElement.videoHeight || bufferCanvas.height || 480;
-        if (vw <= 0 || vh <= 0) return;
+    outputCanvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      const newScale = Math.max(1.0, Math.min(5.0, zoomScale * zoomFactor));
+      if (newScale === 1.0) zoomPan = { x: 0, y: 0 };
+      zoomScale = newScale;
+      updateZoomBadge();
+      processSingleFrame();
+    }, { passive: false });
 
-        if (bufferCanvas.width !== vw || bufferCanvas.height !== vh) {
-          bufferCanvas.width = vw;
-          bufferCanvas.height = vh;
+    outputCanvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        initialPinchDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialZoomScale = zoomScale;
+      } else if (e.touches.length === 1 && zoomScale > 1.0) {
+        isPanning = true;
+        panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        panSnapshot = { ...zoomPan };
+      }
+    }, { passive: true });
+
+    outputCanvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (initialPinchDistance > 0) {
+          const factor = dist / initialPinchDistance;
+          zoomScale = Math.max(1.0, Math.min(5.0, initialZoomScale * factor));
+          if (zoomScale === 1.0) zoomPan = { x: 0, y: 0 };
+          updateZoomBadge();
+          processSingleFrame();
         }
-        try {
-          bufferCtx.drawImage(videoElement, 0, 0, bufferCanvas.width, bufferCanvas.height);
-        } catch (err) {
-          // drawing sometimes fails if video not ready
-          return;
-        }
-
-        // send to MediaPipe if ready and not currently sending
-        if (pose && isPoseLoaded && !isSendingFrame) {
-          try {
-            isSendingFrame = true;
-            // pose.send accepts HTMLCanvasElement
-            pose.send({ image: bufferCanvas }).catch(err => {
-              console.warn('pose.send error', err);
-            }).finally(() => {
-              isSendingFrame = false;
-            });
-          } catch (err) {
-            console.warn('pose.send wrapper error', err);
-            isSendingFrame = false;
-          }
-        }
-
-        // update seek/time display periodically (throttle by frames)
-        updateTimeDisplays();
+      } else if (e.touches.length === 1 && isPanning && zoomScale > 1.0) {
+        const dx = e.touches[0].clientX - panStart.x;
+        const dy = e.touches[0].clientY - panStart.y;
+        zoomPan.x = panSnapshot.x + dx;
+        zoomPan.y = panSnapshot.y + dy;
+        processSingleFrame();
       }
+    }, { passive: true });
 
-      loop();
-    }
-
-    function stopPlaybackLoop() {
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-      isSendingFrame = false;
-      isPlaying = false;
-      btnPlayPause.textContent = '再生 ▶';
-    }
-
-    function resetRecords() {
-      records = {
-        maxStride: 0,
-        maxMER: 0,
-        maxTwist: 0,
-        maxRelease: 0,
-        minKnee: 180,
-        maxKnee: 0,
-        toeAngle: 0
-      };
-      // reset UI
-      valStride.textContent = '-- cm';
-      maxStride.textContent = '最大: -- cm (0%身)';
-      valElbow.textContent = '-- °';
-      maxMER.textContent = '最大: -- °';
-      valTwist.textContent = '-- °';
-      maxTwist.textContent = '最大: -- °';
-      valRelease.textContent = '-- cm';
-      maxRelease.textContent = '最高: -- cm';
-      valKnee.textContent = '-- °';
-      maxKnee.textContent = 'FC時: -- ° (伸展: --°)';
-      valToe.textContent = '-- °';
-      maxToe.textContent = '状態: --';
-    }
-
-    document.getElementById('btn-reset-max').addEventListener('click', () => {
-      resetRecords();
+    outputCanvas.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) initialPinchDistance = 0;
+      if (e.touches.length === 0) isPanning = false;
     });
 
     document.getElementById('btn-zoom-reset').addEventListener('click', () => {
       zoomScale = 1.0;
       zoomPan = { x: 0, y: 0 };
-      updateZoomUI();
+      updateZoomBadge();
+      processSingleFrame();
     });
 
-    function updateZoomUI() {
-      zoomBadge.textContent = `🔍 ${zoomScale.toFixed(2)}x (ピンチ可)`;
-      // output canvas redraw will consider zoomScale/zoomPan in onPoseResults
+    /* --- Processing Engine --- */
+    function processSingleFrame() {
+      if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
+        renderFrameOnly();
+        return;
+      }
+
+      const vw = videoElement.videoWidth;
+      const vh = videoElement.videoHeight;
+      bufferCanvas.width = vw;
+      bufferCanvas.height = vh;
+      bufferCtx.drawImage(videoElement, 0, 0, vw, vh);
+
+      isProcessing = true;
+      pose.send({ image: bufferCanvas }).catch(err => {
+        console.error("Inference Error:", err);
+      }).finally(() => {
+        isProcessing = false;
+      });
     }
 
-    // HANDLE Pinch and Pan on outputCanvas (simple implementation)
-    let lastTouchDistance = null;
-    outputCanvas.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const t0 = e.touches[0], t1 = e.touches[1];
-        lastTouchDistance = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
-        initialPinchDistance = lastTouchDistance;
-        initialZoomScale = zoomScale;
-      } else if (e.touches.length === 1) {
-        // start panning
-        const t = e.touches[0];
-        isPanning = true;
-        panStart = { x: t.clientX, y: t.clientY };
-        panSnapshot = { ...zoomPan };
+    function renderFrameOnly() {
+      const cw = outputCanvas.width;
+      const ch = outputCanvas.height;
+      if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
+
+      outputCtx.clearRect(0, 0, cw, ch);
+      outputCtx.save();
+      outputCtx.translate(cw / 2 + zoomPan.x, ch / 2 + zoomPan.y);
+      outputCtx.scale(zoomScale, zoomScale);
+      outputCtx.translate(-cw / 2, -ch / 2);
+
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
+      if (videoElement.readyState >= 2) {
+        outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
       }
-    }, { passive: false });
+      outputCtx.restore();
+    }
 
-    outputCanvas.addEventListener('touchmove', (e) => {
-      if (e.touches.length === 2 && lastTouchDistance !== null) {
-        e.preventDefault();
-        const t0 = e.touches[0], t1 = e.touches[1];
-        const distNow = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
-        const ratio = distNow / Math.max(1, initialPinchDistance);
-        zoomScale = Math.max(0.5, Math.min(4.0, initialZoomScale * ratio));
-        updateZoomUI();
-      } else if (e.touches.length === 1 && isPanning) {
-        const t = e.touches[0];
-        const dx = (t.clientX - panStart.x);
-        const dy = (t.clientY - panStart.y);
-        zoomPan = { x: panSnapshot.x + dx, y: panSnapshot.y + dy };
-      }
-    }, { passive: false });
+    function getSegmentAngle3D(p1, p2) {
+      if (!p1 || !p2) return NaN;
+      return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
+    }
 
-    outputCanvas.addEventListener('touchend', (e) => {
-      if (e.touches.length < 2) lastTouchDistance = null;
-      if (e.touches.length === 0) {
-        isPanning = false;
-      }
-    });
+    function calcJointAngle3D(p1, p2, p3) {
+      if (!p1 || !p2 || !p3) return NaN;
+      const v1 = { x: p1.x - p2.x, y: p1.y - p2.y, z: (p1.z || 0) - (p2.z || 0) };
+      const v2 = { x: p3.x - p2.x, y: p3.y - p2.y, z: (p3.z || 0) - (p2.z || 0) };
 
-    // Main Pose result handler: draws overlay and updates metrics
-    async function onPoseResults(results) {
-      // results.image may be the bufferCanvas passed; size info available via bufferCanvas.width/height
-      const imgW = bufferCanvas.width || (results.image && results.image.width) || 640;
-      const imgH = bufferCanvas.height || (results.image && results.image.height) || 480;
+      const mag1 = Math.hypot(v1.x, v1.y, v1.z);
+      const mag2 = Math.hypot(v2.x, v2.y, v2.z);
+      if (mag1 < 1e-6 || mag2 < 1e-6) return NaN;
 
-      // Ensure output canvas sized to parent
-      const rectOut = outputCanvas.parentElement.getBoundingClientRect();
-      const dpr = Math.max(1, window.devicePixelRatio || 1);
-      if (outputCanvas.width !== Math.floor(rectOut.width * dpr) || outputCanvas.height !== Math.floor(rectOut.height * dpr)) {
-        outputCanvas.width = Math.floor(rectOut.width * dpr);
-        outputCanvas.height = Math.floor(rectOut.height * dpr);
-        outputCanvas.style.width = rectOut.width + 'px';
-        outputCanvas.style.height = rectOut.height + 'px';
-        outputCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      }
+      const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+      const cosVal = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
+      return (Math.acos(cosVal) * 180.0) / Math.PI;
+    }
 
-      // Clear output
-      outputCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+    function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
+      if (!shoulderL || !shoulderR || !hipL || !hipR || !elbow || !wrist) return NaN;
 
-      // Draw the current video frame (scaled to canvas)
-      try {
-        // Map source video to output canvas with aspect fit
-        const b = getAspectFitBounds(imgW, imgH, outputCanvas.width, outputCanvas.height);
-        outputCtx.save();
-        // Optionally apply zoom/pan transforms to drawing
-        outputCtx.translate(zoomPan.x, zoomPan.y);
-        outputCtx.scale(zoomScale, zoomScale);
-        // Draw the bufferCanvas (which contains current video frame)
-        outputCtx.drawImage(bufferCanvas, 0, 0, bufferCanvas.width, bufferCanvas.height, b.x, b.y, b.w, b.h);
-      } catch (err) {
-        // sometimes drawImage fails if buffer not ready
-      }
+      const midShoulder = {
+        x: (shoulderL.x + shoulderR.x) / 2,
+        y: (shoulderL.y + shoulderR.y) / 2,
+        z: ((shoulderL.z || 0) + (shoulderR.z || 0)) / 2
+      };
+      const midHip = {
+        x: (hipL.x + hipR.x) / 2,
+        y: (hipL.y + hipR.y) / 2,
+        z: ((hipL.z || 0) + (hipR.z || 0)) / 2
+      };
 
-      // If pose landmarks present, map and draw skeleton + compute metrics
-      const lms = results.poseLandmarks || null;
+      const trunkV = {
+        x: midShoulder.x - midHip.x,
+        y: midShoulder.y - midHip.y,
+        z: midShoulder.z - midHip.z
+      };
 
-      if (lms && lms.length) {
-        // draw landmarks via MediaPipe drawing utils (if available)
-        try {
-          // Convert normalized landmarks to pixel coordinates on source image (bufferCanvas)
-          const landmarkPixels = lms.map(lm => ({ x: lm.x * imgW, y: lm.y * imgH, z: lm.z ?? 0, visibility: lm.visibility ?? 0 }));
+      const forearmV = {
+        x: wrist.x - elbow.x,
+        y: wrist.y - elbow.y,
+        z: (wrist.z || 0) - (elbow.z || 0)
+      };
 
-          // Helper to get landmarks by index (MediaPipe pose indices)
-          const mp = {
-            NOSE: 0, LEFT_SHOULDER: 11, RIGHT_SHOULDER: 12,
-            LEFT_ELBOW: 13, RIGHT_ELBOW: 14, LEFT_WRIST: 15, RIGHT_WRIST: 16,
-            LEFT_HIP: 23, RIGHT_HIP: 24, LEFT_KNEE: 25, RIGHT_KNEE: 26,
-            LEFT_ANKLE: 27, RIGHT_ANKLE: 28
-          };
+      const trunkMag = Math.hypot(trunkV.x, trunkV.y, trunkV.z);
+      const forearmMag = Math.hypot(forearmV.x, forearmV.y, forearmV.z);
+      if (trunkMag < 1e-6 || forearmMag < 1e-6) return NaN;
 
-          function lp(i) { return landmarkPixels[i] || null; }
+      const dot = trunkV.x * forearmV.x + trunkV.y * forearmV.y + trunkV.z * forearmV.z;
+      const cosVal = Math.max(-1.0, Math.min(1.0, dot / (trunkMag * forearmMag)));
+      const baseAngle = (Math.acos(cosVal) * 180.0) / Math.PI;
 
-          // Compute stride: distance between ankles projected to X axis (as pixel horizontal distance)
-          const leftAnkle = lp(mp.LEFT_ANKLE);
-          const rightAnkle = lp(mp.RIGHT_ANKLE);
-          let strideCm = null;
-          if (leftAnkle && rightAnkle) {
-            const pix = Math.abs(leftAnkle.x - rightAnkle.x);
-            if (calibratedPxPerCm) {
-              strideCm = pix / calibratedPxPerCm;
-            } else {
-              // if not calibrated, estimate using average torso height (not altering logic: keep pixel count as fallback)
-              strideCm = null;
-            }
-          }
+      return 180.0 - baseAngle;
+    }
 
-          // MER (elbow angle) : angle at shoulder/elbow/wrist depending on throw arm
-          let elbowAngle = null;
-          if (selectedThrowArm === 'LEFT') {
-            const shoulder = lp(mp.LEFT_SHOULDER), elbow = lp(mp.LEFT_ELBOW), wrist = lp(mp.LEFT_WRIST);
-            elbowAngle = angleBetween(shoulder, elbow, wrist);
-          } else {
-            const shoulder = lp(mp.RIGHT_SHOULDER), elbow = lp(mp.RIGHT_ELBOW), wrist = lp(mp.RIGHT_WRIST);
-            elbowAngle = angleBetween(shoulder, elbow, wrist);
-          }
+    /* --- MediaPipe Results --- */
+    function onPoseResults(results) {
+      if (scanModeActive) {
+        if (results.poseLandmarks) {
+          const landmarks = results.poseLandmarks;
+          const NOSE = landmarks[0];
+          const L_HEEL = landmarks[29] || landmarks[27];
+          const R_HEEL = landmarks[30] || landmarks[28];
+          
+          tuneRuler.isActive = true;
+          tuneRuler.topYNorm = Math.max(0.02, NOSE.y - 0.08);
+          tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
+          tuneRuler.centerXNorm = NOSE.x;
 
-          // Twist: difference between shoulder line angle and hip line angle (in degrees)
-          let twistDeg = null;
-          const lShoulder = lp(mp.LEFT_SHOULDER), rShoulder = lp(mp.RIGHT_SHOULDER);
-          const lHip = lp(mp.LEFT_HIP), rHip = lp(mp.RIGHT_HIP);
-          if (lShoulder && rShoulder && lHip && rHip) {
-            // compute angle of shoulders and hips relative to horizontal
-            const shoulderAngle = Math.atan2(rShoulder.y - lShoulder.y, rShoulder.x - lShoulder.x) * 180 / Math.PI;
-            const hipAngle = Math.atan2(rHip.y - lHip.y, rHip.x - lHip.x) * 180 / Math.PI;
-            twistDeg = Math.abs(shoulderAngle - hipAngle);
-            if (twistDeg > 180) twistDeg = 360 - twistDeg;
-          }
-
-          // Release height: use wrist y coordinate relative to top/bottom ruler mapping to cm
-          let releaseCm = null;
-          const releaseWrist = (selectedThrowArm === 'LEFT') ? lp(mp.LEFT_WRIST) : lp(mp.RIGHT_WRIST);
-          if (releaseWrist && calibratedPxPerCm) {
-            // Map the normalized y on buffer image to pixel coordinate then relative to ruler
-            // Use tuneRuler top/bottom to compute pixel height representing user's height (if available)
-            if (tuneRuler && typeof tuneRuler.topYNorm === 'number') {
-              const bScan = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
-              const frameTop = bScan.y + tuneRuler.topYNorm * bScan.h;
-              const frameBottom = bScan.y + tuneRuler.bottomYNorm * bScan.h;
-              // releaseWrist.y is in source image pixels (imgH); map to same coordinate basis approximately:
-              // approximate: if bufferCanvas corresponds directly to videoImage, use releaseWrist.y
-              // convert to cm using calibratedPxPerCm
-              releaseCm = (imgH - releaseWrist.y) / (calibratedPxPerCm || 1); // rough
-            } else {
-              releaseCm = (imgH - releaseWrist.y) / (calibratedPxPerCm || 1);
-            }
-          }
-
-          // Knee angle: angle at lead knee (front foot). Choose depending on throw arm which leg is lead
-          let kneeAngle = null;
-          if (selectedThrowArm === 'LEFT') {
-            // front foot likely right
-            const hip = lp(mp.RIGHT_HIP), knee = lp(mp.RIGHT_KNEE), ankle = lp(mp.RIGHT_ANKLE);
-            kneeAngle = angleBetween(hip, knee, ankle);
-          } else {
-            const hip = lp(mp.LEFT_HIP), knee = lp(mp.LEFT_KNEE), ankle = lp(mp.LEFT_ANKLE);
-            kneeAngle = angleBetween(hip, knee, ankle);
-          }
-
-          // Toe angle: angle of foot based on ankle and toe approximation (use ankle and hip/foot)
-          let toeAng = null;
-          const leadAnkle = (selectedThrowArm === 'LEFT') ? lp(mp.RIGHT_ANKLE) : lp(mp.LEFT_ANKLE);
-          const leadKnee = (selectedThrowArm === 'LEFT') ? lp(mp.RIGHT_KNEE) : lp(mp.LEFT_KNEE);
-          if (leadAnkle && leadKnee) {
-            // use vector from ankle to knee to estimate foot orientation approximation
-            const dx = leadKnee.x - leadAnkle.x;
-            const dy = leadKnee.y - leadAnkle.y;
-            toeAng = Math.atan2(dy, dx) * 180 / Math.PI;
-          }
-
-          // Update record tracking (preserve existing algorithm intentions)
-          if (isFinite(strideCm) && strideCm !== null) {
-            if (strideCm > records.maxStride) records.maxStride = strideCm;
-            valStride.textContent = safeFormat(strideCm, 'cm');
-            maxStride.textContent = `最大: ${safeFormat(records.maxStride, 'cm')} (${calibratedPxPerCm ? Math.round((records.maxStride / userHeightCm) * 100) : 0}%身)`;
-          } else {
-            valStride.textContent = '-- cm';
-          }
-
-          if (isFinite(elbowAngle) && elbowAngle !== null) {
-            if (elbowAngle > records.maxMER) records.maxMER = elbowAngle;
-            valElbow.textContent = safeFormat(elbowAngle, '°');
-            maxMER.textContent = `最大: ${safeFormat(records.maxMER, '°')}`;
-          } else {
-            valElbow.textContent = '-- °';
-          }
-
-          if (isFinite(twistDeg) && twistDeg !== null) {
-            if (twistDeg > records.maxTwist) records.maxTwist = twistDeg;
-            valTwist.textContent = safeFormat(twistDeg, '°');
-            maxTwist.textContent = `最大: ${safeFormat(records.maxTwist, '°')}`;
-          } else {
-            valTwist.textContent = '-- °';
-          }
-
-          if (isFinite(releaseCm) && releaseCm !== null) {
-            if (releaseCm > records.maxRelease) records.maxRelease = releaseCm;
-            valRelease.textContent = safeFormat(releaseCm, 'cm');
-            maxRelease.textContent = `最高: ${safeFormat(records.maxRelease, 'cm')}`;
-          } else {
-            valRelease.textContent = '-- cm';
-          }
-
-          if (isFinite(kneeAngle) && kneeAngle !== null) {
-            if (kneeAngle < records.minKnee) records.minKnee = kneeAngle;
-            if (kneeAngle > records.maxKnee) records.maxKnee = kneeAngle;
-            valKnee.textContent = safeFormat(kneeAngle, '°');
-            maxKnee.textContent = `FC時: ${safeFormat(records.minKnee, '°')} (伸展: ${safeFormat(records.maxKnee, '°')})`;
-          } else {
-            valKnee.textContent = '-- °';
-          }
-
-          if (isFinite(toeAng) && toeAng !== null) {
-            valToe.textContent = safeFormat(toeAng, '°');
-            maxToe.textContent = `状態: ${Math.round(toeAng)}°`;
-          } else {
-            valToe.textContent = '-- °';
-          }
-
-          // Draw simple landmark dots and connections (on top of video)
-          outputCtx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
-          outputCtx.lineWidth = 2;
-          outputCtx.fillStyle = 'rgba(255,255,255,0.9)';
-          // Map landmarkPixels (which are in source image pixels) to canvas draw area (b.x,b.y,b.w,b.h)
-          const bOut = getAspectFitBounds(imgW, imgH, outputCanvas.width, outputCanvas.height);
-          const scaleX = bOut.w / imgW;
-          const scaleY = bOut.h / imgH;
-          const offsetX = bOut.x;
-          const offsetY = bOut.y;
-
-          // draw connecting lines for major bones (simple)
-          function mapToOut(p) {
-            if (!p) return null;
-            return { x: offsetX + p.x * scaleX, y: offsetY + p.y * scaleY };
-          }
-
-          // example connections
-          const leftShoulderPx = mapToOut(lp(mp.LEFT_SHOULDER));
-          const rightShoulderPx = mapToOut(lp(mp.RIGHT_SHOULDER));
-          const leftHipPx = mapToOut(lp(mp.LEFT_HIP));
-          const rightHipPx = mapToOut(lp(mp.RIGHT_HIP));
-          if (leftShoulderPx && rightShoulderPx) {
-            outputCtx.beginPath();
-            outputCtx.moveTo(leftShoulderPx.x, leftShoulderPx.y);
-            outputCtx.lineTo(rightShoulderPx.x, rightShoulderPx.y);
-            outputCtx.stroke();
-          }
-          if (leftHipPx && rightHipPx) {
-            outputCtx.beginPath();
-            outputCtx.moveTo(leftHipPx.x, leftHipPx.y);
-            outputCtx.lineTo(rightHipPx.x, rightHipPx.y);
-            outputCtx.stroke();
-          }
-
-          // draw dots for wrists and ankles
-          [mp.LEFT_WRIST, mp.RIGHT_WRIST, mp.LEFT_ANKLE, mp.RIGHT_ANKLE].forEach(i => {
-            const p = mapToOut(lp(i));
-            if (p) {
-              outputCtx.beginPath();
-              outputCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-              outputCtx.fill();
-              outputCtx.strokeStyle = 'rgba(0,0,0,0.4)';
-              outputCtx.stroke();
-              outputCtx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
-            }
-          });
-
-        } catch (err) {
-          console.warn('onPoseResults processing error', err);
+          btnScanNextStep.style.display = 'block';
+          scanGuideText.innerHTML = "🎯 <b>AIが検知したよ！</b> ズレがあれば<b>丸いハンドルを上下にドラッグ</b>して頭と足元にピッタリ合わせてね！";
+          renderScanFrame();
         }
-      } else {
-        // No landmarks: don't update metrics, but still draw the frame
+        return;
       }
 
-      // restore transforms
-      try { outputCtx.restore(); } catch (e) { /* ignore */ }
+      const cw = outputCanvas.width;
+      const ch = outputCanvas.height;
+      if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
+
+      outputCtx.clearRect(0, 0, cw, ch);
+      outputCtx.save();
+      outputCtx.translate(cw / 2 + zoomPan.x, ch / 2 + zoomPan.y);
+      outputCtx.scale(zoomScale, zoomScale);
+      outputCtx.translate(-cw / 2, -ch / 2);
+
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
+      outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
+
+      if (results.poseLandmarks) {
+        const landmarks = results.poseLandmarks;
+
+        const L_SHOULDER = landmarks[11];
+        const R_SHOULDER = landmarks[12];
+        const L_ELBOW = landmarks[13];
+        const R_ELBOW = landmarks[14];
+        const L_WRIST = landmarks[15];
+        const R_WRIST = landmarks[16];
+        const L_INDEX = landmarks[19];
+        const R_INDEX = landmarks[20];
+        const L_HIP = landmarks[23];
+        const R_HIP = landmarks[24];
+        const L_KNEE = landmarks[25];
+        const R_KNEE = landmarks[26];
+        const L_ANKLE = landmarks[27];
+        const R_ANKLE = landmarks[28];
+        const L_HEEL = landmarks[29];
+        const R_HEEL = landmarks[30];
+        const L_FOOT_INDEX = landmarks[31];
+        const R_FOOT_INDEX = landmarks[32];
+
+        const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
+
+        const isSouthpaw = (selectedThrowArm === 'LEFT');
+        const throwShoulder = isSouthpaw ? L_SHOULDER : R_SHOULDER;
+        const throwElbow = isSouthpaw ? L_ELBOW : R_ELBOW;
+        const throwWrist = isSouthpaw ? L_WRIST : R_WRIST;
+        const throwIndex = isSouthpaw ? L_INDEX : R_INDEX;
+
+        const leadHip = isSouthpaw ? R_HIP : L_HIP;
+        const leadKnee = isSouthpaw ? R_KNEE : L_KNEE;
+        const leadAnkle = isSouthpaw ? R_ANKLE : L_ANKLE;
+        const leadHeel = isSouthpaw ? R_HEEL : L_HEEL;
+        const leadToe = isSouthpaw ? R_FOOT_INDEX : L_FOOT_INDEX;
+
+        const pivotHeel = isSouthpaw ? L_HEEL : R_HEEL;
+
+        drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw);
+
+        /* ========================================================
+           MODE-SPECIFIC BIOMECHANICS ENGINE
+        ======================================================== */
+
+        if (selectedAngleMode === 'SIDE') {
+          // --- SIDE VIEW (横向き解析) ---
+
+          // 1. Stride Width
+          const footL = { x: (L_HEEL?.x || L_ANKLE.x), y: (L_HEEL?.y || L_ANKLE.y) };
+          const footR = { x: (R_HEEL?.x || R_ANKLE.x), y: (R_HEEL?.y || R_ANKLE.y) };
+          const stridePx = Math.hypot((footL.x - footR.x) * b.w, (footL.y - footR.y) * b.h);
+          const strideCm = Math.round(stridePx / activePxPerCm);
+
+          if (!isNaN(strideCm) && strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
+            const strideRatio = Math.round((strideCm / userHeightCm) * 100);
+            c1Val.textContent = `${strideCm} cm`;
+            if (strideCm > records.maxStride) {
+              records.maxStride = strideCm;
+              c1Max.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
+            }
+          }
+
+          // 2. MER
+          const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist);
+          if (!isNaN(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
+            const roundedMER = Math.round(trueMerDeg);
+            c2Val.textContent = `${roundedMER} °`;
+            if (roundedMER > records.maxMER && roundedMER <= 190) {
+              records.maxMER = roundedMER;
+              c2Max.textContent = `最大: ${roundedMER} °`;
+            }
+          }
+
+          // 3. Twist
+          const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
+          const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
+          if (!isNaN(shoulderAngle) && !isNaN(hipAngle)) {
+            let diff = Math.abs(shoulderAngle - hipAngle);
+            if (diff > 180) diff = 360 - diff;
+            const roundedTwist = Math.round(diff);
+            if (roundedTwist <= 65) {
+              c3Val.textContent = `${roundedTwist} °`;
+              if (roundedTwist > records.maxTwist && roundedTwist >= 5) {
+                records.maxTwist = roundedTwist;
+                c3Max.textContent = `最大: ${roundedTwist} °`;
+              }
+            }
+          }
+
+          // 4. Release Height
+          const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
+          const releaseTarget = (throwIndex && throwIndex.y) ? throwIndex : throwWrist;
+          const releasePointY = releaseTarget.y * b.h;
+          const releaseHeightPx = Math.max(0, lowestGroundY - releasePointY);
+          const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
+
+          if (!isNaN(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.45)) {
+            c4Val.textContent = `${releaseHeightCm} cm`;
+            if (releaseHeightCm > records.maxRelease) {
+              records.maxRelease = releaseHeightCm;
+              c4Max.textContent = `最高: ${releaseHeightCm} cm`;
+            }
+          }
+
+          // 5. Lead Knee Flexion
+          const kneeAngle = calcJointAngle3D(leadHip, leadKnee, leadAnkle);
+          if (!isNaN(kneeAngle) && kneeAngle >= 40 && kneeAngle <= 180) {
+            const roundedKnee = Math.round(kneeAngle);
+            c5Val.textContent = `${roundedKnee} °`;
+            if (roundedKnee < records.minKnee) records.minKnee = roundedKnee;
+            if (roundedKnee > records.maxKnee) records.maxKnee = roundedKnee;
+            c5Max.textContent = `屈曲:${records.minKnee}° (伸展:${records.maxKnee}°)`;
+          }
+
+          // 6. Forward Trunk Tilt
+          const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
+          const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
+          const trunkDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
+          if (!isNaN(trunkDeg) && trunkDeg <= 60) {
+            c6Val.textContent = `${trunkDeg} °`;
+            if (trunkDeg > records.maxTrunkTilt) {
+              records.maxTrunkTilt = trunkDeg;
+              c6Max.textContent = `最大前傾: ${trunkDeg} °`;
+            }
+          }
+
+        } else {
+          // --- FRONT VIEW (正面解析) ---
+
+          // 1. Toe Angle
+          if (leadHeel && leadToe) {
+            const toeVector = {
+              x: (leadToe.x - leadHeel.x) * b.w,
+              y: (leadToe.y - leadHeel.y) * b.h
+            };
+            const toeDeg = Math.round(Math.abs((Math.atan2(toeVector.y, toeVector.x) * 180.0) / Math.PI) - 90);
+            const cleanToeDeg = Math.max(0, Math.min(60, Math.abs(toeDeg)));
+            
+            let stateLabel = "ストレート";
+            if (cleanToeDeg <= 15) stateLabel = "◎ 理想(0〜15°)";
+            else if (cleanToeDeg <= 30) stateLabel = "○ やや開き";
+            else stateLabel = "⚠️ 開きすぎ注意";
+
+            c1Val.textContent = `${cleanToeDeg} °`;
+            c1Max.textContent = `${stateLabel}`;
+          }
+
+          // 2. Trunk Lateral Tilt
+          const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
+          const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
+          const lateralDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
+          if (!isNaN(lateralDeg) && lateralDeg <= 45) {
+            c2Val.textContent = `${lateralDeg} °`;
+            if (lateralDeg > records.maxTrunkLateral) {
+              records.maxTrunkLateral = lateralDeg;
+              c2Max.textContent = `最大傾き: ${lateralDeg} °`;
+            }
+          }
+
+          // 3. Arm Slot (Arm Elevation relative to Shoulders)
+          const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, isSouthpaw ? R_SHOULDER : L_SHOULDER);
+          if (!isNaN(armSlotAngle) && armSlotAngle >= 30 && armSlotAngle <= 180) {
+            const roundedSlot = Math.round(armSlotAngle);
+            c3Val.textContent = `${roundedSlot} °`;
+            if (roundedSlot > records.maxArmSlot) {
+              records.maxArmSlot = roundedSlot;
+              c3Max.textContent = `最大挙上: ${roundedSlot} °`;
+            }
+          }
+
+          // 4. In-Step / Out-Step (Lateral Foot Offset)
+          if (leadHeel && pivotHeel) {
+            const lateralOffsetPx = Math.abs((leadHeel.x - pivotHeel.x) * b.w);
+            const lateralOffsetCm = Math.round(lateralOffsetPx / activePxPerCm);
+            if (!isNaN(lateralOffsetCm) && lateralOffsetCm <= 50) {
+              const isCross = isSouthpaw ? (leadHeel.x > pivotHeel.x) : (leadHeel.x < pivotHeel.x);
+              const dirText = isCross ? "インステップ" : "アウトステップ";
+              c4Val.textContent = `${lateralOffsetCm} cm`;
+              if (lateralOffsetCm > records.maxInStepCm) {
+                records.maxInStepCm = lateralOffsetCm;
+                c4Max.textContent = `${dirText}: ${lateralOffsetCm} cm`;
+              }
+            }
+          }
+
+          // 5. Pelvis Open Angle (Hip Line Tilt in Front Plane)
+          const hipFrontAngle = Math.round(Math.abs((Math.atan2(R_HIP.y - L_HIP.y, R_HIP.x - L_HIP.x) * 180.0) / Math.PI));
+          if (!isNaN(hipFrontAngle)) {
+            c5Val.textContent = `${hipFrontAngle} °`;
+            c5Max.textContent = `骨盤傾斜: ${hipFrontAngle} °`;
+          }
+
+          // 6. Lateral Release Point (Distance from Head/Trunk Center)
+          const releaseTarget = (throwIndex && throwIndex.x) ? throwIndex : throwWrist;
+          const lateralReleasePx = Math.abs((releaseTarget.x - midShoulder.x) * b.w);
+          const lateralReleaseCm = Math.round(lateralReleasePx / activePxPerCm);
+          if (!isNaN(lateralReleaseCm) && lateralReleaseCm <= 80) {
+            c6Val.textContent = `${lateralReleaseCm} cm`;
+            if (lateralReleaseCm > records.maxReleaseLateral) {
+              records.maxReleaseLateral = lateralReleaseCm;
+              c6Max.textContent = `最大横幅: ${lateralReleaseCm} cm`;
+            }
+          }
+        }
+      }
+
+      outputCtx.restore();
     }
 
-    // On window unload - cleanup
-    window.addEventListener('beforeunload', () => {
-      if (videoFileUrl) {
-        try { URL.revokeObjectURL(videoFileUrl); } catch (e) {}
-        videoFileUrl = null;
+    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw) {
+      const connections = [
+        [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21],
+        [12, 14], [14, 16], [16, 18], [16, 20], [16, 22],
+        [11, 23], [12, 24], [23, 24],
+        [23, 25], [25, 27], [27, 29], [29, 31], [27, 31],
+        [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]
+      ];
+
+      outputCtx.strokeStyle = "#10b981";
+      outputCtx.lineWidth = 3;
+      connections.forEach(([i, j]) => {
+        const p1 = landmarks[i];
+        const p2 = landmarks[j];
+        if (p1 && p2) {
+          outputCtx.beginPath();
+          outputCtx.moveTo(ox + p1.x * bw, oy + p1.y * bh);
+          outputCtx.lineTo(ox + p2.x * bw, oy + p2.y * bh);
+          outputCtx.stroke();
+        }
+      });
+
+      const keyJoints = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
+      const throwWristIdx = isSouthpaw ? 15 : 16;
+      const throwElbowIdx = isSouthpaw ? 13 : 14;
+      const throwIndexIdx = isSouthpaw ? 19 : 20;
+      const leadKneeIdx = isSouthpaw ? 26 : 25;
+      const leadToeIdx = isSouthpaw ? 32 : 31;
+
+      keyJoints.forEach(idx => {
+        const p = landmarks[idx];
+        if (p) {
+          outputCtx.beginPath();
+          let radius = 4;
+          if (idx === throwIndexIdx) radius = 6.5;
+          else if (idx === throwWristIdx) radius = 5.5;
+          else if (idx === throwElbowIdx) radius = 5;
+          else if (idx === leadKneeIdx) radius = 5.5;
+          else if (idx === leadToeIdx) radius = 5.5;
+
+          outputCtx.arc(ox + p.x * bw, oy + p.y * bh, radius, 0, Math.PI * 2);
+          
+          if (idx === throwIndexIdx) {
+            outputCtx.fillStyle = "#ec4899"; // Finger-Tip Target
+          } else if (idx === throwWristIdx) {
+            outputCtx.fillStyle = "#f43f5e"; // Throwing Wrist
+          } else if (idx === throwElbowIdx) {
+            outputCtx.fillStyle = "#f59e0b"; // Throwing Elbow
+          } else if (idx === leadKneeIdx) {
+            outputCtx.fillStyle = "#facc15"; // Lead Knee Accent
+          } else if (idx === leadToeIdx) {
+            outputCtx.fillStyle = "#38bdf8"; // Lead Toe Accent
+          } else if ([17, 18, 21, 22].includes(idx)) {
+            outputCtx.fillStyle = "#a855f7";
+          } else {
+            outputCtx.fillStyle = "#38bdf8";
+          }
+
+          outputCtx.fill();
+          outputCtx.strokeStyle = "#ffffff";
+          outputCtx.lineWidth = 1.2;
+          outputCtx.stroke();
+        }
+      });
+    }
+
+    /* --- Video Playback Engine --- */
+    function updatePlayState() {
+      if (videoElement.paused) {
+        btnPlayPause.textContent = "再生 ▶";
+        btnPlayPause.style.background = "linear-gradient(135deg, #3b82f6, #1d4ed8)";
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      } else {
+        btnPlayPause.textContent = "停止 ⏸";
+        btnPlayPause.style.background = "linear-gradient(135deg, #f59e0b, #d97706)";
+        renderLoop();
       }
-      stopPlaybackLoop();
-      if (pose && typeof pose.close === 'function') {
-        try { pose.close(); } catch (e) { /* ignore */ }
+    }
+
+    function renderLoop() {
+      if (!videoElement.paused && !videoElement.ended) {
+        processSingleFrame();
+        updateTimeUI();
+        animationFrameId = requestAnimationFrame(renderLoop);
       }
-      pose = null;
+    }
+
+    function updateTimeUI() {
+      if (!videoElement.duration) return;
+      seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
+      timeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
+    }
+
+    videoElement.addEventListener('play', updatePlayState);
+    videoElement.addEventListener('pause', updatePlayState);
+    videoElement.addEventListener('ended', updatePlayState);
+    videoElement.addEventListener('seeked', () => {
+      if (stepViews[4].classList.contains('active')) {
+        processSingleFrame();
+      }
     });
 
-    // Keep UI time displays in sync if video time updates due to play/pause
-    videoElement.addEventListener('timeupdate', () => {
-      updateTimeDisplays();
-      // also update scan frame if in scan step
-      const activeScan = stepViews[2].classList.contains('active');
-      if (activeScan) {
-        renderScanFrame();
+    btnPlayPause.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (videoElement.paused) {
+        videoElement.play().catch(err => {
+          console.warn("Video Play Interrupted:", err);
+        });
+      } else {
+        videoElement.pause();
       }
     });
 
-    // When scan mode (pose.send during scan) returns results, we should enable ruler if landmarks valid
-    // We'll set tuneRuler when a reasonable torso/height estimate is found in onPoseResults when scanModeActive was true.
-    // To allow that, we intercept results by setting a wrapper earlier:
-    (function attachPoseOnResultsWrapper() {
-      // The 'pose' object is created in initMediaPipe; we can't wrap it before creation.
-      // Instead, we ensure pose.onResults was set to onPoseResults in initMediaPipe.
-      // For scanModeActive behavior: we can set a small observer: after scanModeActive pose result, enable ruler if landmarks exist
-      // Implemented by checking scanModeActive inside onPoseResults: set tuneRuler and show btnScanNextStep if landmark-based calibration found.
-    })();
-
-    // Additional improvement: if user clicks on scan-canvas, enable ruler editing
-    scanCanvas.addEventListener('dblclick', () => {
-      tuneRuler.isActive = !tuneRuler.isActive;
-      btnScanNextStep.style.display = tuneRuler.isActive ? 'none' : btnScanNextStep.style.display;
-      renderScanFrame();
+    seekBar.addEventListener('input', () => {
+      if (!videoElement.duration) return;
+      videoElement.pause();
+      videoElement.currentTime = (seekBar.value / 100) * videoElement.duration;
+      updateTimeUI();
     });
 
-    // Optional: provide a keyboard shortcut for testing (space toggles play)
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        btnPlayPause.click();
+    document.getElementById('btn-frame-prev').addEventListener('click', (e) => {
+      e.stopPropagation();
+      videoElement.pause();
+      videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
+      updateTimeUI();
+    });
+
+    document.getElementById('btn-frame-next').addEventListener('click', (e) => {
+      e.stopPropagation();
+      videoElement.pause();
+      videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
+      updateTimeUI();
+    });
+
+    document.getElementById('btn-reset-max').addEventListener('click', () => {
+      records = {
+        maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0, minKnee: 180, maxKnee: 0, maxTrunkTilt: 0,
+        toeAngle: 0, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
+      };
+      if (selectedAngleMode === 'SIDE') {
+        c1Max.textContent = "最大: -- cm (0%身)";
+        c2Max.textContent = "最大: -- °";
+        c3Max.textContent = "最大: -- °";
+        c4Max.textContent = "最高: -- cm";
+        c5Max.textContent = "FC時: -- ° (伸展: --°)";
+        c6Max.textContent = "最大倒れ: -- °";
+      } else {
+        c1Max.textContent = "状態: --";
+        c2Max.textContent = "最大傾き: -- °";
+        c3Max.textContent = "最大挙上: -- °";
+        c4Max.textContent = "最大ズレ: -- cm";
+        c5Max.textContent = "骨盤傾斜: -- °";
+        c6Max.textContent = "最大横幅: -- cm";
       }
     });
 
-    // Initialize sizes when DOM ready
-    window.addEventListener('resize', () => {
-      try {
-        updateScanScreenSize();
-        const rectOut = outputCanvas.parentElement.getBoundingClientRect();
-        const dpr = Math.max(1, window.devicePixelRatio || 1);
-        outputCanvas.width = Math.floor(rectOut.width * dpr);
-        outputCanvas.height = Math.floor(rectOut.height * dpr);
-        outputCanvas.style.width = rectOut.width + 'px';
-        outputCanvas.style.height = rectOut.height + 'px';
-        outputCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      } catch (err) { /* ignore */ }
+    document.getElementById('btn-re-select').addEventListener('click', () => {
+      videoElement.pause();
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      calibratedPxPerCm = null;
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
+      zoomScale = 1.0;
+      zoomPan = { x: 0, y: 0 };
+      updateZoomBadge();
+      setStep(1);
     });
-
-    // Small boot: attempt to init MediaPipe in background (non-blocking)
-    (async () => {
-      try {
-        await initMediaPipe();
-      } catch (e) {
-        // ignore
-      }
-    })();
-
   </script>
-
 </body>
 </html>
