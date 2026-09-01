@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pitching-ai-v1';
+const CACHE_NAME = 'pitching-ai-v2';
 const urlsToCache = [
   './index.html',
   './manifest.json'
