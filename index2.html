@@ -317,7 +317,6 @@
       box-shadow: 0 2px 4px rgba(255, 82, 82, 0.3);
     }
 
-    /* Gamified 6-Card Compact Grid Dashboard */
     .dashboard {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -695,7 +694,11 @@
       maxKnee: 0,
       maxTrunkTilt: 0,
       toeAngle: 0,
+      fcToeAngle: null,
+      fcToeLabel: null,
       maxValgus: 0,
+      ffValgusAngle: null,
+      ffValgusLabel: null,
       maxTrunkLateral: 0,
       maxArmSlot: 0,
       maxInStepCm: 0,
@@ -1372,7 +1375,6 @@
         const L_FOOT_INDEX = landmarks[31];
         const R_FOOT_INDEX = landmarks[32];
 
-        // 【距離ズレ解消：現在の表示サイズ(b.h)に完全追従するリアルタイム縮尺計算】
         const normalizedStatureHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.1 ? (tuneRuler.bottomYNorm - tuneRuler.topYNorm) : 0.75;
         const activePxPerCm = (normalizedStatureHeight * b.h) / userHeightCm;
 
@@ -1489,14 +1491,17 @@
           // --- FRONT VIEW (正面・斜め前解析) ---
 
           const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
-          const isStepping = (currentStridePx / activePxPerCm) > 20;
+          const currentStrideCm = currentStridePx / activePxPerCm;
+          const isStepping = currentStrideCm > 20;
 
-          // 1. Lead Toe Angle (前足つま先の向き)
+          // 1. Lead Toe Angle (FC時ロック機能付き)
           if (leadHeel && leadToe && leadAnkle) {
             if (!isStepping) {
               smoothToeDeg = 0;
               c1Val.textContent = `0 °`;
-              c1Max.textContent = `◎ 構え・ストレート`;
+              if (!records.fcToeLabel) {
+                c1Max.textContent = `構え位置`;
+              }
             } else {
               const deltaX = (leadToe.x - leadHeel.x) * b.w;
               const deltaY = Math.max(10, (leadToe.y - leadHeel.y) * b.h);
@@ -1520,11 +1525,24 @@
               }
 
               c1Val.textContent = `${displayAngle} °`;
-              c1Max.textContent = `${stateLabel}`;
+
+              // FC時ロック
+              if (currentStrideCm >= (userHeightCm * 0.40)) {
+                if (records.fcToeAngle === null) {
+                  records.fcToeAngle = displayAngle;
+                  records.fcToeLabel = `FC時: ${displayAngle}° (${stateLabel})`;
+                }
+              }
+
+              if (records.fcToeLabel) {
+                c1Max.textContent = records.fcToeLabel;
+              } else {
+                c1Max.textContent = stateLabel;
+              }
             }
           }
 
-          // 2. Knee Valgus / Varus (前足ヒザの内外反角: ニーイン/アウト)
+          // 2. Knee Valgus / Varus (前足ヒザの内外反角: FF時ロック機能付き)
           if (leadHip && leadKnee && leadAnkle) {
             const thighAngle = Math.atan2(leadKnee.y - leadHip.y, leadKnee.x - leadHip.x);
             const shankAngle = Math.atan2(leadAnkle.y - leadKnee.y, leadAnkle.x - leadKnee.x);
@@ -1544,7 +1562,21 @@
             }
 
             c2Val.textContent = `${absDev} °`;
-            c2Max.textContent = `${valgusStatus}`;
+
+            // 【FF時（Foot Flat：前足裏接地＆踏ん張り）のヒザ状態をロック】
+            // ステップ幅が最大（身長の50%以上）に到達した瞬間をFFとして記録
+            if (currentStrideCm >= (userHeightCm * 0.50)) {
+              if (records.ffValgusAngle === null) {
+                records.ffValgusAngle = absDev;
+                records.ffValgusLabel = `FF時: ${absDev}° (${valgusStatus})`;
+              }
+            }
+
+            if (records.ffValgusLabel) {
+              c2Max.textContent = records.ffValgusLabel;
+            } else {
+              c2Max.textContent = valgusStatus;
+            }
 
             if (absDev > records.maxValgus && isStepping) {
               records.maxValgus = absDev;
@@ -1751,7 +1783,7 @@
     document.getElementById('btn-reset-max').addEventListener('click', () => {
       records = {
         maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0, minKnee: 180, maxKnee: 0, maxTrunkTilt: 0,
-        toeAngle: 0, maxValgus: 0, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
+        toeAngle: 0, fcToeAngle: null, fcToeLabel: null, maxValgus: 0, ffValgusAngle: null, ffValgusLabel: null, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
       };
       smoothToeDeg = 0;
       manualToeOffsetDeg = 0;
