@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
+<head><link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#38bdf8">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>投球AIバイオメカニクス</title>
@@ -2508,5 +2510,15 @@
       setStep(1);
     });
   </script>
-</body>
+</body><script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js').then(function(registration) {
+          console.log('ServiceWorker登録成功:', registration.scope);
+        }).catch(function(err) {
+          console.log('ServiceWorker登録失敗:', err);
+        });
+      });
+    }
+  </script>
 </html>
