@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head><link rel="manifest" href="manifest.json">
+<head>
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#38bdf8">
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta charset="UTF-8">
@@ -135,7 +136,7 @@
       display: flex;
     }
 
-    /* --- STEP 1 TOP MENU STYLES (大判レイアウト) --- */
+    /* TOP MENU */
     .top-mode-grid {
       display: flex;
       flex-direction: column;
@@ -259,7 +260,7 @@
       box-shadow: 0 1px 0 #b45309;
     }
 
-    /* --- COMMON BUTTONS & WORKSPACE STYLES --- */
+    /* WORKSPACE */
     .btn {
       background: linear-gradient(135deg, #38bdf8, #0284c7);
       color: #fff;
@@ -642,7 +643,7 @@
       to { transform: rotate(360deg); }
     }
 
-    /* カルテモーダル */
+    /* カルテ＆AI処方箋モーダル */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -685,17 +686,17 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
 
     .history-card {
       background: #f8fafc;
       border: 1.5px solid #cbd5e1;
       border-radius: 10px;
-      padding: 6px 8px;
+      padding: 8px;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 6px;
       position: relative;
     }
 
@@ -704,10 +705,10 @@
       justify-content: space-between;
       align-items: center;
       font-weight: 900;
-      font-size: 0.75rem;
+      font-size: 0.78rem;
       color: #0369a1;
       border-bottom: 1px dashed #cbd5e1;
-      padding-bottom: 3px;
+      padding-bottom: 4px;
     }
 
     .btn-item-delete {
@@ -741,6 +742,35 @@
       border-radius: 5px;
       border: 1px solid #e2e8f0;
     }
+
+    /* 処方箋（アドバイス）ボックス */
+    .prescription-box {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border: 1.5px solid #86efac;
+      border-radius: 8px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.68rem;
+    }
+
+    .prescription-title {
+      font-weight: 900;
+      color: #166534;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .prescription-item {
+      color: #1e293b;
+      line-height: 1.3;
+    }
+
+    .prescription-item b {
+      color: #047857;
+    }
   </style>
 </head>
 <body>
@@ -756,11 +786,9 @@
 
   <main class="app-container">
 
-    <!-- STEP 1: Angle Selection & Video Input (大判カードデザイン版) -->
+    <!-- STEP 1: Angle Selection & Video Input -->
     <section id="view-step1" class="view-section active">
-      
       <div class="top-mode-grid">
-        <!-- 横向きカード -->
         <label class="mode-card mode-card-side" id="label-side-video">
           <div class="mode-card-icon">⚾</div>
           <div class="mode-card-info">
@@ -770,7 +798,6 @@
           <input type="file" id="video-input-side" accept="video/*" style="display: none;">
         </label>
 
-        <!-- 正面・斜め前カード -->
         <label class="mode-card mode-card-front" id="label-front-video">
           <div class="mode-card-icon">🎯</div>
           <div class="mode-card-info">
@@ -920,14 +947,12 @@
           <span class="time-disp" id="time-disp">0.00 / 0.00</span>
         </div>
         <div class="playback-rows">
-          <!-- 上段: 投球動作の主操作 -->
           <div class="btn-row">
             <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
             <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: 0 1.5px 0 #c0392b; flex: 1.2;">再生 ▶</button>
             <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
             <button class="btn-ctrl btn-fc-trigger" id="btn-manual-fc">👟 着地決定</button>
           </div>
-          <!-- 下段: カルテ保存・ツール操作 -->
           <div class="btn-row">
             <button class="btn-ctrl btn-save-trigger" id="btn-save-record">💾 保存</button>
             <button class="btn-ctrl" id="btn-open-carte">📋 カルテ</button>
@@ -943,11 +968,11 @@
 
   </main>
 
-  <!-- カルテ・履歴モーダル -->
+  <!-- カルテ＆AI処方箋モーダル -->
   <div class="modal-overlay" id="carte-modal">
     <div class="modal-card">
       <div class="modal-header">
-        <span>📋 選手カルテ・測定履歴</span>
+        <span>📋 選手カルテ・AI特訓メニュー</span>
         <button id="btn-close-carte" style="background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; font-weight: 900;">✕</button>
       </div>
       <div style="padding: 6px 8px; background: #e0f2fe; display: flex; gap: 4px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
@@ -977,7 +1002,7 @@
     let isPoseLoaded = false;
     let isProcessing = false;
     let animationFrameId = null;
-    let scanModeActive = false; // 変数宣言を追加
+    let scanModeActive = false;
 
     let playerName = "せんしゅ1";
     let userHeightCm = 140;
@@ -1608,6 +1633,67 @@
     });
 
     /* ========================================================
+       AI診断・特訓＆ストレッチ処方箋 生成エンジン
+    ======================================================== */
+    function generateBiomechanicsPrescription(entry) {
+      const isSide = (entry.mode === 'SIDE');
+      const m = entry.metrics;
+      let diagnosis = [];
+      let stretches = [];
+      let drills = [];
+
+      if (isSide) {
+        if (m.strideRatio >= 70) {
+          diagnosis.push("🌟 歩幅が身長の70%以上あり、下半身の体重移動が素晴らしいです！");
+        } else {
+          diagnosis.push("⚠️ 歩幅がやや狭く、上体投げになりやすい状態です。");
+          stretches.push("<b>股関節前側（腸腰筋）伸ばし:</b> 片膝立ちランジストレッチ（左右20秒）");
+          drills.push("<b>ステップ広げドリル:</b> 目標ラインに力強く踏み出すスケータージャンプ練習");
+        }
+
+        if (m.mer >= 140) {
+          diagnosis.push("🌟 肩のしなり（外旋）が柔らかく使えています。");
+        } else {
+          diagnosis.push("⚠️ 腕のしなりが小さく、肘や肩に負担がかかりやすい状態です。");
+          stretches.push("<b>胸郭・胸開きストレッチ:</b> 四つ這いソラシックローテーション（胸椎回旋）");
+          drills.push("<b>タオルスロー:</b> リラックスして肘をしならせるタオルトレーニング");
+        }
+
+        if (m.twist >= 25) {
+          diagnosis.push("🌟 胸と腰の捻転差が作れており、体のキレがあります。");
+        } else {
+          stretches.push("<b>体幹ひねりストレッチ:</b> 仰向けツイストストレッチ");
+        }
+
+      } else {
+        if (m.toeAngle > 15) {
+          diagnosis.push("⚠️ 着地でつま先が外に開きやすく、骨盤が早く回っています。");
+          stretches.push("<b>お尻・股関節ストレッチ:</b> 割座（正座開き）＆お尻のストレッチ");
+          drills.push("<b>1本線ピッチング:</b> 地面の白線につま先を真っすぐ合わせて踏み出すドリル");
+        } else {
+          diagnosis.push("🌟 つま先の向きが捕手方向へ真っすぐ踏み出せています！");
+        }
+
+        if (m.valgus > 10) {
+          diagnosis.push("⚠️ 着地でヒザが内側に入るニーイン（外反）が見られます。");
+          stretches.push("<b>中臀筋（お尻横）トレーニング:</b> 横向きクラムシェル（左右15回）");
+          drills.push("<b>片足ランジ静止キープ:</b> つま先とヒザの向きを揃えて地面を掴む練習");
+        } else {
+          diagnosis.push("🌟 着地した前足のヒザが割れずにしっかり踏ん張れています！");
+        }
+
+        if (m.inStep > 15) {
+          drills.push("<b>ステップ幅矯正ドリル:</b> まっすぐな踏み込み位置にマーカーを置いて投球練習");
+        }
+      }
+
+      if (stretches.length === 0) stretches.push("<b>全身ストレッチ:</b> 肩甲骨とお尻のストレッチを毎日続けよう！");
+      if (drills.length === 0) drills.push("<b>バランスキープドリル:</b> 片足立ちでグラつかずに投げる練習");
+
+      return { diagnosis, stretches, drills };
+    }
+
+    /* ========================================================
        カルテ（データ保存・履歴管理・削除）システム
     ======================================================== */
     const STORAGE_KEY = 'pitching_ai_records_v1';
@@ -1658,7 +1744,7 @@
       allRecords.unshift(newEntry);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
-        alert(`✅ ${playerName}君の測定データをカルテに保存しました！`);
+        openCarteModal();
       } catch (e) {
         alert("⚠️ 保存容量がいっぱいです");
       }
@@ -1734,6 +1820,7 @@
         const card = document.createElement('div');
         card.className = 'history-card';
         const isSide = (r.mode === 'SIDE');
+        const pres = generateBiomechanicsPrescription(r);
 
         card.innerHTML = `
           <div class="history-card-head">
@@ -1759,6 +1846,16 @@
               <div>🚶 踏出ズレ: <b>${r.metrics.inStep}cm</b></div>
               <div>⚾ リリース横: <b>${r.metrics.releaseLateral}cm</b></div>
             `}
+          </div>
+          <div class="prescription-box">
+            <div class="prescription-title">🌟 AIフォーム診断・おすすめ特訓メニュー</div>
+            <div class="prescription-item">${pres.diagnosis.join('<br>')}</div>
+            <div class="prescription-item" style="border-top: 1px dashed #86efac; padding-top: 3px; margin-top: 2px;">
+              🧘 <b>おすすめストレッチ:</b> ${pres.stretches.join(' / ')}
+            </div>
+            <div class="prescription-item">
+              🎯 <b>おすすめドリル:</b> ${pres.drills.join(' / ')}
+            </div>
           </div>
         `;
         carteHistoryList.appendChild(card);
@@ -2028,9 +2125,7 @@
           drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
         }
 
-        /* ========================================================
-           FC (Foot Contact) 高精度運動学検知エンジン
-        ======================================================== */
+        /* FC (Foot Contact) 高精度運動学検知 */
         let currentStrideCm = 0;
         let isStepping = false;
         let isKinematicFC = false;
@@ -2057,10 +2152,7 @@
           }
         }
 
-        /* ========================================================
-           MODE-SPECIFIC BIOMECHANICS ENGINE
-        ======================================================== */
-
+        /* MODE-SPECIFIC BIOMECHANICS */
         if (selectedAngleMode === 'SIDE') {
           // 1. Stride Width
           if (Number.isFinite(currentStrideCm)) {
@@ -2163,8 +2255,7 @@
           }
 
         } else {
-          // --- FRONT VIEW (正面・斜め前解析) ---
-
+          // --- FRONT VIEW ---
           // 1. Lead Toe Angle
           if (leadHeel && leadToe && leadAnkle) {
             if (!isStepping) {
@@ -2510,15 +2601,16 @@
       setStep(1);
     });
   </script>
-</body><script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('sw.js').then(function(registration) {
-          console.log('ServiceWorker登録成功:', registration.scope);
-        }).catch(function(err) {
-          console.log('ServiceWorker登録失敗:', err);
-        });
+</body>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('sw.js').then(function(registration) {
+        console.log('ServiceWorker登録成功:', registration.scope);
+      }).catch(function(err) {
+        console.log('ServiceWorker登録失敗:', err);
       });
-    }
-  </script>
+    });
+  }
+</script>
 </html>
