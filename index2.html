@@ -302,7 +302,6 @@
       color: #fff;
     }
 
-    /* 6-Card Compact Grid Dashboard */
     .dashboard {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -649,11 +648,10 @@
     let calibratedPxPerCm = null;
     let scanModeActive = false;
 
-    // Front Toe Manual Offset Angle & Drag State
     let manualToeOffsetDeg = 0;
     let isDraggingToe = false;
     let toeDragOrigin = { x: 0, y: 0 };
-    let smoothToeDeg = 0; // EMA filter for toe angle
+    let smoothToeDeg = 0;
 
     let zoomScale = 1.0;
     let zoomPan = { x: 0, y: 0 };
@@ -1150,7 +1148,6 @@
         initialZoomScale = zoomScale;
       } else if (e.touches.length === 1) {
         const pt = getCanvasPoint(e, outputCanvas);
-        // Check if touching near lead toe handle (Front Mode)
         if (selectedAngleMode === 'FRONT' && lastCalculatedLeadToePt) {
           const distToToe = Math.hypot(pt.x - lastCalculatedLeadToePt.x, pt.y - lastCalculatedLeadToePt.y);
           if (distToToe <= 35) {
@@ -1184,6 +1181,7 @@
         if (isDraggingToe) {
           const pt = getCanvasPoint(e, outputCanvas);
           const dx = pt.x - toeDragOrigin.x;
+          // Dragging left/right adjusts the toe offset
           manualToeOffsetDeg = Math.max(-30, Math.min(30, manualToeOffsetDeg + dx * 0.4));
           toeDragOrigin = { ...pt };
           processSingleFrame();
@@ -1366,6 +1364,7 @@
 
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
+        // 正しい前足/軸足の割り当て
         const isRightHanded = (selectedThrowArm === 'RIGHT');
         const isSouthpaw = !isRightHanded;
 
@@ -1481,43 +1480,42 @@
           const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
           const isStepping = (currentStridePx / activePxPerCm) > 20;
 
-          // 1. Lead Toe Angle (前足つま先の開き角：下腿長軸基準 ＋ EMAフィルタ ＋ 手動補正)
+          // 1. Lead Toe Angle (前足つま先の向き：厳密な幾何判定)
           if (leadHeel && leadToe && leadAnkle) {
             if (!isStepping) {
               smoothToeDeg = 0;
               c1Val.textContent = `0 °`;
               c1Max.textContent = `◎ 構え・ストレート`;
             } else {
-              // 下腿長軸ベクトル（ヒザ -> 足首）
-              const shankV = {
-                x: (leadAnkle.x - (leadKnee ? leadKnee.x : leadAnkle.x)) * b.w,
-                y: (leadAnkle.y - (leadKnee ? leadKnee.y : leadAnkle.y)) * b.h
-              };
-              // 足部長軸ベクトル（かかと -> つま先）
-              const footV = {
-                x: (leadToe.x - leadHeel.x) * b.w,
-                y: (leadToe.y - leadHeel.y) * b.h
-              };
-
-              const shankAngle = Math.atan2(shankV.y, shankV.x);
-              const footAngle = Math.atan2(footV.y, footV.x);
+              // かかと基準でのつま先のX偏位 (画面左向きがマイナス、右向きがプラス)
+              const deltaX = (leadToe.x - leadHeel.x) * b.w;
+              const deltaY = Math.max(10, (leadToe.y - leadHeel.y) * b.h);
               
-              let rawRelDiff = (footAngle - shankAngle) * 180.0 / Math.PI;
-              if (rawRelDiff > 180) rawRelDiff -= 360;
-              if (rawRelDiff < -180) rawRelDiff += 360;
+              // 画面上の傾斜角
+              let angleDeg = (Math.atan2(deltaX, deltaY) * 180.0 / Math.PI) + manualToeOffsetDeg;
 
-              // 右投げ左足：足先が右(外)へ向くのが開き、左投げ右足：足先が左(外)へ向くのが開き
-              let rawAngle = isRightHanded ? rawRelDiff : -rawRelDiff;
-              let instantToeDeg = Math.max(0, Math.min(45, Math.round(rawAngle * 0.75 + manualToeOffsetDeg)));
+              // 【定義の厳密化】
+              // 右投げ（左足）：画面左(三塁側, deltaX < 0) -> 開き(Open) / 画面右(一塁側, deltaX > 0) -> 閉じ(Closed)
+              // 左投げ（右足）：画面右(一塁側, deltaX > 0) -> 開き(Open) / 画面左(三塁側, deltaX < 0) -> 閉じ(Closed)
+              let signedToeDev = isRightHanded ? -angleDeg : angleDeg; // プラスが開く、マイナスが閉じる
+              
+              // スムージング
+              smoothToeDeg = smoothToeDeg === 0 ? signedToeDev : (smoothToeDeg * 0.7 + signedToeDev * 0.3);
+              
+              const displayAngle = Math.round(Math.abs(smoothToeDeg));
+              let stateLabel = "◎ ストレート (0〜10°)";
 
-              // 指数移動平均(EMA)フィルタでジッターを完全抑制
-              smoothToeDeg = smoothToeDeg === 0 ? instantToeDeg : Math.round(smoothToeDeg * 0.7 + instantToeDeg * 0.3);
+              if (smoothToeDeg > 20) {
+                stateLabel = "⚠️ 開き注意 (アウト)";
+              } else if (smoothToeDeg > 10) {
+                stateLabel = "○ やや開き";
+              } else if (smoothToeDeg < -15) {
+                stateLabel = "⚠️ 被り・閉じすぎ (イン)";
+              } else if (smoothToeDeg < -5) {
+                stateLabel = "○ やや閉じ (クローズ)";
+              }
 
-              let stateLabel = "◎ 理想 (0〜15°)";
-              if (smoothToeDeg > 25) stateLabel = "⚠️ 開き注意";
-              else if (smoothToeDeg > 15) stateLabel = "○ やや開き";
-
-              c1Val.textContent = `${smoothToeDeg} °`;
+              c1Val.textContent = `${displayAngle} °`;
               c1Max.textContent = `${stateLabel}`;
             }
           }
@@ -1582,7 +1580,7 @@
               const lateralOffsetPx = Math.abs((leadHeel.x - pivotHeel.x) * b.w);
               const lateralOffsetCm = Math.round(lateralOffsetPx / activePxPerCm);
               if (!isNaN(lateralOffsetCm) && lateralOffsetCm <= 40) {
-                const isCross = isRightHanded ? (leadHeel.x < pivotHeel.x) : (leadHeel.x > pivotHeel.x);
+                const isCross = isRightHanded ? (leadHeel.x > pivotHeel.x) : (leadHeel.x < pivotHeel.x);
                 const dirText = isCross ? "インステップ" : "アウトステップ";
                 c5Val.textContent = `${lateralOffsetCm} cm`;
                 if (lateralOffsetCm > records.maxInStepCm) {
@@ -1663,7 +1661,7 @@
           } else if (idx === leadKneeIdx) {
             outputCtx.fillStyle = "#facc15";
           } else if (idx === leadToeIdx) {
-            outputCtx.fillStyle = "#06b6d4"; // Cyan interactive handle
+            outputCtx.fillStyle = "#06b6d4";
           } else if ([17, 18, 21, 22].includes(idx)) {
             outputCtx.fillStyle = "#a855f7";
           } else {
