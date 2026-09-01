@@ -13,19 +13,18 @@
 
   <style>
     :root {
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --accent: #38bdf8;
-      --accent-yellow: #facc15;
-      --bg: #0b1329;
-      --surface: #152243;
-      --surface-light: #203362;
-      --text: #ffffff;
-      --text-muted: #93c5fd;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #f43f5e;
-      --radius: 12px;
+      --primary: #ff5e36;
+      --primary-hover: #e04822;
+      --accent: #00d2ff;
+      --accent-yellow: #ffe600;
+      --bg: #e0f2fe;
+      --surface: #ffffff;
+      --surface-light: #f0fdf4;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #cbd5e1;
+      --card-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      --radius: 16px;
     }
 
     * {
@@ -38,14 +37,14 @@
 
     body {
       font-family: "Hiragino Maru Gothic ProN", "Yu Gothic Rounded", "M PLUS Rounded 1c", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: linear-gradient(180deg, #0b1329 0%, #111e3f 100%);
+      background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 50%, #f0fdf4 100%);
       color: var(--text);
       height: 100dvh;
       max-height: 100dvh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 2px 6px;
+      padding: 4px 6px;
       overflow: hidden;
       justify-content: flex-start;
     }
@@ -54,25 +53,26 @@
       width: 100%;
       max-width: 1200px;
       text-align: center;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
 
     h1 {
-      font-size: 0.95rem;
+      font-size: 1.05rem;
       font-weight: 900;
-      color: #fff;
+      color: #0369a1;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      text-shadow: 0 1px 6px rgba(56, 189, 248, 0.4);
+      gap: 6px;
+      text-shadow: 0 2px 0 #ffffff;
+      letter-spacing: 0.5px;
     }
 
     .steps-nav {
       display: flex;
       justify-content: center;
-      gap: 4px;
-      margin-top: 2px;
+      gap: 6px;
+      margin-top: 3px;
       width: 100%;
       max-width: 480px;
       margin-inline: auto;
@@ -81,32 +81,37 @@
     .step-pill {
       flex: 1;
       text-align: center;
-      padding: 3px 2px;
-      font-size: 0.68rem;
-      font-weight: 800;
+      padding: 4px 2px;
+      font-size: 0.72rem;
+      font-weight: 900;
       border-radius: 9999px;
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-muted);
-      border: 1.5px solid transparent;
+      background: #ffffff;
+      color: #64748b;
+      border: 2px solid #cbd5e1;
+      box-shadow: 0 2px 0 #94a3b8;
       transition: all 0.2s ease;
     }
 
     .step-pill.active {
-      background: linear-gradient(135deg, #3b82f6, #06b6d4);
-      color: #fff;
-      border-color: #facc15;
+      background: linear-gradient(135deg, #ff9f43, #ff5252);
+      color: #ffffff;
+      border-color: #fff;
+      box-shadow: 0 3px 0 #c0392b;
+      transform: translateY(-1px);
     }
 
     .app-container {
       width: 100%;
       max-width: 1200px;
-      background: var(--surface);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
       border-radius: var(--radius);
-      border: 1.5px solid rgba(56, 189, 248, 0.25);
-      padding: 5px;
+      border: 3px solid #38bdf8;
+      box-shadow: 0 6px 16px rgba(14, 165, 233, 0.2);
+      padding: 6px;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
       flex: 1;
       min-height: 0;
     }
@@ -115,7 +120,7 @@
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 3px;
+      gap: 4px;
       width: 100%;
       height: 100%;
       justify-content: space-between;
@@ -126,53 +131,53 @@
     }
 
     .btn {
-      background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      background: linear-gradient(135deg, #38bdf8, #0284c7);
       color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 8px;
-      font-size: 0.88rem;
-      font-weight: 800;
+      border: 2px solid #fff;
+      padding: 9px 16px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 900;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      box-shadow: 0 2px 0 #173b8a;
+      gap: 6px;
+      box-shadow: 0 3px 0 #0369a1;
       transition: all 0.15s ease;
       touch-action: manipulation;
     }
 
     .btn:active {
       transform: translateY(2px);
-      box-shadow: 0 0 0 #173b8a;
+      box-shadow: 0 1px 0 #0369a1;
     }
 
     .btn-secondary {
-      background: linear-gradient(135deg, #334155, #1e293b);
-      color: #e2e8f0;
-      box-shadow: 0 2px 0 #0f172a;
+      background: linear-gradient(135deg, #94a3b8, #64748b);
+      color: #ffffff;
+      box-shadow: 0 3px 0 #475569;
     }
 
     .btn-scan {
       background: linear-gradient(135deg, #10b981, #059669);
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       padding: 8px 12px;
-      box-shadow: 0 2px 0 #047857;
+      box-shadow: 0 3px 0 #047857;
       flex: 1.4;
     }
 
     .btn-action-next {
       background: linear-gradient(135deg, #f59e0b, #d97706);
-      font-size: 0.95rem;
-      padding: 8px 16px;
+      font-size: 1rem;
+      padding: 10px 16px;
       width: 100%;
-      box-shadow: 0 2px 0 #b45309;
+      box-shadow: 0 3px 0 #b45309;
     }
 
     .btn-group {
       display: flex;
-      gap: 4px;
+      gap: 6px;
       flex-wrap: nowrap;
       justify-content: center;
       width: 100%;
@@ -181,8 +186,8 @@
     .screen-wrapper {
       position: relative;
       width: 100%;
-      background: #050811;
-      border-radius: 10px;
+      background: #0f172a;
+      border-radius: 12px;
       overflow: hidden;
       display: flex;
       align-items: center;
@@ -191,7 +196,8 @@
       min-height: 160px;
       max-height: 36vh;
       touch-action: none;
-      border: 1.5px solid #233867;
+      border: 3px solid #7dd3fc;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
     }
 
     video {
@@ -213,99 +219,106 @@
 
     .zoom-badge {
       position: absolute;
-      top: 4px;
-      left: 4px;
-      background: rgba(11, 19, 41, 0.85);
-      border: 1px solid var(--accent);
-      color: #38bdf8;
-      font-size: 0.65rem;
-      font-weight: 800;
-      padding: 2px 6px;
-      border-radius: 6px;
+      top: 6px;
+      left: 6px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 2px solid #0284c7;
+      color: #0284c7;
+      font-size: 0.68rem;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 9999px;
       pointer-events: none;
       z-index: 10;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
     }
 
     .angle-mode-badge {
       position: absolute;
-      top: 4px;
-      right: 4px;
-      background: rgba(16, 185, 129, 0.85);
-      border: 1px solid #10b981;
+      top: 6px;
+      right: 6px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border: 2px solid #ffffff;
       color: #ffffff;
-      font-size: 0.65rem;
-      font-weight: 800;
-      padding: 2px 6px;
-      border-radius: 6px;
+      font-size: 0.68rem;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 9999px;
       pointer-events: none;
       z-index: 10;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
     .guidance-box {
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(6, 182, 212, 0.15));
-      border: 1px dashed rgba(56, 189, 248, 0.6);
-      border-radius: 8px;
-      padding: 4px 8px;
-      font-size: 0.72rem;
-      font-weight: 700;
+      background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%);
+      border: 2px solid #38bdf8;
+      border-radius: 12px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 800;
       text-align: center;
       width: 100%;
-      color: #f8fafc;
-      line-height: 1.25;
+      color: #0369a1;
+      line-height: 1.3;
+      box-shadow: 0 2px 4px rgba(56, 189, 248, 0.15);
     }
 
     .input-group {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       width: 100%;
-      max-width: 300px;
+      max-width: 320px;
     }
 
     .input-field {
       width: 100%;
-      padding: 8px;
-      border-radius: 8px;
-      border: 1.5px solid rgba(56, 189, 248, 0.4);
-      background: #090e1a;
-      color: #facc15;
-      font-size: 1.25rem;
+      padding: 10px;
+      border-radius: 12px;
+      border: 3px solid #38bdf8;
+      background: #ffffff;
+      color: #0284c7;
+      font-size: 1.4rem;
       text-align: center;
       font-weight: 900;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
     }
 
     .toggle-group {
       display: flex;
       width: 100%;
-      background: #090e1a;
-      border-radius: 8px;
-      border: 1.5px solid rgba(56, 189, 248, 0.3);
-      padding: 2px;
+      background: #e2e8f0;
+      border-radius: 12px;
+      border: 2px solid #cbd5e1;
+      padding: 3px;
       gap: 4px;
     }
 
     .toggle-btn {
       flex: 1;
-      padding: 8px;
-      border-radius: 6px;
+      padding: 9px;
+      border-radius: 9px;
       border: none;
       background: transparent;
-      color: var(--text-muted);
-      font-size: 0.88rem;
-      font-weight: 800;
+      color: #64748b;
+      font-size: 0.92rem;
+      font-weight: 900;
       cursor: pointer;
+      transition: all 0.2s ease;
     }
 
     .toggle-btn.active {
-      background: linear-gradient(135deg, #3b82f6, #06b6d4);
-      color: #fff;
+      background: linear-gradient(135deg, #ff9f43, #ff5252);
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(255, 82, 82, 0.3);
     }
 
+    /* Gamified 6-Card Grid Dashboard */
     .dashboard {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 3px;
+      gap: 5px;
       width: 100%;
     }
 
@@ -316,19 +329,21 @@
     }
 
     .card {
-      background: linear-gradient(180deg, #18284e 0%, #131f3d 100%);
-      border: 1px solid #2a4175;
-      border-radius: 6px;
-      padding: 3px 5px;
+      background: #ffffff;
+      border: 2px solid #bae6fd;
+      border-radius: 10px;
+      padding: 4px 6px;
       display: flex;
       flex-direction: column;
       gap: 1px;
+      box-shadow: 0 3px 0 #e2e8f0;
+      position: relative;
     }
 
     .card-title {
-      font-size: 0.62rem;
-      font-weight: 800;
-      color: var(--text-muted);
+      font-size: 0.65rem;
+      font-weight: 900;
+      color: #0369a1;
       display: flex;
       align-items: center;
       gap: 2px;
@@ -336,26 +351,29 @@
     }
 
     .card-val {
-      font-size: 0.98rem;
+      font-size: 1.05rem;
       font-weight: 900;
-      color: #38bdf8;
-      text-shadow: 0 1px 4px rgba(56, 189, 248, 0.4);
+      color: #ea580c;
       font-variant-numeric: tabular-nums;
       line-height: 1.05;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.8);
     }
 
     .card-max {
-      font-size: 0.58rem;
-      color: #facc15;
+      font-size: 0.6rem;
+      color: #0284c7;
       font-weight: 800;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
+      background: #f0f9ff;
+      border-radius: 4px;
+      padding: 1px 3px;
     }
 
     .controls-container {
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
       width: 100%;
       z-index: 15;
     }
@@ -365,25 +383,26 @@
       align-items: center;
       gap: 6px;
       width: 100%;
-      background: #090e1a;
-      padding: 3px 6px;
-      border-radius: 6px;
-      border: 1.5px solid #233867;
+      background: #ffffff;
+      padding: 4px 8px;
+      border-radius: 10px;
+      border: 2px solid #bae6fd;
+      box-shadow: 0 2px 0 #e2e8f0;
     }
 
     .seek-bar {
       flex: 1;
       height: 18px;
       cursor: pointer;
-      accent-color: #38bdf8;
+      accent-color: #ff5e36;
     }
 
     .time-disp {
-      font-size: 0.68rem;
+      font-size: 0.72rem;
       font-family: ui-monospace, monospace;
-      color: #facc15;
-      font-weight: 800;
-      min-width: 68px;
+      color: #0369a1;
+      font-weight: 900;
+      min-width: 72px;
       text-align: right;
     }
 
@@ -391,37 +410,38 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 3px;
+      gap: 4px;
       flex-wrap: nowrap;
       width: 100%;
     }
 
     .btn-ctrl {
-      background: linear-gradient(135deg, #203362, #18284e);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: #fff;
-      padding: 6px 4px;
-      border-radius: 6px;
-      font-size: 0.72rem;
-      font-weight: 800;
+      background: #ffffff;
+      border: 2px solid #cbd5e1;
+      color: #334155;
+      padding: 7px 4px;
+      border-radius: 8px;
+      font-size: 0.74rem;
+      font-weight: 900;
       cursor: pointer;
-      box-shadow: 0 2px 0 #0d1730;
+      box-shadow: 0 2px 0 #94a3b8;
       touch-action: manipulation;
       flex: 1;
       text-align: center;
       white-space: nowrap;
+      transition: all 0.1s;
     }
 
     .btn-ctrl:active {
-      transform: translateY(1px);
-      box-shadow: 0 0 0 #0d1730;
-      background: var(--primary);
+      transform: translateY(2px);
+      box-shadow: 0 0 0 #94a3b8;
+      background: #f1f5f9;
     }
 
     .loading-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(11, 19, 41, 0.9);
+      background: rgba(255, 255, 255, 0.9);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -432,13 +452,13 @@
     }
 
     .spinner {
-      width: 28px;
-      height: 28px;
-      border: 3px solid var(--surface-light);
-      border-top-color: #38bdf8;
-      border-right-color: #facc15;
+      width: 32px;
+      height: 32px;
+      border: 4px solid #e0f2fe;
+      border-top-color: #ff5e36;
+      border-right-color: #ffe600;
       border-radius: 50%;
-      animation: spin 0.9s linear infinite;
+      animation: spin 0.8s linear infinite;
     }
 
     @keyframes spin {
@@ -464,12 +484,12 @@
       <div class="guidance-box">
         🌟 <b>撮影した向きをえらんで、動画を選択してね！</b>
       </div>
-      <div style="padding: 10px 0; display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px;">
-        <label class="btn" id="label-side-video" style="padding: 14px 20px; font-size: 1rem; border-radius: 12px; background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+      <div style="padding: 14px 0; display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 320px;">
+        <label class="btn" id="label-side-video" style="padding: 16px 20px; font-size: 1.05rem; border-radius: 14px; background: linear-gradient(135deg, #38bdf8, #0284c7); box-shadow: 0 4px 0 #0369a1;">
           ⚾ 横から撮った動画を選ぶ
           <input type="file" id="video-input-side" accept="video/*" style="display: none;">
         </label>
-        <label class="btn" id="label-front-video" style="padding: 14px 20px; font-size: 1rem; border-radius: 12px; background: linear-gradient(135deg, #059669, #047857); box-shadow: 0 2px 0 #064e3b;">
+        <label class="btn" id="label-front-video" style="padding: 16px 20px; font-size: 1.05rem; border-radius: 14px; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 0 #047857;">
           🎯 正面（斜め前）から撮った動画を選ぶ
           <input type="file" id="video-input-front" accept="video/*" style="display: none;">
         </label>
@@ -487,7 +507,7 @@
         <canvas id="scan-canvas"></canvas>
         <div class="loading-overlay" id="scan-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.75rem; color: #fff; font-weight: 800;">🚀 AI起動中...</div>
+          <div style="font-size: 0.8rem; color: #0284c7; font-weight: 900;">🚀 AIがからだを探しているよ...</div>
         </div>
       </div>
 
@@ -512,7 +532,7 @@
       
       <div class="input-group" style="padding: 4px 0; gap: 8px;">
         <div style="width: 100%;">
-          <label style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; color: #38bdf8; font-size: 0.85rem;">
+          <label style="display: block; margin-bottom: 3px; text-align: center; font-weight: 900; color: #0369a1; font-size: 0.9rem;">
             投げる腕（ききうで）
           </label>
           <div class="toggle-group">
@@ -522,7 +542,7 @@
         </div>
 
         <div style="width: 100%;">
-          <label for="height-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.85rem;">
+          <label for="height-input" style="display: block; margin-bottom: 3px; text-align: center; font-weight: 900; font-size: 0.9rem; color: #0369a1;">
             ピッチャーの身長 (cm)
           </label>
           <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
@@ -530,8 +550,8 @@
       </div>
 
       <div class="btn-group" style="margin-top: 4px;">
-        <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 スキャンやり直し</button>
-        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 2px 0 #047857;">
+        <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 やり直す</button>
+        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 3px 0 #047857;">
           🚀 解析スタート！
         </button>
       </div>
@@ -587,7 +607,7 @@
         <div class="angle-mode-badge" id="angle-mode-badge">横向き解析</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.75rem; color: #fff; font-weight: 800;">⚡ AI同期中...</div>
+          <div style="font-size: 0.8rem; color: #0284c7; font-weight: 900;">⚡ AI同期中...</div>
         </div>
       </div>
 
@@ -599,7 +619,7 @@
         </div>
         <div class="playback-buttons">
           <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
-          <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); flex: 1.2;">再生 ▶</button>
+          <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: 0 2px 0 #c0392b; flex: 1.2;">再生 ▶</button>
           <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
           <button class="btn-ctrl" id="btn-zoom-reset">🔍 リセット</button>
           <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
@@ -734,8 +754,7 @@
       const isLeft = (selectedThrowArm === 'LEFT');
       if (selectedAngleMode === 'SIDE') {
         angleModeBadge.textContent = "横向き解析 ⚾";
-        angleModeBadge.style.background = "rgba(37, 99, 235, 0.85)";
-        angleModeBadge.style.borderColor = "#3b82f6";
+        angleModeBadge.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
 
         c1Title.textContent = "🚶 ステップ幅 (歩幅)";
         c2Title.textContent = isLeft ? "💪 うでのしなり (左肩外旋)" : "💪 うでのしなり (右肩外旋)";
@@ -745,8 +764,7 @@
         c6Title.textContent = "📐 体幹の前傾角度 (倒れ)";
       } else {
         angleModeBadge.textContent = "正面・斜め前解析 🎯";
-        angleModeBadge.style.background = "rgba(16, 185, 129, 0.85)";
-        angleModeBadge.style.borderColor = "#10b981";
+        angleModeBadge.style.background = "linear-gradient(135deg, #10b981, #059669)";
 
         c1Title.textContent = isLeft ? "👟 前足つま先の向き (右足)" : "👟 前足つま先の向き (左足)";
         c2Title.textContent = isLeft ? "🦵 前足ヒザの内外反 (右膝)" : "🦵 前足ヒザの内外反 (左膝)";
@@ -1485,18 +1503,15 @@
               c1Val.textContent = `0 °`;
               c1Max.textContent = `◎ 構え・ストレート`;
             } else {
-              // 画面上のX偏位 (deltaX > 0: 画面右/一塁側, deltaX < 0: 画面左/三塁側)
               const deltaX = (leadToe.x - leadHeel.x) * b.w;
               const deltaY = Math.max(10, (leadToe.y - leadHeel.y) * b.h);
               
               let angleDeg = (Math.atan2(deltaX, deltaY) * 180.0 / Math.PI) + manualToeOffsetDeg;
 
-              // 【正しい判定式】
-              // 右投げ（左足）：画面右(一塁側, deltaX > 0) -> 開き(プラス) / 画面左(三塁側, deltaX < 0) -> 閉じ(マイナス)
-              // 左投げ（右足）：画面左(三塁側, deltaX < 0) -> 開き(プラス) / 画面右(一塁側, deltaX > 0) -> 閉じ(マイナス)
+              // 右投げ（左足）：画面右(一塁側, deltaX > 0) -> 開き / 画面左(三塁側, deltaX < 0) -> 閉じ
+              // 左投げ（右足）：画面左(三塁側, deltaX < 0) -> 開き / 画面右(一塁側, deltaX > 0) -> 閉じ
               let signedToeDev = isRightHanded ? angleDeg : -angleDeg;
               
-              // スムージング
               smoothToeDeg = smoothToeDeg === 0 ? signedToeDev : (smoothToeDeg * 0.7 + signedToeDev * 0.3);
               
               const displayAngle = Math.round(Math.abs(smoothToeDeg));
@@ -1615,7 +1630,7 @@
       ];
 
       outputCtx.strokeStyle = "#10b981";
-      outputCtx.lineWidth = 3;
+      outputCtx.lineWidth = 3.5;
       connections.forEach(([i, j]) => {
         const p1 = landmarks[i];
         const p2 = landmarks[j];
@@ -1640,25 +1655,25 @@
         const p = landmarks[idx];
         if (p) {
           outputCtx.beginPath();
-          let radius = 4;
-          if (idx === throwIndexIdx) radius = 6.5;
-          else if (idx === throwWristIdx) radius = 5.5;
-          else if (idx === throwElbowIdx) radius = 5;
-          else if (idx === leadKneeIdx) radius = 5.5;
-          else if (idx === leadToeIdx) radius = 6.5;
+          let radius = 4.5;
+          if (idx === throwIndexIdx) radius = 7;
+          else if (idx === throwWristIdx) radius = 6;
+          else if (idx === throwElbowIdx) radius = 5.5;
+          else if (idx === leadKneeIdx) radius = 6;
+          else if (idx === leadToeIdx) radius = 7;
 
           outputCtx.arc(ox + p.x * bw, oy + p.y * bh, radius, 0, Math.PI * 2);
           
           if (idx === throwIndexIdx) {
-            outputCtx.fillStyle = "#ec4899";
+            outputCtx.fillStyle = "#ff007f";
           } else if (idx === throwWristIdx) {
-            outputCtx.fillStyle = "#f43f5e";
+            outputCtx.fillStyle = "#ff5252";
           } else if (idx === throwElbowIdx) {
-            outputCtx.fillStyle = "#f59e0b";
+            outputCtx.fillStyle = "#ff9f43";
           } else if (idx === leadKneeIdx) {
-            outputCtx.fillStyle = "#facc15";
+            outputCtx.fillStyle = "#ffe600";
           } else if (idx === leadToeIdx) {
-            outputCtx.fillStyle = "#06b6d4";
+            outputCtx.fillStyle = "#00d2ff";
           } else if ([17, 18, 21, 22].includes(idx)) {
             outputCtx.fillStyle = "#a855f7";
           } else {
@@ -1667,7 +1682,7 @@
 
           outputCtx.fill();
           outputCtx.strokeStyle = "#ffffff";
-          outputCtx.lineWidth = 1.2;
+          outputCtx.lineWidth = 1.5;
           outputCtx.stroke();
         }
       });
@@ -1677,11 +1692,11 @@
     function updatePlayState() {
       if (videoElement.paused) {
         btnPlayPause.textContent = "再生 ▶";
-        btnPlayPause.style.background = "linear-gradient(135deg, #3b82f6, #1d4ed8)";
+        btnPlayPause.style.background = "linear-gradient(135deg, #ff9f43, #ff5252)";
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
       } else {
         btnPlayPause.textContent = "停止 ⏸";
-        btnPlayPause.style.background = "linear-gradient(135deg, #f59e0b, #d97706)";
+        btnPlayPause.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
         renderLoop();
       }
     }
