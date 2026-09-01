@@ -445,6 +445,18 @@
       background: #f1f5f9;
     }
 
+    .btn-fc-trigger {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+      border-color: #ffffff;
+      box-shadow: 0 1.5px 0 #047857;
+      flex: 1.35;
+    }
+
+    .btn-fc-trigger:active {
+      background: #047857;
+    }
+
     .loading-overlay {
       position: absolute;
       inset: 0;
@@ -597,7 +609,7 @@
         <div class="card">
           <div class="card-title" id="c5-title">🦵 前足のヒザ角度 (曲がり)</div>
           <div class="card-val" id="c5-val">-- °</div>
-          <div class="card-max" id="c5-max">FC時: -- ° (伸展: --°)</div>
+          <div class="card-max" id="c5-max">着地時: -- ° (伸展: --°)</div>
         </div>
         <!-- Card 6 -->
         <div class="card">
@@ -628,6 +640,7 @@
           <button class="btn-ctrl" id="btn-frame-prev">◀ -1</button>
           <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: 0 1.5px 0 #c0392b; flex: 1.1;">再生 ▶</button>
           <button class="btn-ctrl" id="btn-frame-next">+1 ▶</button>
+          <button class="btn-ctrl btn-fc-trigger" id="btn-manual-fc">👟 着地決定</button>
           <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム</button>
           <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
           <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 選択</button>
@@ -685,6 +698,17 @@
     let panStart = { x: 0, y: 0 };
     let panSnapshot = { x: 0, y: 0 };
 
+    let prevLeadHeelY = null;
+    let leadFootStationaryCount = 0;
+
+    let currentCalculatedState = {
+      displayToeAngle: 0,
+      toeStateLabel: "◎ ストレート",
+      kneeDevAngle: 0,
+      kneeStateLabel: "まっすぐ (◎ 正常)",
+      kneeFlexAngle: 0
+    };
+
     let records = {
       maxStride: 0,
       maxMER: 0,
@@ -696,6 +720,7 @@
       toeAngle: 0,
       fcToeAngle: null,
       fcToeLabel: null,
+      fcKneeAngle: null,
       maxValgus: 0,
       ffValgusAngle: null,
       ffValgusLabel: null,
@@ -1224,6 +1249,22 @@
       processSingleFrame();
     });
 
+    /* --- 子ども向け「👟 着地決定」ボタンのクリック処理 --- */
+    document.getElementById('btn-manual-fc').addEventListener('click', () => {
+      if (selectedAngleMode === 'FRONT') {
+        records.fcToeAngle = currentCalculatedState.displayToeAngle;
+        records.fcToeLabel = `着地決定: ${currentCalculatedState.displayToeAngle}° (${currentCalculatedState.toeStateLabel})`;
+        records.ffValgusAngle = currentCalculatedState.kneeDevAngle;
+        records.ffValgusLabel = `着地決定: ${currentCalculatedState.kneeDevAngle}° (${currentCalculatedState.kneeStateLabel})`;
+        
+        c1Max.textContent = records.fcToeLabel;
+        c2Max.textContent = records.ffValgusLabel;
+      } else {
+        records.fcKneeAngle = currentCalculatedState.kneeFlexAngle;
+        c5Max.textContent = `着地決定: ${currentCalculatedState.kneeFlexAngle}° (伸展:${records.maxKnee}°)`;
+      }
+    });
+
     /* --- Processing Engine --- */
     function processSingleFrame() {
       if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
@@ -1404,6 +1445,30 @@
         drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
 
         /* ========================================================
+           FC (Foot Contact) 高精度運動学検知エンジン
+        ======================================================== */
+        const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
+        const currentStrideCm = currentStridePx / activePxPerCm;
+        const isStepping = currentStrideCm > 22;
+
+        let isKinematicFC = false;
+        if (leadHeel && isStepping) {
+          const currentLeadY = leadHeel.y;
+          if (prevLeadHeelY !== null) {
+            const verticalVel = (currentLeadY - prevLeadHeelY);
+            if (Math.abs(verticalVel) < 0.003 && currentLeadY >= (pivotHeel.y - 0.08)) {
+              leadFootStationaryCount++;
+              if (leadFootStationaryCount === 2) {
+                isKinematicFC = true;
+              }
+            } else {
+              leadFootStationaryCount = 0;
+            }
+          }
+          prevLeadHeelY = currentLeadY;
+        }
+
+        /* ========================================================
            MODE-SPECIFIC BIOMECHANICS ENGINE
         ======================================================== */
 
@@ -1411,9 +1476,7 @@
           // --- SIDE VIEW (横向き解析) ---
 
           // 1. Stride Width
-          const stridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
-          const strideCm = Math.round(stridePx / activePxPerCm);
-
+          const strideCm = Math.round(currentStrideCm);
           if (!isNaN(strideCm) && strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
             const strideRatio = Math.round((strideCm / userHeightCm) * 100);
             c1Val.textContent = `${strideCm} cm`;
@@ -1469,10 +1532,21 @@
           const kneeAngle = calcJointAngle3D(leadHip, leadKnee, leadAnkle);
           if (!isNaN(kneeAngle) && kneeAngle >= 40 && kneeAngle <= 180) {
             const roundedKnee = Math.round(kneeAngle);
+            currentCalculatedState.kneeFlexAngle = roundedKnee;
             c5Val.textContent = `${roundedKnee} °`;
+
+            if (isKinematicFC && records.fcKneeAngle === null) {
+              records.fcKneeAngle = roundedKnee;
+            }
+
             if (roundedKnee < records.minKnee) records.minKnee = roundedKnee;
             if (roundedKnee > records.maxKnee) records.maxKnee = roundedKnee;
-            c5Max.textContent = `屈曲:${records.minKnee}° (伸展:${records.maxKnee}°)`;
+
+            if (records.fcKneeAngle !== null) {
+              c5Max.textContent = `着地時: ${records.fcKneeAngle}° (伸展:${records.maxKnee}°)`;
+            } else {
+              c5Max.textContent = `屈曲:${records.minKnee}° (伸展:${records.maxKnee}°)`;
+            }
           }
 
           // 6. Forward Trunk Tilt
@@ -1490,11 +1564,7 @@
         } else {
           // --- FRONT VIEW (正面・斜め前解析) ---
 
-          const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
-          const currentStrideCm = currentStridePx / activePxPerCm;
-          const isStepping = currentStrideCm > 20;
-
-          // 1. Lead Toe Angle (FC時ロック機能付き)
+          // 1. Lead Toe Angle (着地時ロック機能付き)
           if (leadHeel && leadToe && leadAnkle) {
             if (!isStepping) {
               smoothToeDeg = 0;
@@ -1524,14 +1594,15 @@
                 stateLabel = "○ やや閉じ (クローズ)";
               }
 
+              currentCalculatedState.displayToeAngle = displayAngle;
+              currentCalculatedState.toeStateLabel = stateLabel;
+
               c1Val.textContent = `${displayAngle} °`;
 
-              // FC時ロック
-              if (currentStrideCm >= (userHeightCm * 0.40)) {
-                if (records.fcToeAngle === null) {
-                  records.fcToeAngle = displayAngle;
-                  records.fcToeLabel = `FC時: ${displayAngle}° (${stateLabel})`;
-                }
+              // 自動着地検知によるロック
+              if (isKinematicFC && records.fcToeAngle === null) {
+                records.fcToeAngle = displayAngle;
+                records.fcToeLabel = `着地時: ${displayAngle}° (${stateLabel})`;
               }
 
               if (records.fcToeLabel) {
@@ -1542,7 +1613,7 @@
             }
           }
 
-          // 2. Knee Valgus / Varus (前足ヒザの内外反角: FF時ロック機能付き)
+          // 2. Knee Valgus / Varus (前足ヒザの内外反角: べた足時ロック機能付き)
           if (leadHip && leadKnee && leadAnkle) {
             const thighAngle = Math.atan2(leadKnee.y - leadHip.y, leadKnee.x - leadHip.x);
             const shankAngle = Math.atan2(leadAnkle.y - leadKnee.y, leadAnkle.x - leadKnee.x);
@@ -1561,15 +1632,15 @@
               valgusStatus = (devAngle > 0) ? "○ やや内入り" : "○ やや外開き";
             }
 
+            currentCalculatedState.kneeDevAngle = absDev;
+            currentCalculatedState.kneeStateLabel = valgusStatus;
+
             c2Val.textContent = `${absDev} °`;
 
-            // 【FF時（Foot Flat：前足裏接地＆踏ん張り）のヒザ状態をロック】
-            // ステップ幅が最大（身長の50%以上）に到達した瞬間をFFとして記録
-            if (currentStrideCm >= (userHeightCm * 0.50)) {
-              if (records.ffValgusAngle === null) {
-                records.ffValgusAngle = absDev;
-                records.ffValgusLabel = `FF時: ${absDev}° (${valgusStatus})`;
-              }
+            // 自動接地検知によるロック
+            if (isKinematicFC && records.ffValgusAngle === null) {
+              records.ffValgusAngle = absDev;
+              records.ffValgusLabel = `べた足時: ${absDev}° (${valgusStatus})`;
             }
 
             if (records.ffValgusLabel) {
@@ -1783,16 +1854,19 @@
     document.getElementById('btn-reset-max').addEventListener('click', () => {
       records = {
         maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0, minKnee: 180, maxKnee: 0, maxTrunkTilt: 0,
-        toeAngle: 0, fcToeAngle: null, fcToeLabel: null, maxValgus: 0, ffValgusAngle: null, ffValgusLabel: null, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
+        toeAngle: 0, fcToeAngle: null, fcToeLabel: null, fcKneeAngle: null, maxValgus: 0, ffValgusAngle: null, ffValgusLabel: null, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
       };
       smoothToeDeg = 0;
       manualToeOffsetDeg = 0;
+      prevLeadHeelY = null;
+      leadFootStationaryCount = 0;
+
       if (selectedAngleMode === 'SIDE') {
         c1Max.textContent = "最大: -- cm (0%身)";
         c2Max.textContent = "最大: -- °";
         c3Max.textContent = "最大: -- °";
         c4Max.textContent = "最高: -- cm";
-        c5Max.textContent = "FC時: -- ° (伸展: --°)";
+        c5Max.textContent = "着地時: -- ° (伸展: --°)";
         c6Max.textContent = "最大倒れ: -- °";
       } else {
         c1Max.textContent = "状態: --";
@@ -1813,6 +1887,8 @@
       zoomPan = { x: 0, y: 0 };
       smoothToeDeg = 0;
       manualToeOffsetDeg = 0;
+      prevLeadHeelY = null;
+      leadFootStationaryCount = 0;
       updateZoomBadge();
       setStep(1);
     });
