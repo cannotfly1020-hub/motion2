@@ -766,10 +766,128 @@
     .prescription-item {
       color: #1e293b;
       line-height: 1.3;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
     }
 
     .prescription-item b {
       color: #047857;
+    }
+
+    .btn-play-drill-video {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 0.68rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      width: fit-content;
+      box-shadow: 0 1.5px 0 #047857;
+      margin-top: 2px;
+    }
+
+    .btn-play-drill-video:active {
+      transform: translateY(1px);
+      box-shadow: 0 0.5px 0 #047857;
+    }
+
+    /* 監督コメント・共有エリア */
+    .coach-comment-box {
+      background: #fffbeb;
+      border: 1.5px solid #fde68a;
+      border-radius: 8px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .coach-comment-title {
+      font-size: 0.70rem;
+      font-weight: 900;
+      color: #b45309;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .coach-textarea {
+      width: 100%;
+      height: 44px;
+      border-radius: 6px;
+      border: 1.5px solid #cbd5e1;
+      padding: 4px 6px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #334155;
+      font-family: inherit;
+      resize: none;
+      box-sizing: border-box;
+      background: #ffffff;
+    }
+
+    .coach-textarea:focus {
+      outline: none;
+      border-color: #f59e0b;
+    }
+
+    .btn-share-line {
+      background: linear-gradient(135deg, #06c755, #05a044);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: 0 1.5px 0 #047835;
+      width: 100%;
+    }
+
+    .btn-share-line:active {
+      transform: translateY(1px);
+      box-shadow: 0 0.5px 0 #047835;
+    }
+
+    /* お手本動画プレイヤーモーダル */
+    .video-modal-card {
+      background: #0f172a;
+      border-radius: 16px;
+      border: 2px solid #38bdf8;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    }
+
+    .video-modal-header {
+      background: #1e293b;
+      color: #ffffff;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 900;
+      font-size: 0.85rem;
+    }
+
+    .offline-video-player {
+      width: 100%;
+      max-height: 50vh;
+      background: #000;
+      outline: none;
     }
   </style>
 </head>
@@ -885,7 +1003,7 @@
       </div>
     </section>
 
-    <!-- STEP 4: Main Workspace (Dynamic Angle Dashboard) -->
+    <!-- STEP 4: Main Workspace -->
     <section id="view-step4" class="view-section">
       
       <!-- 6 Metrics Grid Dashboard -->
@@ -968,7 +1086,7 @@
 
   </main>
 
-  <!-- カルテ＆AI処方箋モーダル -->
+  <!-- カルテ＆AI処方箋＆監督レポートモーダル -->
   <div class="modal-overlay" id="carte-modal">
     <div class="modal-card">
       <div class="modal-header">
@@ -981,6 +1099,17 @@
         <button id="btn-delete-action" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.70rem;">🗑️ 削除</button>
       </div>
       <div class="modal-body" id="carte-history-list"></div>
+    </div>
+  </div>
+
+  <!-- オフライン動画再生モーダル -->
+  <div class="modal-overlay" id="video-player-modal">
+    <div class="video-modal-card">
+      <div class="video-modal-header">
+        <span id="video-modal-title">📹 お手本ドリル動画</span>
+        <button id="btn-close-video-modal" style="background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; font-weight: 900;">✕</button>
+      </div>
+      <video id="offline-drill-video" class="offline-video-player" controls playsinline></video>
     </div>
   </div>
 
@@ -1127,6 +1256,35 @@
     const carteHistoryList = document.getElementById('carte-history-list');
     const playerSelectFilter = document.getElementById('player-select-filter');
     const btnDeleteAction = document.getElementById('btn-delete-action');
+
+    const videoPlayerModal = document.getElementById('video-player-modal');
+    const offlineDrillVideo = document.getElementById('offline-drill-video');
+    const videoModalTitle = document.getElementById('video-modal-title');
+    const btnCloseVideoModal = document.getElementById('btn-close-video-modal');
+
+    /* オフライン動画マップ */
+    const DRILL_VIDEO_MAP = {
+      skater_jump: { title: "🦵 スケータージャンプ練習", src: "videos/skater_jump.mp4" },
+      hip_stretch: { title: "🧘 股関節・お尻のストレッチ", src: "videos/hip_stretch.mp4" },
+      lunge_keep: { title: "🎯 片足ランジ静止キープ練習", src: "videos/lunge_keep.mp4" },
+      thoracic_mobility: { title: "🧘 胸郭・胸椎回旋ストレッチ", src: "videos/thoracic_mobility.mp4" },
+      towel_throw: { title: "🎯 しなりを作るタオルスロー練習", src: "videos/towel_throw.mp4" }
+    };
+
+    function playOfflineVideo(drillKey) {
+      const data = DRILL_VIDEO_MAP[drillKey];
+      if (!data) return;
+      videoModalTitle.textContent = data.title;
+      offlineDrillVideo.src = data.src;
+      videoPlayerModal.style.display = 'flex';
+      offlineDrillVideo.play().catch(e => console.log("Video autoplay blocked", e));
+    }
+
+    btnCloseVideoModal.addEventListener('click', () => {
+      offlineDrillVideo.pause();
+      offlineDrillVideo.src = "";
+      videoPlayerModal.style.display = 'none';
+    });
 
     function updateCardLabels() {
       const isLeft = (selectedThrowArm === 'LEFT');
@@ -1331,7 +1489,6 @@
       scanCtx.lineTo(centerX, bottomY);
       scanCtx.stroke();
 
-      // Top Handle
       scanCtx.strokeStyle = "#10b981";
       scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
@@ -1352,7 +1509,6 @@
       scanCtx.textAlign = "center";
       scanCtx.fillText("👑 あたま ↕", centerX, topY - 14);
 
-      // Bottom Handle
       scanCtx.strokeStyle = "#f43f5e";
       scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
@@ -1458,7 +1614,7 @@
       renderScanFrame();
     });
 
-    /* --- Auto Stature Scan --- */
+    /* Auto Stature Scan */
     document.getElementById('btn-scan-action').addEventListener('click', async () => {
       scanLoading.style.display = 'flex';
       scanModeActive = true;
@@ -1493,7 +1649,7 @@
       }, 100);
     });
 
-    /* --- Start Analysis Workspace --- */
+    /* Start Analysis Workspace */
     document.getElementById('btn-start-analysis').addEventListener('click', () => {
       const pName = document.getElementById('player-name-input').value.trim();
       playerName = pName || "せんしゅ1";
@@ -1528,7 +1684,7 @@
       }
     });
 
-    /* --- Pinch Zoom & Interactive Toe Handle Dragging --- */
+    /* Pinch Zoom & Pan */
     function updateZoomBadge() {
       zoomBadge.textContent = `🔍 ${zoomScale.toFixed(1)}x (ピンチ可)`;
     }
@@ -1616,7 +1772,7 @@
       processSingleFrame();
     });
 
-    /* --- 子ども向け「👟 着地決定」ボタンのクリック処理 --- */
+    /* FC Lock Trigger */
     document.getElementById('btn-manual-fc').addEventListener('click', () => {
       if (selectedAngleMode === 'FRONT') {
         records.fcToeAngle = currentCalculatedState.displayToeAngle;
@@ -1632,9 +1788,7 @@
       }
     });
 
-    /* ========================================================
-       AI診断・特訓＆ストレッチ処方箋 生成エンジン
-    ======================================================== */
+    /* AI Prescription */
     function generateBiomechanicsPrescription(entry) {
       const isSide = (entry.mode === 'SIDE');
       const m = entry.metrics;
@@ -1644,58 +1798,50 @@
 
       if (isSide) {
         if (m.strideRatio >= 70) {
-          diagnosis.push("🌟 歩幅が身長の70%以上あり、下半身の体重移動が素晴らしいです！");
+          diagnosis.push("🌟 歩幅が身長の70%以上あり、下半身のタメと移動が素晴らしいです！");
         } else {
           diagnosis.push("⚠️ 歩幅がやや狭く、上体投げになりやすい状態です。");
-          stretches.push("<b>股関節前側（腸腰筋）伸ばし:</b> 片膝立ちランジストレッチ（左右20秒）");
-          drills.push("<b>ステップ広げドリル:</b> 目標ラインに力強く踏み出すスケータージャンプ練習");
+          stretches.push({ text: "<b>股関節前側（腸腰筋）伸ばし:</b> 片膝立ちランジストレッチ", videoKey: "hip_stretch" });
+          drills.push({ text: "<b>スケータージャンプ:</b> 力強く踏み出して歩幅を広げる練習", videoKey: "skater_jump" });
         }
 
         if (m.mer >= 140) {
           diagnosis.push("🌟 肩のしなり（外旋）が柔らかく使えています。");
         } else {
           diagnosis.push("⚠️ 腕のしなりが小さく、肘や肩に負担がかかりやすい状態です。");
-          stretches.push("<b>胸郭・胸開きストレッチ:</b> 四つ這いソラシックローテーション（胸椎回旋）");
-          drills.push("<b>タオルスロー:</b> リラックスして肘をしならせるタオルトレーニング");
+          stretches.push({ text: "<b>胸郭・胸開きストレッチ:</b> 四つ這いソラシック回旋", videoKey: "thoracic_mobility" });
+          drills.push({ text: "<b>タオルスロー:</b> リラックスして肘をしならせる練習", videoKey: "towel_throw" });
         }
 
         if (m.twist >= 25) {
           diagnosis.push("🌟 胸と腰の捻転差が作れており、体のキレがあります。");
-        } else {
-          stretches.push("<b>体幹ひねりストレッチ:</b> 仰向けツイストストレッチ");
         }
 
       } else {
         if (m.toeAngle > 15) {
           diagnosis.push("⚠️ 着地でつま先が外に開きやすく、骨盤が早く回っています。");
-          stretches.push("<b>お尻・股関節ストレッチ:</b> 割座（正座開き）＆お尻のストレッチ");
-          drills.push("<b>1本線ピッチング:</b> 地面の白線につま先を真っすぐ合わせて踏み出すドリル");
+          stretches.push({ text: "<b>お尻・股関節ストレッチ:</b> 割座＆お尻のストレッチ", videoKey: "hip_stretch" });
+          drills.push({ text: "<b>1本線ピッチング:</b> 白線につま先を真っすぐ合わせて踏み出すドリル", videoKey: "lunge_keep" });
         } else {
           diagnosis.push("🌟 つま先の向きが捕手方向へ真っすぐ踏み出せています！");
         }
 
         if (m.valgus > 10) {
           diagnosis.push("⚠️ 着地でヒザが内側に入るニーイン（外反）が見られます。");
-          stretches.push("<b>中臀筋（お尻横）トレーニング:</b> 横向きクラムシェル（左右15回）");
-          drills.push("<b>片足ランジ静止キープ:</b> つま先とヒザの向きを揃えて地面を掴む練習");
+          stretches.push({ text: "<b>お尻（中臀筋）トレ:</b> 横向きクラムシェル", videoKey: "hip_stretch" });
+          drills.push({ text: "<b>片足ランジ静止キープ:</b> つま先とヒザを揃えて地面を掴む練習", videoKey: "lunge_keep" });
         } else {
           diagnosis.push("🌟 着地した前足のヒザが割れずにしっかり踏ん張れています！");
         }
-
-        if (m.inStep > 15) {
-          drills.push("<b>ステップ幅矯正ドリル:</b> まっすぐな踏み込み位置にマーカーを置いて投球練習");
-        }
       }
 
-      if (stretches.length === 0) stretches.push("<b>全身ストレッチ:</b> 肩甲骨とお尻のストレッチを毎日続けよう！");
-      if (drills.length === 0) drills.push("<b>バランスキープドリル:</b> 片足立ちでグラつかずに投げる練習");
+      if (stretches.length === 0) stretches.push({ text: "<b>全身ストレッチ:</b> 肩甲骨とお尻のストレッチを毎日続けよう！", videoKey: "hip_stretch" });
+      if (drills.length === 0) drills.push({ text: "<b>スケータージャンプ:</b> 体幹と下半身のバランスキープ練習", videoKey: "skater_jump" });
 
       return { diagnosis, stretches, drills };
     }
 
-    /* ========================================================
-       カルテ（データ保存・履歴管理・削除）システム
-    ======================================================== */
+    /* Carte Storage */
     const STORAGE_KEY = 'pitching_ai_records_v1';
 
     function getSavedRecords() {
@@ -1720,6 +1866,7 @@
         height: userHeightCm,
         throwArm: selectedThrowArm,
         mode: selectedAngleMode,
+        coachComment: "",
         metrics: selectedAngleMode === 'SIDE' ? {
           stride: records.maxStride,
           strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
@@ -1774,6 +1921,63 @@
       }
     }
 
+    /* LINE・SNS共有メッセージ生成 */
+    function shareRecordToLine(recordId) {
+      const allRecords = getSavedRecords();
+      const r = allRecords.find(item => item.id === recordId);
+      if (!r) return;
+
+      const isSide = (r.mode === 'SIDE');
+      const pres = generateBiomechanicsPrescription(r);
+
+      let text = `⚾ 【投球バイオメカニクス レポート】 ⚾\n`;
+      text += `👤 選手名: ${r.playerName} 選手 (${r.height}cm / ${r.throwArm === 'RIGHT' ? '右投げ' : '左投げ'})\n`;
+      text += `📅 測定日: ${r.date} [${isSide ? '横向き' : '正面'}]\n\n`;
+
+      text += `📊 【測定結果】\n`;
+      if (isSide) {
+        text += `・ステップ幅: ${r.metrics.stride}cm (${r.metrics.strideRatio}%身)\n`;
+        text += `・腕のしなり(肩外旋): ${r.metrics.mer}°\n`;
+        text += `・捻転差: ${r.metrics.twist}°\n`;
+        text += `・リリース高: ${r.metrics.releaseH}cm\n`;
+        text += `・着地ヒザ角度: ${r.metrics.kneeFlex}°\n`;
+      } else {
+        text += `・つま先の向き: ${r.metrics.toeAngle}°\n`;
+        text += `・ヒザ内外反: ${r.metrics.valgus}°\n`;
+        text += `・体幹の傾き: ${r.metrics.trunkLateral}°\n`;
+        text += `・アームスロット: ${r.metrics.armSlot}°\n`;
+        text += `・踏み出しズレ: ${r.metrics.inStep}cm\n`;
+      }
+
+      text += `\n🌟 【AIフォーム診断】\n${pres.diagnosis.join('\n')}\n`;
+      text += `\n🎯 【おすすめ特訓・ストレッチ】\n`;
+      pres.stretches.forEach(s => {
+        text += `・${s.text.replace(/<[^>]+>/g, '')}\n`;
+      });
+      pres.drills.forEach(d => {
+        text += `・${d.text.replace(/<[^>]+>/g, '')}\n`;
+      });
+
+      if (r.coachComment && r.coachComment.trim() !== '') {
+        text += `\n📝 【監督・コーチからのコメント】\n${r.coachComment.trim()}\n`;
+      }
+
+      if (navigator.share) {
+        navigator.share({
+          title: `${r.playerName}選手の投球フォームレポート`,
+          text: text
+        }).catch(err => {
+          if (err.name !== 'AbortError') console.log('Share error:', err);
+        });
+      } else {
+        navigator.clipboard.writeText(text).then(() => {
+          alert("📋 レポート文をクリップボードにコピーしました！LINEやメールに貼り付けて送信できます。");
+        }).catch(() => {
+          alert(text);
+        });
+      }
+    }
+
     function renderCarteList(isInitialOpen) {
       const allRecords = getSavedRecords();
       carteHistoryList.innerHTML = '';
@@ -1822,6 +2026,20 @@
         const isSide = (r.mode === 'SIDE');
         const pres = generateBiomechanicsPrescription(r);
 
+        const stretchItemsHtml = pres.stretches.map(s => `
+          <div class="prescription-item">
+            <div>🧘 ${s.text}</div>
+            <button class="btn-play-drill-video" data-video="${s.videoKey}">▶ お手本動画を見る</button>
+          </div>
+        `).join('');
+
+        const drillItemsHtml = pres.drills.map(d => `
+          <div class="prescription-item">
+            <div>🎯 ${d.text}</div>
+            <button class="btn-play-drill-video" data-video="${d.videoKey}">▶ お手本動画を見る</button>
+          </div>
+        `).join('');
+
         card.innerHTML = `
           <div class="history-card-head">
             <span>👤 ${r.playerName} (${r.height}cm・${r.throwArm === 'RIGHT' ? '右' : '左'})</span>
@@ -1849,22 +2067,62 @@
           </div>
           <div class="prescription-box">
             <div class="prescription-title">🌟 AIフォーム診断・おすすめ特訓メニュー</div>
-            <div class="prescription-item">${pres.diagnosis.join('<br>')}</div>
-            <div class="prescription-item" style="border-top: 1px dashed #86efac; padding-top: 3px; margin-top: 2px;">
-              🧘 <b>おすすめストレッチ:</b> ${pres.stretches.join(' / ')}
+            <div style="line-height:1.3;">${pres.diagnosis.join('<br>')}</div>
+            <div style="border-top: 1px dashed #86efac; padding-top: 3px; margin-top: 2px;">
+              ${stretchItemsHtml}
             </div>
-            <div class="prescription-item">
-              🎯 <b>おすすめドリル:</b> ${pres.drills.join(' / ')}
+            <div style="border-top: 1px dashed #86efac; padding-top: 3px; margin-top: 2px;">
+              ${drillItemsHtml}
             </div>
+          </div>
+
+          <!-- 監督コメント＆LINE送信エリア -->
+          <div class="coach-comment-box">
+            <div class="coach-comment-title">📝 監督・コーチからのコメント</div>
+            <textarea class="coach-textarea" data-id="${r.id}" placeholder="選手へのアドバイスを入力（自動保存されます）">${r.coachComment || ''}</textarea>
+            <button class="btn-share-line" data-id="${r.id}">
+              <span>💬 📤 レポートをLINE / メッセージで送る</span>
+            </button>
           </div>
         `;
         carteHistoryList.appendChild(card);
       });
 
+      // 監督コメントの自動保存
+      carteHistoryList.querySelectorAll('.coach-textarea').forEach(textarea => {
+        textarea.addEventListener('input', (e) => {
+          const id = Number(e.currentTarget.getAttribute('data-id'));
+          const textVal = e.currentTarget.value;
+          let allRecs = getSavedRecords();
+          const target = allRecs.find(item => item.id === id);
+          if (target) {
+            target.coachComment = textVal;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
+          }
+        });
+      });
+
+      // LINE共有ボタン
+      carteHistoryList.querySelectorAll('.btn-share-line').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = Number(e.currentTarget.getAttribute('data-id'));
+          shareRecordToLine(id);
+        });
+      });
+
+      // 削除ボタン
       carteHistoryList.querySelectorAll('.btn-item-delete').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const id = Number(e.currentTarget.getAttribute('data-id'));
           deleteSingleRecord(id);
+        });
+      });
+
+      // お手本動画再生ボタン
+      carteHistoryList.querySelectorAll('.btn-play-drill-video').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const videoKey = e.currentTarget.getAttribute('data-video');
+          playOfflineVideo(videoKey);
         });
       });
     }
@@ -1896,7 +2154,7 @@
       }
     });
 
-    // CSVエクスポート機能
+    /* CSV Export */
     document.getElementById('btn-export-csv').addEventListener('click', () => {
       const allRecords = getSavedRecords();
       if (allRecords.length === 0) {
@@ -1904,10 +2162,11 @@
         return;
       }
 
-      let csvContent = "\uFEFF日時,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),着地ヒザ(deg),最大伸展(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm)\n";
+      let csvContent = "\uFEFF日時,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),着地ヒザ(deg),最大伸展(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm),監督コメント\n";
 
       allRecords.forEach(r => {
         const isSide = (r.mode === 'SIDE');
+        const commentSafe = `"${(r.coachComment || '').replace(/"/g, '""')}"`;
         const row = [
           `"${r.date}"`,
           `"${r.playerName}"`,
@@ -1927,7 +2186,8 @@
           !isSide ? r.metrics.trunkLateral : "",
           !isSide ? r.metrics.armSlot : "",
           !isSide ? r.metrics.inStep : "",
-          !isSide ? r.metrics.releaseLateral : ""
+          !isSide ? r.metrics.releaseLateral : "",
+          commentSafe
         ];
         csvContent += row.join(",") + "\n";
       });
@@ -1942,7 +2202,7 @@
       document.body.removeChild(link);
     });
 
-    /* --- Processing Engine --- */
+    /* Processing Engine */
     function processSingleFrame() {
       if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
         renderFrameOnly();
@@ -2037,7 +2297,7 @@
       return 180.0 - baseAngle;
     }
 
-    /* --- MediaPipe Results --- */
+    /* MediaPipe Pose Results */
     function onPoseResults(results) {
       if (scanModeActive) {
         if (results.poseLandmarks) {
@@ -2125,7 +2385,7 @@
           drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
         }
 
-        /* FC (Foot Contact) 高精度運動学検知 */
+        /* FC High-Precision Detection */
         let currentStrideCm = 0;
         let isStepping = false;
         let isKinematicFC = false;
@@ -2152,7 +2412,7 @@
           }
         }
 
-        /* MODE-SPECIFIC BIOMECHANICS */
+        /* Biomechanics Calculation */
         if (selectedAngleMode === 'SIDE') {
           // 1. Stride Width
           if (Number.isFinite(currentStrideCm)) {
@@ -2482,7 +2742,7 @@
       });
     }
 
-    /* --- Video Playback Engine --- */
+    /* Video Playback Engine */
     function updatePlayState() {
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
