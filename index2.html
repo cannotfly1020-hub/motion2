@@ -412,7 +412,6 @@
       text-align: right;
     }
 
-    /* 2段配置のボタンレイアウト */
     .playback-rows {
       display: flex;
       flex-direction: column;
@@ -637,7 +636,7 @@
         </div>
       </div>
 
-      <!-- Playback Controls (2段レイアウトで押しやすく整理) -->
+      <!-- Playback Controls -->
       <div class="controls-container">
         <div class="seek-container">
           <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
@@ -653,6 +652,7 @@
           </div>
           <!-- 下段: ツール・リセット操作 -->
           <div class="btn-row">
+            <button class="btn-ctrl" id="btn-toggle-skeleton">🦴 骨格OFF</button>
             <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム解除</button>
             <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
             <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 別の動画</button>
@@ -687,6 +687,8 @@
     let selectedThrowArm = 'LEFT';
     let videoFileUrl = null;
     let selectedAngleMode = 'SIDE';
+
+    let isSkeletonVisible = true; // 骨格AIの表示・非表示フラグ
 
     let tuneRuler = {
       isActive: false,
@@ -795,6 +797,7 @@
 
     const btnArmRight = document.getElementById('btn-arm-right');
     const btnArmLeft = document.getElementById('btn-arm-left');
+    const btnToggleSkeleton = document.getElementById('btn-toggle-skeleton');
 
     function updateCardLabels() {
       const isLeft = (selectedThrowArm === 'LEFT');
@@ -833,6 +836,21 @@
       btnArmLeft.classList.add('active');
       btnArmRight.classList.remove('active');
       updateCardLabels();
+    });
+
+    // 骨格表示トグル
+    btnToggleSkeleton.addEventListener('click', () => {
+      isSkeletonVisible = !isSkeletonVisible;
+      if (isSkeletonVisible) {
+        btnToggleSkeleton.textContent = "🦴 骨格OFF";
+        btnToggleSkeleton.style.background = "#ffffff";
+        btnToggleSkeleton.style.color = "#334155";
+      } else {
+        btnToggleSkeleton.textContent = "🦴 骨格ON";
+        btnToggleSkeleton.style.background = "linear-gradient(135deg, #38bdf8, #0284c7)";
+        btnToggleSkeleton.style.color = "#ffffff";
+      }
+      processSingleFrame();
     });
 
     function setStep(stepNum) {
@@ -1455,7 +1473,10 @@
           };
         }
 
-        drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
+        // 骨格表示がONの時のみスケルトンを描画
+        if (isSkeletonVisible) {
+          drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
+        }
 
         /* ========================================================
            FC (Foot Contact) 高精度運動学検知エンジン
