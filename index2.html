@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>投球AIバイオメカニクス</title>
   
   <!-- MediaPipe CDN -->
@@ -17,17 +17,15 @@
       --primary-hover: #2563eb;
       --accent: #38bdf8;
       --accent-yellow: #facc15;
-      --accent-orange: #fb923c;
       --bg: #0b1329;
       --surface: #152243;
       --surface-light: #203362;
-      --surface-card: #18284e;
       --text: #ffffff;
       --text-muted: #93c5fd;
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #f43f5e;
-      --radius: 18px;
+      --radius: 12px;
     }
 
     * {
@@ -42,62 +40,61 @@
       font-family: "Hiragino Maru Gothic ProN", "Yu Gothic Rounded", "M PLUS Rounded 1c", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: linear-gradient(180deg, #0b1329 0%, #111e3f 100%);
       color: var(--text);
-      min-height: 100vh;
+      height: 100dvh;
+      max-height: 100dvh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 10px 8px;
-      overflow-x: hidden;
+      padding: 2px 6px;
+      overflow: hidden;
+      justify-content: flex-start;
     }
 
     header {
       width: 100%;
       max-width: 1200px;
       text-align: center;
-      margin-bottom: 10px;
+      margin-bottom: 2px;
     }
 
     h1 {
-      font-size: 1.35rem;
+      font-size: 0.95rem;
       font-weight: 900;
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      text-shadow: 0 2px 10px rgba(56, 189, 248, 0.5);
-      letter-spacing: 0.5px;
+      gap: 4px;
+      text-shadow: 0 1px 6px rgba(56, 189, 248, 0.4);
     }
 
     .steps-nav {
       display: flex;
       justify-content: center;
-      gap: 6px;
-      margin-top: 10px;
+      gap: 4px;
+      margin-top: 2px;
       width: 100%;
-      max-width: 500px;
+      max-width: 480px;
       margin-inline: auto;
     }
 
     .step-pill {
       flex: 1;
       text-align: center;
-      padding: 8px 6px;
-      font-size: 0.78rem;
+      padding: 3px 2px;
+      font-size: 0.68rem;
       font-weight: 800;
       border-radius: 9999px;
       background: rgba(255, 255, 255, 0.08);
       color: var(--text-muted);
-      border: 2px solid transparent;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1.5px solid transparent;
+      transition: all 0.2s ease;
     }
 
     .step-pill.active {
       background: linear-gradient(135deg, #3b82f6, #06b6d4);
       color: #fff;
       border-color: #facc15;
-      box-shadow: 0 4px 14px rgba(6, 182, 212, 0.45);
-      transform: translateY(-2px);
     }
 
     .app-container {
@@ -105,20 +102,23 @@
       max-width: 1200px;
       background: var(--surface);
       border-radius: var(--radius);
-      border: 2px solid rgba(56, 189, 248, 0.25);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      padding: 12px;
+      border: 1.5px solid rgba(56, 189, 248, 0.25);
+      padding: 6px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 4px;
+      flex: 1;
+      min-height: 0;
     }
 
     .view-section {
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
+      gap: 4px;
       width: 100%;
+      height: 100%;
+      justify-content: space-between;
     }
 
     .view-section.active {
@@ -129,58 +129,51 @@
       background: linear-gradient(135deg, #3b82f6, #1d4ed8);
       color: #fff;
       border: none;
-      padding: 13px 26px;
-      border-radius: 14px;
-      font-size: 1.05rem;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.88rem;
       font-weight: 800;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      box-shadow: 0 4px 0 #173b8a, 0 6px 16px rgba(0, 0, 0, 0.3);
+      gap: 4px;
+      box-shadow: 0 2px 0 #173b8a;
       transition: all 0.15s ease;
       touch-action: manipulation;
     }
 
     .btn:active {
-      transform: translateY(3px);
-      box-shadow: 0 1px 0 #173b8a, 0 3px 8px rgba(0, 0, 0, 0.3);
+      transform: translateY(2px);
+      box-shadow: 0 0 0 #173b8a;
     }
 
     .btn-secondary {
       background: linear-gradient(135deg, #334155, #1e293b);
       color: #e2e8f0;
-      box-shadow: 0 4px 0 #0f172a, 0 6px 14px rgba(0, 0, 0, 0.3);
-    }
-    .btn-secondary:active {
-      box-shadow: 0 1px 0 #0f172a;
+      box-shadow: 0 2px 0 #0f172a;
     }
 
     .btn-scan {
       background: linear-gradient(135deg, #10b981, #059669);
-      font-size: 1.15rem;
-      padding: 14px 28px;
-      box-shadow: 0 4px 0 #047857, 0 8px 20px rgba(16, 185, 129, 0.4);
-    }
-    .btn-scan:active {
-      box-shadow: 0 1px 0 #047857;
+      font-size: 0.88rem;
+      padding: 8px 12px;
+      box-shadow: 0 2px 0 #047857;
+      flex: 1.4;
     }
 
     .btn-action-next {
       background: linear-gradient(135deg, #f59e0b, #d97706);
-      font-size: 1.15rem;
-      padding: 14px 28px;
-      box-shadow: 0 4px 0 #b45309, 0 8px 20px rgba(245, 158, 11, 0.4);
-    }
-    .btn-action-next:active {
-      box-shadow: 0 1px 0 #b45309;
+      font-size: 0.95rem;
+      padding: 8px 16px;
+      width: 100%;
+      box-shadow: 0 2px 0 #b45309;
     }
 
     .btn-group {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+      gap: 4px;
+      flex-wrap: nowrap;
       justify-content: center;
       width: 100%;
     }
@@ -189,17 +182,16 @@
       position: relative;
       width: 100%;
       background: #050811;
-      border-radius: 16px;
+      border-radius: 10px;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 52vh;
-      min-height: 290px;
-      max-height: 580px;
+      flex: 1;
+      min-height: 180px;
+      max-height: 38vh;
       touch-action: none;
-      border: 2px solid #233867;
-      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+      border: 1.5px solid #233867;
     }
 
     video {
@@ -221,89 +213,85 @@
 
     .zoom-badge {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 4px;
+      left: 4px;
       background: rgba(11, 19, 41, 0.85);
-      border: 2px solid var(--accent);
+      border: 1px solid var(--accent);
       color: #38bdf8;
-      font-size: 0.78rem;
+      font-size: 0.65rem;
       font-weight: 800;
-      padding: 5px 10px;
-      border-radius: 10px;
+      padding: 2px 6px;
+      border-radius: 6px;
       pointer-events: none;
       z-index: 10;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
 
     .guidance-box {
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(6, 182, 212, 0.2));
-      border: 2px dashed rgba(56, 189, 248, 0.6);
-      border-radius: 14px;
-      padding: 10px 16px;
-      font-size: 0.92rem;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(6, 182, 212, 0.15));
+      border: 1px dashed rgba(56, 189, 248, 0.6);
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 0.72rem;
       font-weight: 700;
       text-align: center;
       width: 100%;
       color: #f8fafc;
-      line-height: 1.45;
+      line-height: 1.25;
     }
 
     .input-group {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
       width: 100%;
-      max-width: 330px;
+      max-width: 300px;
     }
 
     .input-field {
       width: 100%;
-      padding: 14px;
-      border-radius: 14px;
-      border: 2px solid rgba(56, 189, 248, 0.4);
+      padding: 8px;
+      border-radius: 8px;
+      border: 1.5px solid rgba(56, 189, 248, 0.4);
       background: #090e1a;
       color: #facc15;
-      font-size: 1.6rem;
+      font-size: 1.25rem;
       text-align: center;
       font-weight: 900;
-      box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
     }
 
     .toggle-group {
       display: flex;
       width: 100%;
       background: #090e1a;
-      border-radius: 14px;
-      border: 2px solid rgba(56, 189, 248, 0.3);
-      padding: 5px;
-      gap: 8px;
+      border-radius: 8px;
+      border: 1.5px solid rgba(56, 189, 248, 0.3);
+      padding: 2px;
+      gap: 4px;
     }
 
     .toggle-btn {
       flex: 1;
-      padding: 12px;
-      border-radius: 10px;
+      padding: 8px;
+      border-radius: 6px;
       border: none;
       background: transparent;
       color: var(--text-muted);
-      font-size: 1.05rem;
+      font-size: 0.88rem;
       font-weight: 800;
       cursor: pointer;
-      transition: all 0.2s ease;
     }
 
     .toggle-btn.active {
       background: linear-gradient(135deg, #3b82f6, #06b6d4);
       color: #fff;
-      box-shadow: 0 3px 12px rgba(6, 182, 212, 0.4);
     }
 
-    /* Gamified Dashboard Cards */
+    /* Compact Gamified Dashboard */
     .dashboard {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
+      gap: 4px;
       width: 100%;
     }
 
@@ -315,45 +303,45 @@
 
     .card {
       background: linear-gradient(180deg, #18284e 0%, #131f3d 100%);
-      border: 2px solid #2a4175;
-      border-radius: 14px;
-      padding: 8px 10px;
+      border: 1.5px solid #2a4175;
+      border-radius: 8px;
+      padding: 4px 6px;
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+      gap: 1px;
     }
 
     .card-title {
-      font-size: 0.76rem;
+      font-size: 0.65rem;
       font-weight: 800;
       color: var(--text-muted);
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 2px;
       white-space: nowrap;
     }
 
     .card-val {
-      font-size: 1.45rem;
+      font-size: 1.05rem;
       font-weight: 900;
       color: #38bdf8;
-      text-shadow: 0 2px 8px rgba(56, 189, 248, 0.4);
+      text-shadow: 0 1px 4px rgba(56, 189, 248, 0.4);
       font-variant-numeric: tabular-nums;
-      line-height: 1.2;
+      line-height: 1.1;
     }
 
     .card-max {
-      font-size: 0.76rem;
+      font-size: 0.62rem;
       color: #facc15;
       font-weight: 800;
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
     .controls-container {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 3px;
       width: 100%;
       z-index: 15;
     }
@@ -361,27 +349,27 @@
     .seek-container {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
       width: 100%;
       background: #090e1a;
-      padding: 8px 12px;
-      border-radius: 12px;
-      border: 2px solid #233867;
+      padding: 3px 6px;
+      border-radius: 6px;
+      border: 1.5px solid #233867;
     }
 
     .seek-bar {
       flex: 1;
-      height: 24px;
+      height: 18px;
       cursor: pointer;
       accent-color: #38bdf8;
     }
 
     .time-disp {
-      font-size: 0.8rem;
+      font-size: 0.68rem;
       font-family: ui-monospace, monospace;
       color: #facc15;
       font-weight: 800;
-      min-width: 90px;
+      min-width: 68px;
       text-align: right;
     }
 
@@ -389,27 +377,30 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
+      gap: 3px;
+      flex-wrap: nowrap;
+      width: 100%;
     }
 
     .btn-ctrl {
       background: linear-gradient(135deg, #203362, #18284e);
       border: 1px solid rgba(255, 255, 255, 0.15);
       color: #fff;
-      padding: 10px 16px;
-      border-radius: 10px;
-      font-size: 0.9rem;
+      padding: 6px 4px;
+      border-radius: 6px;
+      font-size: 0.72rem;
       font-weight: 800;
       cursor: pointer;
-      box-shadow: 0 3px 0 #0d1730;
+      box-shadow: 0 2px 0 #0d1730;
       touch-action: manipulation;
-      transition: all 0.15s ease;
+      flex: 1;
+      text-align: center;
+      white-space: nowrap;
     }
 
     .btn-ctrl:active {
-      transform: translateY(2px);
-      box-shadow: 0 1px 0 #0d1730;
+      transform: translateY(1px);
+      box-shadow: 0 0 0 #0d1730;
       background: var(--primary);
     }
 
@@ -421,15 +412,15 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 6px;
       z-index: 30;
       pointer-events: none;
     }
 
     .spinner {
-      width: 42px;
-      height: 42px;
-      border: 4px solid var(--surface-light);
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--surface-light);
       border-top-color: #38bdf8;
       border-right-color: #facc15;
       border-radius: 50%;
@@ -459,29 +450,29 @@
       <div class="guidance-box">
         🌟 <b>投球フォームの動画をえらんでね！</b>（スロー撮影がオススメだよ）
       </div>
-      <div style="padding: 40px 0;">
-        <label class="btn" style="padding: 20px 42px; font-size: 1.3rem; border-radius: 20px;">
+      <div style="padding: 20px 0;">
+        <label class="btn" style="padding: 14px 28px; font-size: 1.05rem; border-radius: 12px;">
           📁 どうがをえらぶ ⚾
           <input type="file" id="video-input" accept="video/*" style="display: none;">
         </label>
       </div>
+      <div></div>
     </section>
 
     <!-- STEP 2: Stature Scan & Manual Fine-Tune -->
     <section id="view-step2" class="view-section">
       <div class="guidance-box" id="scan-guide-text">
-        🧍 <b>ピッチャーがピーンと真っ直ぐ立っている瞬間</b>でバーを止めて「① AI自動スキャン」を押してね！
+        🧍 <b>まっすぐ立っている瞬間</b>でバーを止めて「① AI自動スキャン」を押してね！
       </div>
 
       <div class="screen-wrapper" id="scan-screen-wrapper">
         <canvas id="scan-canvas"></canvas>
         <div class="loading-overlay" id="scan-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.95rem; color: #fff; font-weight: 800;">🚀 AIエンジン起動中...</div>
+          <div style="font-size: 0.75rem; color: #fff; font-weight: 800;">🚀 AI起動中...</div>
         </div>
       </div>
 
-      <!-- Video Seeker for Stature -->
       <div class="seek-container">
         <input type="range" id="scan-seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
         <span class="time-disp" id="scan-time-disp">0.00 / 0.00</span>
@@ -491,8 +482,8 @@
         <button class="btn btn-ctrl" id="btn-scan-prev">◀ -1コマ</button>
         <button class="btn btn-scan" id="btn-scan-action">📏 ① AI自動スキャン</button>
         <button class="btn btn-ctrl" id="btn-scan-next">+1コマ ▶</button>
-        <button class="btn btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
       </div>
+      <button class="btn btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
     </section>
 
     <!-- STEP 3: Arm & Stature Input -->
@@ -501,9 +492,9 @@
         🔥 <b>投げる腕（利き腕）をえらんで、身長を入れてね！</b>
       </div>
       
-      <div class="input-group" style="padding: 10px 0; gap: 16px;">
+      <div class="input-group" style="padding: 4px 0; gap: 8px;">
         <div style="width: 100%;">
-          <label style="display: block; margin-bottom: 8px; text-align: center; font-weight: 900; color: #38bdf8; font-size: 1.05rem;">
+          <label style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; color: #38bdf8; font-size: 0.85rem;">
             投げる腕（ききうで）
           </label>
           <div class="toggle-group">
@@ -513,7 +504,7 @@
         </div>
 
         <div style="width: 100%;">
-          <label for="height-input" style="display: block; margin-bottom: 8px; text-align: center; font-weight: 900; font-size: 1.05rem;">
+          <label for="height-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.85rem;">
             ピッチャーの身長 (cm)
           </label>
           <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
@@ -521,39 +512,36 @@
       </div>
 
       <div class="btn-group">
-        <button class="btn btn-secondary" id="btn-re-scan">🔄 スキャンし直す</button>
-        <button class="btn" id="btn-start-analysis" style="font-size: 1.2rem; padding: 15px 36px; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 0 #047857;">
-          🚀 OK！フォーム解析スタート！
+        <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 スキャンやり直し</button>
+        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 2px 0 #047857;">
+          🚀 解析スタート！
         </button>
       </div>
     </section>
 
-    <!-- STEP 4: Main Workspace -->
+    <!-- STEP 4: Main Workspace (Fit 1 Screen) -->
     <section id="view-step4" class="view-section">
       
       <!-- Metrics Dashboard -->
       <div class="dashboard">
-        <!-- 1. Stride -->
         <div class="card">
           <div class="card-title">🚶 ステップ幅 (歩幅)</div>
           <div class="card-val" id="val-stride">-- cm</div>
           <div class="card-max" id="max-stride">最大: -- cm (0%身)</div>
         </div>
-        <!-- 2. MER -->
         <div class="card">
           <div class="card-title" id="card-mer-title">💪 うでのしなり (左肩外旋)</div>
           <div class="card-val" id="val-elbow">-- °</div>
           <div class="card-max" id="max-mer">最大: -- °</div>
         </div>
-        <!-- 3. Twist -->
         <div class="card">
-          <div class="card-title">🔄 からだの捻転差 (回転)</div>
+          <!-- 小学生向け部位説明付き表記 -->
+          <div class="card-title">🔄 捻転差 (胸と腰のひねり)</div>
           <div class="card-val" id="val-twist">-- °</div>
           <div class="card-max" id="max-twist">最大: -- °</div>
         </div>
-        <!-- 4. Finger-Tip Release Height -->
         <div class="card">
-          <div class="card-title">⚾ 指先リリース高さ</div>
+          <div class="card-title">⚾ 指先リリース高</div>
           <div class="card-val" id="val-release">-- cm</div>
           <div class="card-max" id="max-release">最高: -- cm</div>
         </div>
@@ -562,10 +550,10 @@
       <!-- Main Display Screen with Pinch Zoom -->
       <div class="screen-wrapper" id="main-screen-wrapper">
         <canvas id="output-canvas"></canvas>
-        <div class="zoom-badge" id="zoom-badge">🔍 拡大: 1.0x (ピンチ/ホイールで拡大)</div>
+        <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチで拡大)</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
-          <div style="font-size: 0.95rem; color: #fff; font-weight: 800;">⚡ 最上位AIモデル同期中...</div>
+          <div style="font-size: 0.75rem; color: #fff; font-weight: 800;">⚡ AI同期中...</div>
         </div>
       </div>
 
@@ -577,10 +565,10 @@
         </div>
         <div class="playback-buttons">
           <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
-          <button class="btn-ctrl" id="btn-play-pause" style="min-width: 90px; background: linear-gradient(135deg, #3b82f6, #1d4ed8);">再生 ▶</button>
+          <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); flex: 1.2;">再生 ▶</button>
           <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
           <button class="btn-ctrl" id="btn-zoom-reset">🔍 リセット</button>
-          <button class="btn-ctrl" id="btn-reset-max">🏆 記録リセット</button>
+          <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
           <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 別の動画</button>
         </div>
       </div>
@@ -612,21 +600,19 @@
     let selectedThrowArm = 'LEFT';
     let videoFileUrl = null;
 
-    // Editable Ruler Data (Normalized [0.0 - 1.0] relative to fitted video box)
     let tuneRuler = {
       isActive: false,
       topYNorm: 0.2,
       bottomYNorm: 0.8,
       centerXNorm: 0.5
     };
-    let activeDragHandle = null; // 'top', 'bottom', 'both'
+    let activeDragHandle = null;
     let dragStartY = 0;
     let snapTop = 0, snapBottom = 0;
 
     let calibratedPxPerCm = null;
     let scanModeActive = false;
 
-    // Zoom & Pan
     let zoomScale = 1.0;
     let zoomPan = { x: 0, y: 0 };
     let initialPinchDistance = 0;
@@ -754,7 +740,7 @@
       return { x, y, w, h };
     }
 
-    /* --- Step 1: Video File Selection --- */
+    /* --- Step 1: Video Selection --- */
     document.getElementById('video-input').addEventListener('change', async function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -782,7 +768,7 @@
       setTimeout(() => {
         updateScanScreenSize();
         renderScanFrame();
-      }, 200);
+      }, 150);
     }
 
     function updateScanScreenSize() {
@@ -812,31 +798,30 @@
       }
     }
 
-    /* --- Interactive Tunable Stature Ruler --- */
+    /* --- Interactive Tunable Ruler --- */
     function drawInteractiveRuler(b) {
       const topY = b.y + tuneRuler.topYNorm * b.h;
       const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
       const centerX = b.x + tuneRuler.centerXNorm * b.w;
-      const barWidth = 65;
+      const barWidth = 50;
 
-      // Connecting Vertical Line with Glow
       scanCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
-      scanCtx.lineWidth = 6;
+      scanCtx.lineWidth = 4;
       scanCtx.beginPath();
       scanCtx.moveTo(centerX, topY);
       scanCtx.lineTo(centerX, bottomY);
       scanCtx.stroke();
 
       scanCtx.strokeStyle = "#38bdf8";
-      scanCtx.lineWidth = 3;
+      scanCtx.lineWidth = 2;
       scanCtx.beginPath();
       scanCtx.moveTo(centerX, topY);
       scanCtx.lineTo(centerX, bottomY);
       scanCtx.stroke();
 
-      // Top Handle (Head)
+      // Top Handle
       scanCtx.strokeStyle = "#10b981";
-      scanCtx.lineWidth = 5;
+      scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
       scanCtx.moveTo(centerX - barWidth, topY);
       scanCtx.lineTo(centerX + barWidth, topY);
@@ -844,20 +829,20 @@
 
       scanCtx.fillStyle = "#10b981";
       scanCtx.beginPath();
-      scanCtx.arc(centerX, topY, 14, 0, Math.PI * 2);
+      scanCtx.arc(centerX, topY, 11, 0, Math.PI * 2);
       scanCtx.fill();
       scanCtx.strokeStyle = "#ffffff";
-      scanCtx.lineWidth = 3;
+      scanCtx.lineWidth = 2;
       scanCtx.stroke();
 
       scanCtx.fillStyle = "#ffffff";
-      scanCtx.font = "bold 12px sans-serif";
+      scanCtx.font = "bold 10px sans-serif";
       scanCtx.textAlign = "center";
-      scanCtx.fillText("👑 あたまのてっぺん ↕", centerX, topY - 18);
+      scanCtx.fillText("👑 あたま ↕", centerX, topY - 14);
 
-      // Bottom Handle (Ground/Heel)
+      // Bottom Handle
       scanCtx.strokeStyle = "#f43f5e";
-      scanCtx.lineWidth = 5;
+      scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
       scanCtx.moveTo(centerX - barWidth, bottomY);
       scanCtx.lineTo(centerX + barWidth, bottomY);
@@ -865,14 +850,14 @@
 
       scanCtx.fillStyle = "#f43f5e";
       scanCtx.beginPath();
-      scanCtx.arc(centerX, bottomY, 14, 0, Math.PI * 2);
+      scanCtx.arc(centerX, bottomY, 11, 0, Math.PI * 2);
       scanCtx.fill();
       scanCtx.strokeStyle = "#ffffff";
-      scanCtx.lineWidth = 3;
+      scanCtx.lineWidth = 2;
       scanCtx.stroke();
 
       scanCtx.fillStyle = "#ffffff";
-      scanCtx.fillText("👟 かかと・地面 ↕", centerX, bottomY + 26);
+      scanCtx.fillText("👟 じめん ↕", centerX, bottomY + 18);
     }
 
     function getCanvasPoint(evt) {
@@ -893,14 +878,13 @@
       const topY = b.y + tuneRuler.topYNorm * b.h;
       const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
       const centerX = b.x + tuneRuler.centerXNorm * b.w;
+      const tol = 30;
 
-      const tol = 34; // touch hit tolerance
-
-      if (Math.abs(pt.y - topY) <= tol && Math.abs(pt.x - centerX) <= 75) {
+      if (Math.abs(pt.y - topY) <= tol && Math.abs(pt.x - centerX) <= 65) {
         activeDragHandle = 'top';
-      } else if (Math.abs(pt.y - bottomY) <= tol && Math.abs(pt.x - centerX) <= 75) {
+      } else if (Math.abs(pt.y - bottomY) <= tol && Math.abs(pt.x - centerX) <= 65) {
         activeDragHandle = 'bottom';
-      } else if (pt.y > topY && pt.y < bottomY && Math.abs(pt.x - centerX) <= 45) {
+      } else if (pt.y > topY && pt.y < bottomY && Math.abs(pt.x - centerX) <= 40) {
         activeDragHandle = 'both';
       }
       dragStartY = pt.y;
@@ -962,7 +946,7 @@
       renderScanFrame();
     });
 
-    /* --- Trigger AI Auto Stature Scan --- */
+    /* --- Auto Stature Scan --- */
     document.getElementById('btn-scan-action').addEventListener('click', async () => {
       scanLoading.style.display = 'flex';
       scanModeActive = true;
@@ -983,7 +967,6 @@
       }
     });
 
-    /* --- Confirm Stature Calibration Scale --- */
     btnScanNextStep.addEventListener('click', () => {
       const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
       const pixelHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) * b.h;
@@ -1004,12 +987,11 @@
       }, 100);
     });
 
-    /* --- STEP 3 -> STEP 4: Start Analysis Workspace --- */
+    /* --- Start Analysis Workspace --- */
     document.getElementById('btn-start-analysis').addEventListener('click', () => {
       const hVal = parseFloat(document.getElementById('height-input').value);
       userHeightCm = (!isNaN(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
 
-      // Re-evaluate scale with finalized userHeightCm
       const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
       const pixelHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) * b.h;
       if (pixelHeight > 30) {
@@ -1041,9 +1023,9 @@
       }
     });
 
-    /* --- Pinch Zoom & Pan on Output Canvas --- */
+    /* --- Pinch Zoom & Pan --- */
     function updateZoomBadge() {
-      zoomBadge.textContent = `🔍 拡大: ${zoomScale.toFixed(1)}x ${zoomScale > 1 ? '(ドラッグでいどう)' : '(ピンチ/ホイール可)'}`;
+      zoomBadge.textContent = `🔍 ${zoomScale.toFixed(1)}x (ピンチ可)`;
     }
 
     outputCanvas.addEventListener('wheel', (e) => {
@@ -1185,9 +1167,8 @@
       return 180.0 - baseAngle;
     }
 
-    /* --- MediaPipe Inference Results --- */
+    /* --- MediaPipe Results --- */
     function onPoseResults(results) {
-      // 1. Handling Scan Mode Initial Auto-Placement
       if (scanModeActive) {
         if (results.poseLandmarks) {
           const landmarks = results.poseLandmarks;
@@ -1200,14 +1181,13 @@
           tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
           tuneRuler.centerXNorm = NOSE.x;
 
-          btnScanNextStep.style.display = 'inline-flex';
+          btnScanNextStep.style.display = 'block';
           scanGuideText.innerHTML = "🎯 <b>AIが検知したよ！</b> ズレがあれば<b>丸いハンドルを上下にドラッグ</b>して頭と足元にピッタリ合わせてね！";
           renderScanFrame();
         }
         return;
       }
 
-      // 2. Main Workspace Drawing
       const cw = outputCanvas.width;
       const ch = outputCanvas.height;
       if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
@@ -1241,7 +1221,6 @@
         const L_HEEL = landmarks[29];
         const R_HEEL = landmarks[30];
 
-        // Use Calibrated Scale from Tuned Stature Ruler
         const activePxPerCm = calibratedPxPerCm || (b.h * 0.75 / userHeightCm);
 
         const isSouthpaw = (selectedThrowArm === 'LEFT');
@@ -1251,10 +1230,6 @@
         const throwIndex = isSouthpaw ? L_INDEX : R_INDEX;
 
         drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw);
-
-        /* ========================================================
-           METRICS ENGINE
-        ======================================================== */
 
         // 1. Stride Width
         const footL = { x: (L_HEEL?.x || L_ANKLE.x), y: (L_HEEL?.y || L_ANKLE.y) };
@@ -1304,7 +1279,7 @@
           }
         }
 
-        // 4. Finger-Tip Release Height
+        // 4. Release Height
         const lowestGroundY = Math.max(footL.y, footR.y) * b.h;
         const releaseTarget = (throwIndex && throwIndex.y) ? throwIndex : throwWrist;
         const releasePointY = releaseTarget.y * b.h;
@@ -1334,7 +1309,7 @@
       ];
 
       outputCtx.strokeStyle = "#10b981";
-      outputCtx.lineWidth = 3.5;
+      outputCtx.lineWidth = 3;
       connections.forEach(([i, j]) => {
         const p1 = landmarks[i];
         const p2 = landmarks[j];
@@ -1355,10 +1330,10 @@
         const p = landmarks[idx];
         if (p) {
           outputCtx.beginPath();
-          let radius = 5;
-          if (idx === throwIndexIdx) radius = 7.5;
-          else if (idx === throwWristIdx) radius = 6.5;
-          else if (idx === throwElbowIdx) radius = 6;
+          let radius = 4.5;
+          if (idx === throwIndexIdx) radius = 6.5;
+          else if (idx === throwWristIdx) radius = 5.5;
+          else if (idx === throwElbowIdx) radius = 5;
 
           outputCtx.arc(ox + p.x * bw, oy + p.y * bh, radius, 0, Math.PI * 2);
           
@@ -1376,7 +1351,7 @@
 
           outputCtx.fill();
           outputCtx.strokeStyle = "#ffffff";
-          outputCtx.lineWidth = 1.5;
+          outputCtx.lineWidth = 1.2;
           outputCtx.stroke();
         }
       });
@@ -1389,7 +1364,7 @@
         btnPlayPause.style.background = "linear-gradient(135deg, #3b82f6, #1d4ed8)";
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
       } else {
-        btnPlayPause.textContent = "一時停止 ⏸";
+        btnPlayPause.textContent = "停止 ⏸";
         btnPlayPause.style.background = "linear-gradient(135deg, #f59e0b, #d97706)";
         renderLoop();
       }
