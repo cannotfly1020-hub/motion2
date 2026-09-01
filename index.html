@@ -660,7 +660,7 @@
  border-radius: 16px;
  border: 3px solid #38bdf8;
  width: 100%;
- max-width: 500px;
+ max-width: 540px;
  max-height: 88dvh;
  display: flex;
  flex-direction: column;
@@ -727,19 +727,54 @@
  color: #fff;
  }
 
- .history-grid {
+ /* 統合カルテの2列レイアウト */
+ .history-unified-grid {
  display: grid;
- grid-template-columns: repeat(2, 1fr);
- gap: 3px;
- font-size: 0.68rem;
- font-weight: 800;
+ grid-template-columns: 1fr 1fr;
+ gap: 6px;
  }
 
- .history-grid div {
+ @media (max-width: 440px) {
+ .history-unified-grid {
+ grid-template-columns: 1fr;
+ }
+ }
+
+ .metric-section-block {
  background: #ffffff;
- padding: 2px 5px;
- border-radius: 5px;
- border: 1px solid #e2e8f0;
+ border: 1px solid #cbd5e1;
+ border-radius: 8px;
+ padding: 6px;
+ display: flex;
+ flex-direction: column;
+ gap: 3px;
+ }
+
+ .metric-section-title {
+ font-size: 0.68rem;
+ font-weight: 900;
+ color: #0284c7;
+ border-bottom: 1px solid #e2e8f0;
+ padding-bottom: 2px;
+ margin-bottom: 2px;
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ }
+
+ .metric-row-item {
+ font-size: 0.65rem;
+ font-weight: 800;
+ color: #334155;
+ display: flex;
+ justify-content: space-between;
+ line-height: 1.3;
+ border-bottom: 1px dashed #f1f5f9;
+ padding: 1px 0;
+ }
+
+ .metric-row-item b {
+ color: #ea580c;
  }
 
  /* 👦 選手ふりかえり・レポートエリア */
@@ -1031,11 +1066,11 @@
 
  </main>
 
- <!-- カルテ・履歴モーダル -->
+ <!-- カルテ・履歴モーダル（統合1枚化対応） -->
  <div class="modal-overlay" id="carte-modal">
  <div class="modal-card">
  <div class="modal-header">
- <span>📋 選手カルテ・測定履歴</span>
+ <span>📋 選手カルテ（同日まとめレポート）</span>
  <button id="btn-close-carte" style="background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; font-weight: 900;">✕</button>
  </div>
  <div style="padding: 6px 8px; background: #e0f2fe; display: flex; gap: 4px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
@@ -1713,11 +1748,13 @@
  function saveCurrentRecord() {
  const allRecords = getSavedRecords();
  const now = new Date();
- const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+ const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}`;
+ const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
 
  const newEntry = {
  id: Date.now(),
  date: dateStr,
+ time: timeStr,
  playerName: playerName,
  height: userHeightCm,
  throwArm: selectedThrowArm,
@@ -1770,53 +1807,59 @@
  document.getElementById('btn-open-carte-top').addEventListener('click', openCarteModal);
  btnCloseCarte.addEventListener('click', closeCarteModal);
 
- function deleteSingleRecord(id) {
- if (confirm("この1件の測定データを削除しますか？")) {
+ function deleteSingleDayGroup(key) {
+ if (confirm("この日の測定カルテを削除しますか？")) {
  let allRecords = getSavedRecords();
- allRecords = allRecords.filter(r => r.id !== id);
+ allRecords = allRecords.filter(r => `${r.playerName}_${r.date}` !== key);
  localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
  renderCarteList(false);
  }
  }
 
- /* LINE・メール・メッセージ送信機能（選手ふりかえり対応） */
- function shareRecordToLine(recordId) {
+ /* LINE・メール・メッセージ送信機能（統合データ対応） */
+ function shareRecordToLine(groupKey) {
  const allRecords = getSavedRecords();
- const r = allRecords.find(item => item.id === recordId);
- if (!r) return;
+ const groupRecords = allRecords.filter(r => `${r.playerName}_${r.date}` === groupKey);
+ if (groupRecords.length === 0) return;
 
- const isSide = (r.mode === 'SIDE');
+ const first = groupRecords[0];
+ const sideRec = groupRecords.find(r => r.mode === 'SIDE');
+ const frontRec = groupRecords.find(r => r.mode === 'FRONT');
 
  let text = `⚾ 【投球バイオメカニクス 選手レポート】 ⚾\n`;
- text += `👤 選手名: ${r.playerName} 選手 (${r.height}cm / ${r.throwArm === 'RIGHT' ? '右投げ' : '左投げ'})\n`;
- text += `📅 測定日: ${r.date} [${isSide ? '横向き' : '正面'}]\n\n`;
+ text += `👤 選手名: ${first.playerName} 選手 (${first.height}cm / ${first.throwArm === 'RIGHT' ? '右投げ' : '左投げ'})\n`;
+ text += `📅 測定日: ${first.date}\n\n`;
 
- text += `📊 【測定結果】\n`;
- if (isSide) {
- text += `・ステップ幅: ${r.metrics.stride}cm (${r.metrics.strideRatio}%身)\n`;
- text += `・腕のしなり(肩外旋): ${r.metrics.mer}°\n`;
- text += `・捻転差: ${r.metrics.twist}°\n`;
- text += `・リリース高: ${r.metrics.releaseH}cm\n`;
- text += `・前足ヒザ: FF時 屈曲 ${r.metrics.ffKneeFlex}° (リリース時: 屈曲 ${r.metrics.releaseKneeFlex}°)\n`;
- text += `・体幹前傾: ${r.metrics.trunkTilt}°\n`;
- } else {
- text += `・つま先の向き: ${r.metrics.toeAngle}°\n`;
- text += `・ヒザ内外反: ${r.metrics.valgus}°\n`;
- text += `・体幹の傾き: ${r.metrics.trunkLateral}°\n`;
- text += `・アームスロット: ${r.metrics.armSlot}°\n`;
- text += `・踏み出しズレ: ${r.metrics.inStep}cm\n`;
+ if (sideRec) {
+ text += `📊 【横向き測定データ】\n`;
+ text += `・ステップ幅: ${sideRec.metrics.stride}cm (${sideRec.metrics.strideRatio}%身)\n`;
+ text += `・腕のしなり(肩外旋): ${sideRec.metrics.mer}°\n`;
+ text += `・捻転差: ${sideRec.metrics.twist}°\n`;
+ text += `・リリース高: ${sideRec.metrics.releaseH}cm\n`;
+ text += `・前足ヒザ: FF時 屈曲 ${sideRec.metrics.ffKneeFlex}° (リリース時: 屈曲 ${sideRec.metrics.releaseKneeFlex}°)\n`;
+ text += `・体幹前傾: ${sideRec.metrics.trunkTilt}°\n\n`;
  }
 
- text += `\n👦 【せんしゅのふりかえり】\n`;
- text += `・なげた感覚: ${r.feelGrade || '😆 めっちゃ良かった！'}\n`;
- text += `・カラダの調子: ${r.bodyCondition || '🟢 どこも痛くない！元気！'}\n`;
- if (r.playerNote && r.playerNote.trim() !== '') {
- text += `・ひとこと: 「${r.playerNote.trim()}」\n`;
+ if (frontRec) {
+ text += `🎯 【正面測定データ】\n`;
+ text += `・つま先の向き: ${frontRec.metrics.toeAngle}°\n`;
+ text += `・ヒザ内外反: ${frontRec.metrics.valgus}°\n`;
+ text += `・体幹の傾き: ${frontRec.metrics.trunkLateral}°\n`;
+ text += `・アームスロット: ${frontRec.metrics.armSlot}°\n`;
+ text += `・踏み出しズレ: ${frontRec.metrics.inStep}cm\n`;
+ text += `・リリース横幅: ${frontRec.metrics.releaseLateral}cm\n\n`;
+ }
+
+ text += `👦 【せんしゅのふりかえり】\n`;
+ text += `・なげた感覚: ${first.feelGrade || '😆 めっちゃ良かった！'}\n`;
+ text += `・カラダの調子: ${first.bodyCondition || '🟢 どこも痛くない！元気！'}\n`;
+ if (first.playerNote && first.playerNote.trim() !== '') {
+ text += `・ひとこと: 「${first.playerNote.trim()}」\n`;
  }
 
  if (navigator.share) {
  navigator.share({
- title: `${r.playerName}選手の投球フォームレポート`,
+ title: `${first.playerName}選手の投球フォームレポート`,
  text: text
  }).catch(err => {
  if (err.name !== 'AbortError') console.log('Share error:', err);
@@ -1872,61 +1915,95 @@
  return;
  }
 
+ // 同一選手・同一日付でグループ化（1つに統合）
+ const groups = {};
  filtered.forEach(r => {
+ const key = `${r.playerName}_${r.date}`;
+ if (!groups[key]) groups[key] = [];
+ groups[key].push(r);
+ });
+
+ Object.keys(groups).forEach(key => {
+ const recs = groups[key];
+ const first = recs[0];
+ const sideRec = recs.find(r => r.mode === 'SIDE');
+ const frontRec = recs.find(r => r.mode === 'FRONT');
+
+ const curFeel = first.feelGrade || "😆 めっちゃ良かった！";
+ const curBody = first.bodyCondition || "🟢 どこも痛くない！元気！";
+
  const card = document.createElement('div');
  card.className = 'history-card';
- const isSide = (r.mode === 'SIDE');
-
- const curFeel = r.feelGrade || "😆 めっちゃ良かった！";
- const curBody = r.bodyCondition || "🟢 どこも痛くない！元気！";
 
  card.innerHTML = `
  <div class="history-card-head">
- <span>👤 ${r.playerName} (${r.height}cm・${r.throwArm === 'RIGHT' ? '右' : '左'})</span>
+ <span>👤 ${first.playerName} (${first.height}cm・${first.throwArm === 'RIGHT' ? '右' : '左'})</span>
  <div style="display:flex; align-items:center; gap:6px;">
- <span style="color:#64748b; font-size:0.65rem;">${r.date} [${isSide ? '横' : '正面'}]</span>
- <button class="btn-item-delete" data-id="${r.id}">🗑️</button>
+ <span style="color:#64748b; font-size:0.65rem;">📅 ${first.date}</span>
+ <button class="btn-item-delete" data-group="${key}">🗑️</button>
  </div>
  </div>
- <div class="history-grid">
- ${isSide ? `
- <div>🚶 歩幅: <b>${r.metrics.stride}cm (${r.metrics.strideRatio}%)</b></div>
- <div>💪 肩外旋: <b>${r.metrics.mer}°</b></div>
- <div>🔄 捻転差: <b>${r.metrics.twist}°</b></div>
- <div>⚾ リリース高: <b>${r.metrics.releaseH}cm</b></div>
- <div>🦵 前足ヒザ: <b>FF時 ${r.metrics.ffKneeFlex}° (BR: ${r.metrics.releaseKneeFlex}°)</b></div>
- <div>📐 前傾角: <b>${r.metrics.trunkTilt}°</b></div>
+
+ <div class="history-unified-grid">
+ <!-- 横向きデータブロック -->
+ <div class="metric-section-block">
+ <div class="metric-section-title">
+ <span>⚾ 横向き解析</span>
+ <span style="font-size:0.60rem; color:${sideRec ? '#10b981' : '#94a3b8'};">${sideRec ? '● 測定済' : '○ 未測定'}</span>
+ </div>
+ ${sideRec ? `
+ <div class="metric-row-item"><span>🚶 ステップ幅:</span><b>${sideRec.metrics.stride}cm (${sideRec.metrics.strideRatio}%)</b></div>
+ <div class="metric-row-item"><span>💪 腕のしなり:</span><b>${sideRec.metrics.mer}°</b></div>
+ <div class="metric-row-item"><span>🔄 捻転差:</span><b>${sideRec.metrics.twist}°</b></div>
+ <div class="metric-row-item"><span>⚾ リリース高:</span><b>${sideRec.metrics.releaseH}cm</b></div>
+ <div class="metric-row-item"><span>🦵 FF時ヒザ:</span><b>屈曲 ${sideRec.metrics.ffKneeFlex}°</b></div>
+ <div class="metric-row-item"><span>🦵 離球時ヒザ:</span><b>屈曲 ${sideRec.metrics.releaseKneeFlex}°</b></div>
+ <div class="metric-row-item"><span>📐 体幹前傾:</span><b>${sideRec.metrics.trunkTilt}°</b></div>
  ` : `
- <div>👟 つま先: <b>${r.metrics.toeAngle}°</b></div>
- <div>🦵 膝内外反: <b>${r.metrics.valgus}°</b></div>
- <div>📐 体幹側屈: <b>${r.metrics.trunkLateral}°</b></div>
- <div>💪 腕の高さ: <b>${r.metrics.armSlot}°</b></div>
- <div>🚶 踏出ズレ: <b>${r.metrics.inStep}cm</b></div>
- <div>⚾ リリース横: <b>${r.metrics.releaseLateral}cm</b></div>
+ <div style="text-align:center; padding: 10px 0; color:#94a3b8; font-size:0.65rem;">横向き動画の測定データなし</div>
  `}
+ </div>
+
+ <!-- 正面データブロック -->
+ <div class="metric-section-block">
+ <div class="metric-section-title">
+ <span>🎯 正面・斜め前解析</span>
+ <span style="font-size:0.60rem; color:${frontRec ? '#10b981' : '#94a3b8'};">${frontRec ? '● 測定済' : '○ 未測定'}</span>
+ </div>
+ ${frontRec ? `
+ <div class="metric-row-item"><span>👟 つま先向き:</span><b>${frontRec.metrics.toeAngle}°</b></div>
+ <div class="metric-row-item"><span>🦵 膝内外反:</span><b>${frontRec.metrics.valgus}°</b></div>
+ <div class="metric-row-item"><span>📐 体幹側屈:</span><b>${frontRec.metrics.trunkLateral}°</b></div>
+ <div class="metric-row-item"><span>💪 腕の高さ:</span><b>${frontRec.metrics.armSlot}°</b></div>
+ <div class="metric-row-item"><span>🚶 踏出ズレ:</span><b>${frontRec.metrics.inStep}cm</b></div>
+ <div class="metric-row-item"><span>⚾ リリース横:</span><b>${frontRec.metrics.releaseLateral}cm</b></div>
+ ` : `
+ <div style="text-align:center; padding: 10px 0; color:#94a3b8; font-size:0.65rem;">正面動画の測定データなし</div>
+ `}
+ </div>
  </div>
 
  <!-- 👦 選手ふりかえり＆監督への送信エリア -->
  <div class="player-reflection-box">
  <div class="reflection-sec-title">⚾ 今日のなげた感覚は？</div>
- <div class="chip-group" data-type="feel" data-id="${r.id}">
+ <div class="chip-group" data-type="feel" data-group="${key}">
  <div class="choice-chip ${curFeel.includes('良かった') ? 'active' : ''}" data-val="😆 めっちゃ良かった！">😆 良かった</div>
  <div class="choice-chip ${curFeel.includes('ふつう') ? 'active' : ''}" data-val="😊 ふつう・いつも通り">😊 いつも通り</div>
  <div class="choice-chip ${curFeel.includes('いまいち') || curFeel.includes('良くなかった') ? 'active' : ''}" data-val="😣 いまいち / タイミング合わず">😣 いまいち</div>
  </div>
 
  <div class="reflection-sec-title">💪 カラダの調子・違和感</div>
- <div class="chip-group" data-type="body" data-id="${r.id}">
+ <div class="chip-group" data-type="body" data-group="${key}">
  <div class="choice-chip ${curBody.includes('痛くない') ? 'active' : ''}" data-val="🟢 どこも痛くない！元気！">🟢 痛くない</div>
  <div class="choice-chip ${curBody.includes('重い') ? 'active' : ''}" data-val="🟡 ひじ・肩がちょっと重い">🟡 ちょっと重い</div>
  <div class="choice-chip ${curBody.includes('痛い') && !curBody.includes('痛くない') ? 'active' : ''}" data-val="🔴 ひじ・肩に違和感・痛みあり">🔴 違和感あり</div>
  </div>
 
  <div class="reflection-sec-title">📝 じぶんの気づき・監督へひとこと</div>
- <textarea class="player-textarea" data-id="${r.id}" placeholder="気づいたことや、次にやってみたいことを書いてね！">${r.playerNote || ''}</textarea>
+ <textarea class="player-textarea" data-group="${key}" placeholder="気づいたことや、次にやってみたいことを書いてね！">${first.playerNote || ''}</textarea>
 
- <button class="btn-share-line" data-id="${r.id}">
- <span>💬 📤 監督・コーチにLINE / メールで送る</span>
+ <button class="btn-share-line" data-group="${key}">
+ <span>💬 📤 今日の総合レポートを監督に送る</span>
  </button>
  </div>
  `;
@@ -1938,49 +2015,51 @@
  chip.addEventListener('click', (e) => {
  const parent = e.currentTarget.parentElement;
  const type = parent.getAttribute('data-type');
- const id = Number(parent.getAttribute('data-id'));
+ const groupKey = parent.getAttribute('data-group');
  const val = e.currentTarget.getAttribute('data-val');
 
  parent.querySelectorAll('.choice-chip').forEach(c => c.classList.remove('active'));
  e.currentTarget.classList.add('active');
 
  let allRecs = getSavedRecords();
- const target = allRecs.find(item => item.id === id);
- if (target) {
- if (type === 'feel') target.feelGrade = val;
- if (type === 'body') target.bodyCondition = val;
- localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
+ allRecs.forEach(item => {
+ if (`${item.playerName}_${item.date}` === groupKey) {
+ if (type === 'feel') item.feelGrade = val;
+ if (type === 'body') item.bodyCondition = val;
  }
+ });
+ localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
  });
  });
 
  // 選手コメントの自動保存
  carteHistoryList.querySelectorAll('.player-textarea').forEach(textarea => {
  textarea.addEventListener('input', (e) => {
- const id = Number(e.currentTarget.getAttribute('data-id'));
+ const groupKey = e.currentTarget.getAttribute('data-group');
  const textVal = e.currentTarget.value;
  let allRecs = getSavedRecords();
- const target = allRecs.find(item => item.id === id);
- if (target) {
- target.playerNote = textVal;
- localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
+ allRecs.forEach(item => {
+ if (`${item.playerName}_${item.date}` === groupKey) {
+ item.playerNote = textVal;
  }
+ });
+ localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
  });
  });
 
  // LINE / メール送信ボタン
  carteHistoryList.querySelectorAll('.btn-share-line').forEach(btn => {
  btn.addEventListener('click', (e) => {
- const id = Number(e.currentTarget.getAttribute('data-id'));
- shareRecordToLine(id);
+ const groupKey = e.currentTarget.getAttribute('data-group');
+ shareRecordToLine(groupKey);
  });
  });
 
  // 削除ボタン
  carteHistoryList.querySelectorAll('.btn-item-delete').forEach(btn => {
  btn.addEventListener('click', (e) => {
- const id = Number(e.currentTarget.getAttribute('data-id'));
- deleteSingleRecord(id);
+ const groupKey = e.currentTarget.getAttribute('data-group');
+ deleteSingleDayGroup(groupKey);
  });
  });
  }
@@ -2020,7 +2099,7 @@
  return;
  }
 
- let csvContent = "\uFEFF日時,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),FF時ヒザ屈曲(deg),リリース時ヒザ屈曲(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm),なげた感覚,カラダの調子,選手コメント\n";
+ let csvContent = "\uFEFF日付,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),FF時ヒザ屈曲(deg),リリース時ヒザ屈曲(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm),なげた感覚,カラダの調子,選手コメント\n";
 
  allRecords.forEach(r => {
  const isSide = (r.mode === 'SIDE');
