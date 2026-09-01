@@ -123,7 +123,7 @@
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 2px;
+      gap: 3px;
       width: 100%;
       height: 100%;
       justify-content: space-between;
@@ -133,6 +133,153 @@
       display: flex;
     }
 
+    /* --- STEP 1 TOP MENU STYLES --- */
+    .top-hero-box {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      border-radius: 12px;
+      padding: 6px 10px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 3px 0 #075985;
+      flex-shrink: 0;
+    }
+
+    .top-hero-title {
+      font-size: 0.88rem;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .top-hero-sub {
+      font-size: 0.64rem;
+      opacity: 0.9;
+      margin-top: 1px;
+    }
+
+    .top-mode-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      flex: 1;
+      justify-content: center;
+      max-width: 380px;
+      margin: 0 auto;
+    }
+
+    .mode-card {
+      background: #ffffff;
+      border: 2px solid #bae6fd;
+      border-radius: 12px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 3px 0 #cbd5e1;
+      transition: all 0.15s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mode-card:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #cbd5e1;
+    }
+
+    .mode-card-side {
+      border-color: #38bdf8;
+      background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    }
+
+    .mode-card-front {
+      border-color: #34d399;
+      background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    }
+
+    .mode-card-icon {
+      font-size: 1.6rem;
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .mode-card-side .mode-card-icon {
+      background: linear-gradient(135deg, #38bdf8, #0284c7);
+      color: #fff;
+    }
+
+    .mode-card-front .mode-card-icon {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+    }
+
+    .mode-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      flex: 1;
+      text-align: left;
+    }
+
+    .mode-card-title {
+      font-size: 0.85rem;
+      font-weight: 900;
+      color: #1e293b;
+    }
+
+    .mode-card-desc {
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: #64748b;
+      line-height: 1.15;
+    }
+
+    .top-tips-box {
+      background: #fefce8;
+      border: 1.5px dashed #facc15;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: #854d0e;
+      width: 100%;
+      text-align: center;
+      line-height: 1.2;
+      flex-shrink: 0;
+    }
+
+    .btn-carte-banner {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #ffffff;
+      border: 2px solid #ffffff;
+      padding: 7px 12px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 900;
+      width: 100%;
+      box-shadow: 0 2px 0 #b45309;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .btn-carte-banner:active {
+      transform: translateY(1px);
+      box-shadow: 0 1px 0 #b45309;
+    }
+
+    /* --- COMMON BUTTONS & WORKSPACE STYLES --- */
     .btn {
       background: linear-gradient(135deg, #38bdf8, #0284c7);
       color: #fff;
@@ -629,25 +776,43 @@
 
   <main class="app-container">
 
-    <!-- STEP 1: Angle Selection & Video Input -->
+    <!-- STEP 1: Angle Selection & Video Input (デザイン刷新版) -->
     <section id="view-step1" class="view-section active">
-      <div class="guidance-box">
-        🌟 <b>撮影した向きをえらんで、動画を選択してね！</b>
+      <div class="top-hero-box">
+        <div class="top-hero-title">🏟️ スタジアム分析モード</div>
+        <div class="top-hero-sub">解析したい向きを選んで動画を読み込んでね！</div>
       </div>
-      <div style="padding: 10px 0; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px;">
-        <label class="btn" id="label-side-video" style="padding: 14px 18px; font-size: 0.98rem; border-radius: 12px; background: linear-gradient(135deg, #38bdf8, #0284c7); box-shadow: 0 3px 0 #0369a1;">
-          ⚾ 横から撮った動画を選ぶ
+
+      <div class="top-mode-grid">
+        <!-- 横向きカード -->
+        <label class="mode-card mode-card-side" id="label-side-video">
+          <div class="mode-card-icon">⚾</div>
+          <div class="mode-card-info">
+            <div class="mode-card-title">横向き動画を解析</div>
+            <div class="mode-card-desc">歩幅・腕のしなり・捻転差・リリース高・ヒザの曲がり</div>
+          </div>
           <input type="file" id="video-input-side" accept="video/*" style="display: none;">
         </label>
-        <label class="btn" id="label-front-video" style="padding: 14px 18px; font-size: 0.98rem; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 3px 0 #047857;">
-          🎯 正面（斜め前）から撮った動画を選ぶ
+
+        <!-- 正面・斜め前カード -->
+        <label class="mode-card mode-card-front" id="label-front-video">
+          <div class="mode-card-icon">🎯</div>
+          <div class="mode-card-info">
+            <div class="mode-card-title">正面・斜め前動画を解析</div>
+            <div class="mode-card-desc">つま先の向き・ヒザの内外反・アームスロット・インステップ</div>
+          </div>
           <input type="file" id="video-input-front" accept="video/*" style="display: none;">
         </label>
-        <button class="btn btn-secondary" id="btn-open-carte-top" style="padding: 10px; font-size: 0.88rem;">
-          📋 保存した選手カルテを見る
-        </button>
       </div>
-      <div></div>
+
+      <div class="top-tips-box">
+        💡 <b>きれいに測るコツ:</b> 遠くから撮った動画は、写真アプリで投手の周りをトリミングしておくと精度がアップするよ！
+      </div>
+
+      <button class="btn-carte-banner" id="btn-open-carte-top">
+        <span>🏆</span>
+        <span>保存した選手カルテ・測定履歴を見る</span>
+      </button>
     </section>
 
     <!-- STEP 2: Stature Scan & Manual Fine-Tune -->
@@ -977,10 +1142,10 @@
         angleModeBadge.textContent = "正面・斜め前解析 🎯";
         angleModeBadge.style.background = "linear-gradient(135deg, #10b981, #059669)";
 
-        c1Title.textContent = isLeft ? "👟 前足つま先の向き (右足)" : "👟 前足つま先の向き (左足)";
-        c2Title.textContent = isLeft ? "🦵 前足ヒザの内外反 (右膝)" : "🦵 前足ヒザの内外反 (左膝)";
+        c1Title.textContent = "👟 前足つま先の向き";
+        c2Title.textContent = "🦵 前足ヒザの内外反";
         c3Title.textContent = "📐 上半身の傾き (体幹側屈)";
-        c4Title.textContent = isLeft ? "💪 アームスロット (左腕の高さ)" : "💪 アームスロット (右腕の高さ)";
+        c4Title.textContent = isLeft ? "💪 アームスロット (左腕)" : "💪 アームスロット (右腕)";
         c5Title.textContent = "🚶 踏み出しのズレ (イン/アウト)";
         c6Title.textContent = "⚾ リリース左右位置 (打点)";
       }
@@ -1572,7 +1737,6 @@
 
       const selectedFilter = playerSelectFilter.value;
 
-      // 削除ボタンの文言をフィルタに応じて切り替え
       if (selectedFilter === 'ALL') {
         btnDeleteAction.textContent = "⚠️ 全カルテ初期化";
       } else {
@@ -1620,7 +1784,6 @@
         carteHistoryList.appendChild(card);
       });
 
-      // 個別削除ボタンのイベントリスナー設定
       carteHistoryList.querySelectorAll('.btn-item-delete').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const id = Number(e.currentTarget.getAttribute('data-id'));
@@ -1631,7 +1794,6 @@
 
     playerSelectFilter.addEventListener('change', () => renderCarteList(false));
 
-    // 選手一括 / 全件削除のアクション
     btnDeleteAction.addEventListener('click', () => {
       const selectedFilter = playerSelectFilter.value;
       let allRecords = getSavedRecords();
@@ -1913,8 +2075,6 @@
         ======================================================== */
 
         if (selectedAngleMode === 'SIDE') {
-          // --- SIDE VIEW (横向き解析) ---
-
           // 1. Stride Width
           const strideCm = Math.round(currentStrideCm);
           if (!isNaN(strideCm) && strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
@@ -2004,7 +2164,7 @@
         } else {
           // --- FRONT VIEW (正面・斜め前解析) ---
 
-          // 1. Lead Toe Angle (着地時ロック機能付き)
+          // 1. Lead Toe Angle
           if (leadHeel && leadToe && leadAnkle) {
             if (!isStepping) {
               smoothToeDeg = 0;
@@ -2052,7 +2212,7 @@
             }
           }
 
-          // 2. Knee Valgus / Varus (前足ヒザの内外反角: べた足時ロック機能付き)
+          // 2. Knee Valgus / Varus
           if (leadHip && leadKnee && leadAnkle) {
             const thighAngle = Math.atan2(leadKnee.y - leadHip.y, leadKnee.x - leadHip.x);
             const shankAngle = Math.atan2(leadAnkle.y - leadKnee.y, leadAnkle.x - leadKnee.x);
@@ -2092,7 +2252,7 @@
             }
           }
 
-          // 3. Trunk Lateral Tilt (体幹側屈)
+          // 3. Trunk Lateral Tilt
           const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
           const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
           const lateralDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
@@ -2104,7 +2264,7 @@
             }
           }
 
-          // 4. Arm Slot (アームスロット)
+          // 4. Arm Slot
           const otherShoulder = isRightHanded ? L_SHOULDER : R_SHOULDER;
           const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, otherShoulder);
           if (!isNaN(armSlotAngle) && armSlotAngle >= 30 && armSlotAngle <= 180) {
@@ -2116,7 +2276,7 @@
             }
           }
 
-          // 5. In-Step / Out-Step (踏み出しのズレ)
+          // 5. In-Step / Out-Step
           if (leadHeel && pivotHeel) {
             if (!isStepping) {
               c5Val.textContent = `0 cm`;
@@ -2136,7 +2296,7 @@
             }
           }
 
-          // 6. Lateral Release Point (リリース左右位置)
+          // 6. Lateral Release Point
           const releaseTarget = (throwIndex && throwIndex.x) ? throwIndex : throwWrist;
           const lateralReleasePx = Math.abs((releaseTarget.x - midShoulder.x) * b.w);
           const lateralReleaseCm = Math.round(lateralReleasePx / activePxPerCm);
