@@ -742,29 +742,57 @@
  border: 1px solid #e2e8f0;
  }
 
- /* 監督コメント・共有エリア */
- .coach-comment-box {
- background: #fffbeb;
- border: 1.5px solid #fde68a;
+ /* 👦 選手ふりかえり・レポートエリア */
+ .player-reflection-box {
+ background: #f0fdf4;
+ border: 1.5px solid #86efac;
  border-radius: 8px;
  padding: 6px;
  display: flex;
  flex-direction: column;
- gap: 4px;
+ gap: 5px;
  }
 
- .coach-comment-title {
+ .reflection-sec-title {
  font-size: 0.70rem;
  font-weight: 900;
- color: #b45309;
+ color: #166534;
  display: flex;
  align-items: center;
  gap: 3px;
  }
 
- .coach-textarea {
+ .chip-group {
+ display: flex;
+ gap: 3px;
+ flex-wrap: wrap;
+ }
+
+ .choice-chip {
+ flex: 1;
+ min-width: 80px;
+ padding: 4px 3px;
+ border-radius: 6px;
+ border: 1.5px solid #cbd5e1;
+ background: #ffffff;
+ color: #334155;
+ font-size: 0.65rem;
+ font-weight: 900;
+ cursor: pointer;
+ text-align: center;
+ transition: all 0.15s;
+ }
+
+ .choice-chip.active {
+ border-color: #10b981;
+ background: #dcfce7;
+ color: #166534;
+ box-shadow: 0 1px 3px rgba(16, 185, 129, 0.25);
+ }
+
+ .player-textarea {
  width: 100%;
- height: 44px;
+ height: 42px;
  border-radius: 6px;
  border: 1.5px solid #cbd5e1;
  padding: 4px 6px;
@@ -777,9 +805,9 @@
  background: #ffffff;
  }
 
- .coach-textarea:focus {
+ .player-textarea:focus {
  outline: none;
- border-color: #f59e0b;
+ border-color: #10b981;
  }
 
  .btn-share-line {
@@ -1694,7 +1722,9 @@
  height: userHeightCm,
  throwArm: selectedThrowArm,
  mode: selectedAngleMode,
- coachComment: "",
+ feelGrade: "😆 めっちゃ良かった！",
+ bodyCondition: "🟢 どこも痛くない！元気！",
+ playerNote: "",
  metrics: selectedAngleMode === 'SIDE' ? {
  stride: records.maxStride,
  strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
@@ -1749,7 +1779,7 @@
  }
  }
 
- /* LINE・メール・メッセージ送信機能 */
+ /* LINE・メール・メッセージ送信機能（選手ふりかえり対応） */
  function shareRecordToLine(recordId) {
  const allRecords = getSavedRecords();
  const r = allRecords.find(item => item.id === recordId);
@@ -1757,7 +1787,7 @@
 
  const isSide = (r.mode === 'SIDE');
 
- let text = `⚾ 【投球バイオメカニクス レポート】 ⚾\n`;
+ let text = `⚾ 【投球バイオメカニクス 選手レポート】 ⚾\n`;
  text += `👤 選手名: ${r.playerName} 選手 (${r.height}cm / ${r.throwArm === 'RIGHT' ? '右投げ' : '左投げ'})\n`;
  text += `📅 測定日: ${r.date} [${isSide ? '横向き' : '正面'}]\n\n`;
 
@@ -1767,7 +1797,7 @@
  text += `・腕のしなり(肩外旋): ${r.metrics.mer}°\n`;
  text += `・捻転差: ${r.metrics.twist}°\n`;
  text += `・リリース高: ${r.metrics.releaseH}cm\n`;
- text += `・FF時ヒザ屈曲: ${r.metrics.ffKneeFlex}° (リリース時: 屈曲 ${r.metrics.releaseKneeFlex}°)\n`;
+ text += `・前足ヒザ: FF時 屈曲 ${r.metrics.ffKneeFlex}° (リリース時: 屈曲 ${r.metrics.releaseKneeFlex}°)\n`;
  text += `・体幹前傾: ${r.metrics.trunkTilt}°\n`;
  } else {
  text += `・つま先の向き: ${r.metrics.toeAngle}°\n`;
@@ -1777,8 +1807,11 @@
  text += `・踏み出しズレ: ${r.metrics.inStep}cm\n`;
  }
 
- if (r.coachComment && r.coachComment.trim() !== '') {
- text += `\n📝 【監督・コーチからのコメント】\n${r.coachComment.trim()}\n`;
+ text += `\n👦 【せんしゅのふりかえり】\n`;
+ text += `・なげた感覚: ${r.feelGrade || '😆 めっちゃ良かった！'}\n`;
+ text += `・カラダの調子: ${r.bodyCondition || '🟢 どこも痛くない！元気！'}\n`;
+ if (r.playerNote && r.playerNote.trim() !== '') {
+ text += `・ひとこと: 「${r.playerNote.trim()}」\n`;
  }
 
  if (navigator.share) {
@@ -1790,7 +1823,7 @@
  });
  } else {
  navigator.clipboard.writeText(text).then(() => {
- alert("📋 レポート文をクリップボードにコピーしました！LINEやメールに貼り付けて送信できます。");
+ alert("📋 レポート文をクリップボードにコピーしました！LINEやメールに貼り付けて監督に送れます。");
  }).catch(() => {
  alert(text);
  });
@@ -1844,6 +1877,9 @@
  card.className = 'history-card';
  const isSide = (r.mode === 'SIDE');
 
+ const curFeel = r.feelGrade || "😆 めっちゃ良かった！";
+ const curBody = r.bodyCondition || "🟢 どこも痛くない！元気！";
+
  card.innerHTML = `
  <div class="history-card-head">
  <span>👤 ${r.playerName} (${r.height}cm・${r.throwArm === 'RIGHT' ? '右' : '左'})</span>
@@ -1870,27 +1906,63 @@
  `}
  </div>
 
- <!-- 監督・コーチのコメント＆LINE送信エリア -->
- <div class="coach-comment-box">
- <div class="coach-comment-title">📝 監督・コーチからのコメント</div>
- <textarea class="coach-textarea" data-id="${r.id}" placeholder="選手へのアドバイスを入力（自動保存されます）">${r.coachComment || ''}</textarea>
+ <!-- 👦 選手ふりかえり＆監督への送信エリア -->
+ <div class="player-reflection-box">
+ <div class="reflection-sec-title">⚾ 今日のなげた感覚は？</div>
+ <div class="chip-group" data-type="feel" data-id="${r.id}">
+ <div class="choice-chip ${curFeel.includes('良かった') ? 'active' : ''}" data-val="😆 めっちゃ良かった！">😆 良かった</div>
+ <div class="choice-chip ${curFeel.includes('ふつう') ? 'active' : ''}" data-val="😊 ふつう・いつも通り">😊 いつも通り</div>
+ <div class="choice-chip ${curFeel.includes('いまいち') || curFeel.includes('良くなかった') ? 'active' : ''}" data-val="😣 いまいち / タイミング合わず">😣 いまいち</div>
+ </div>
+
+ <div class="reflection-sec-title">💪 カラダの調子・違和感</div>
+ <div class="chip-group" data-type="body" data-id="${r.id}">
+ <div class="choice-chip ${curBody.includes('痛くない') ? 'active' : ''}" data-val="🟢 どこも痛くない！元気！">🟢 痛くない</div>
+ <div class="choice-chip ${curBody.includes('重い') ? 'active' : ''}" data-val="🟡 ひじ・肩がちょっと重い">🟡 ちょっと重い</div>
+ <div class="choice-chip ${curBody.includes('痛い') && !curBody.includes('痛くない') ? 'active' : ''}" data-val="🔴 ひじ・肩に違和感・痛みあり">🔴 違和感あり</div>
+ </div>
+
+ <div class="reflection-sec-title">📝 じぶんの気づき・監督へひとこと</div>
+ <textarea class="player-textarea" data-id="${r.id}" placeholder="気づいたことや、次にやってみたいことを書いてね！">${r.playerNote || ''}</textarea>
+
  <button class="btn-share-line" data-id="${r.id}">
- <span>💬 📤 レポートをLINE / メールで送る</span>
+ <span>💬 📤 監督・コーチにLINE / メールで送る</span>
  </button>
  </div>
  `;
  carteHistoryList.appendChild(card);
  });
 
- // 監督コメントの自動保存
- carteHistoryList.querySelectorAll('.coach-textarea').forEach(textarea => {
+ // チップ選択イベント
+ carteHistoryList.querySelectorAll('.choice-chip').forEach(chip => {
+ chip.addEventListener('click', (e) => {
+ const parent = e.currentTarget.parentElement;
+ const type = parent.getAttribute('data-type');
+ const id = Number(parent.getAttribute('data-id'));
+ const val = e.currentTarget.getAttribute('data-val');
+
+ parent.querySelectorAll('.choice-chip').forEach(c => c.classList.remove('active'));
+ e.currentTarget.classList.add('active');
+
+ let allRecs = getSavedRecords();
+ const target = allRecs.find(item => item.id === id);
+ if (target) {
+ if (type === 'feel') target.feelGrade = val;
+ if (type === 'body') target.bodyCondition = val;
+ localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
+ }
+ });
+ });
+
+ // 選手コメントの自動保存
+ carteHistoryList.querySelectorAll('.player-textarea').forEach(textarea => {
  textarea.addEventListener('input', (e) => {
  const id = Number(e.currentTarget.getAttribute('data-id'));
  const textVal = e.currentTarget.value;
  let allRecs = getSavedRecords();
  const target = allRecs.find(item => item.id === id);
  if (target) {
- target.coachComment = textVal;
+ target.playerNote = textVal;
  localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
  }
  });
@@ -1948,11 +2020,11 @@
  return;
  }
 
- let csvContent = "\uFEFF日時,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),FF時ヒザ屈曲(deg),リリース時ヒザ屈曲(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm),監督コメント\n";
+ let csvContent = "\uFEFF日時,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),FF時ヒザ屈曲(deg),リリース時ヒザ屈曲(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm),なげた感覚,カラダの調子,選手コメント\n";
 
  allRecords.forEach(r => {
  const isSide = (r.mode === 'SIDE');
- const commentSafe = `"${(r.coachComment || '').replace(/"/g, '""')}"`;
+ const noteSafe = `"${(r.playerNote || '').replace(/"/g, '""')}"`;
  const row = [
  `"${r.date}"`,
  `"${r.playerName}"`,
@@ -1973,7 +2045,9 @@
  !isSide ? r.metrics.armSlot : "",
  !isSide ? r.metrics.inStep : "",
  !isSide ? r.metrics.releaseLateral : "",
- commentSafe
+ `"${r.feelGrade || '😆 良かった'}"`,
+ `"${r.bodyCondition || '🟢 痛くない'}"`,
+ noteSafe
  ];
  csvContent += row.join(",") + "\n";
  });
@@ -2195,7 +2269,6 @@
  const currentLeadToeY = leadToe.y;
  if (prevLeadToeY !== null) {
  const toeVel = (currentLeadToeY - prevLeadToeY);
- // 踵だけでなくつま先も地面について静止した瞬間（FF: べた足・最大荷重）
  if (Math.abs(toeVel) < 0.003 && currentLeadToeY >= (pivotHeel.y - 0.05)) {
  leadFootFlatStationaryCount++;
  if (leadFootFlatStationaryCount === 2) {
@@ -2284,7 +2357,7 @@
  c4Val.textContent = `${releaseHeightCm} cm`;
  if (releaseHeightCm > records.maxRelease) {
  records.maxRelease = releaseHeightCm;
- records.releaseKneeFlex = flexAngle; // 最高リリース時のヒザ屈曲角を記録
+ records.releaseKneeFlex = flexAngle;
  c4Max.textContent = `最高: ${releaseHeightCm} cm`;
  }
  }
