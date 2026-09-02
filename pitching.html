@@ -1,2987 +1,2858 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head><link rel="manifest" href="manifest.json">
- <meta name="theme-color" content="#38bdf8">
- <link rel="apple-touch-icon" href="icon-192.png">
- <meta charset="UTF-8">
- <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
- <title>投球AIバイオメカニクス</title>
- 
-<!-- MediaPipe CDN -->
- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
- <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-
- <style>
- :root {
- --primary: #ff5e36;
- --primary-hover: #e04822;
- --accent: #00d2ff;
- --accent-yellow: #ffe600;
- --bg: #e0f2fe;
- --surface: #ffffff;
- --surface-light: #f0fdf4;
- --text: #1e293b;
- --text-muted: #64748b;
- --border-color: #cbd5e1;
- --card-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
- --radius: 14px;
- }
-
- * {
- box-sizing: border-box;
- margin: 0;
- padding: 0;
- user-select: none;
- -webkit-user-select: none;
- }
-
- body {
- font-family: "Hiragino Maru Gothic ProN", "Yu Gothic Rounded", "M PLUS Rounded 1c", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
- background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 50%, #f0fdf4 100%);
- color: var(--text);
- height: 100dvh;
- max-height: 100dvh;
- display: flex;
- flex-direction: column;
- align-items: center;
- padding: 2px 4px calc(2px + env(safe-area-inset-bottom, 0px)) 4px;
- overflow: hidden;
- justify-content: flex-start;
- }
-
- header {
- width: 100%;
- max-width: 1200px;
- text-align: center;
- margin-bottom: 2px;
- flex-shrink: 0;
- }
-
- h1 {
- font-size: 0.92rem;
- font-weight: 900;
- color: #0369a1;
- display: flex;
- align-items: center;
- justify-content: center;
- gap: 4px;
- text-shadow: 0 1px 0 #ffffff;
- line-height: 1.1;
- }
-
- .steps-nav {
- display: flex;
- justify-content: center;
- gap: 4px;
- margin-top: 2px;
- width: 100%;
- max-width: 480px;
- margin-inline: auto;
- }
-
- .step-pill {
- flex: 1;
- text-align: center;
- padding: 2px 2px;
- font-size: 0.65rem;
- font-weight: 900;
- border-radius: 9999px;
- background: #ffffff;
- color: #64748b;
- border: 1.5px solid #cbd5e1;
- box-shadow: 0 1px 0 #94a3b8;
- transition: all 0.2s ease;
- }
-
- .step-pill.active {
- background: linear-gradient(135deg, #ff9f43, #ff5252);
- color: #ffffff;
- border-color: #fff;
- box-shadow: 0 2px 0 #c0392b;
- transform: translateY(-1px);
- }
-
- .app-container {
- width: 100%;
- max-width: 1200px;
- background: rgba(255, 255, 255, 0.92);
- backdrop-filter: blur(8px);
- border-radius: var(--radius);
- border: 2px solid #38bdf8;
- box-shadow: 0 4px 12px rgba(14, 165, 233, 0.18);
- padding: 6px;
- display: flex;
- flex-direction: column;
- gap: 2px;
- flex: 1;
- min-height: 0;
- overflow: hidden;
- position: relative;
- }
-
- .view-section {
- display: none;
- flex-direction: column;
- align-items: center;
- gap: 6px;
- width: 100%;
- height: 100%;
- justify-content: space-between;
- }
-
- .view-section.active {
- display: flex;
- }
-
- /* --- STEP 1 TOP MENU STYLES --- */
- .top-mode-grid {
- display: flex;
- flex-direction: column;
- gap: 8px;
- width: 100%;
- flex: 1;
- justify-content: stretch;
- max-width: 480px;
- margin: 0 auto;
- }
-
- .mode-card {
- background: #ffffff;
- border-radius: 14px;
- padding: 12px 14px;
- display: flex;
- align-items: center;
- gap: 12px;
- cursor: pointer;
- box-shadow: 0 4px 0 #cbd5e1;
- transition: all 0.15s ease;
- position: relative;
- overflow: hidden;
- flex: 1;
- }
-
- .mode-card:active {
- transform: translateY(2px);
- box-shadow: 0 1px 0 #cbd5e1;
- }
-
- .mode-card-side {
- border: 2.5px solid #38bdf8;
- background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
- }
-
- .mode-card-front {
- border: 2.5px solid #34d399;
- background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
- }
-
- .mode-card-icon {
- font-size: 2.2rem;
- width: 58px;
- height: 58px;
- display: flex;
- align-items: center;
- justify-content: center;
- border-radius: 12px;
- flex-shrink: 0;
- box-shadow: 0 3px 6px rgba(0,0,0,0.12);
- }
-
- .mode-card-side .mode-card-icon {
- background: linear-gradient(135deg, #38bdf8, #0284c7);
- color: #fff;
- }
-
- .mode-card-front .mode-card-icon {
- background: linear-gradient(135deg, #10b981, #059669);
- color: #fff;
- }
-
- .mode-card-info {
- display: flex;
- flex-direction: column;
- gap: 3px;
- flex: 1;
- text-align: left;
- }
-
- .mode-card-title {
- font-size: 1.05rem;
- font-weight: 900;
- color: #0f172a;
- }
-
- .mode-card-desc {
- font-size: 0.72rem;
- font-weight: 800;
- color: #64748b;
- line-height: 1.25;
- }
-
- .top-tips-box {
- background: #fefce8;
- border: 1.5px dashed #facc15;
- border-radius: 8px;
- padding: 4px 8px;
- font-size: 0.65rem;
- font-weight: 800;
- color: #854d0e;
- width: 100%;
- text-align: center;
- line-height: 1.2;
- flex-shrink: 0;
- }
-
- .btn-carte-banner {
- background: linear-gradient(135deg, #f59e0b, #d97706);
- color: #ffffff;
- border: 2px solid #ffffff;
- padding: 12px 14px;
- border-radius: 12px;
- font-size: 0.92rem;
- font-weight: 900;
- width: 100%;
- max-width: 480px;
- box-shadow: 0 3px 0 #b45309;
- cursor: pointer;
- display: flex;
- align-items: center;
- justify-content: center;
- gap: 6px;
- flex-shrink: 0;
- margin: 0 auto;
- }
-
- .btn-carte-banner:active {
- transform: translateY(2px);
- box-shadow: 0 1px 0 #b45309;
- }
-
- /* --- COMMON BUTTONS & WORKSPACE STYLES --- */
- .btn {
- background: linear-gradient(135deg, #38bdf8, #0284c7);
- color: #fff;
- border: 2px solid #fff;
- padding: 8px 14px;
- border-radius: 10px;
- font-size: 0.88rem;
- font-weight: 900;
- cursor: pointer;
- display: inline-flex;
- align-items: center;
- justify-content: center;
- gap: 4px;
- box-shadow: 0 2px 0 #0369a1;
- transition: all 0.15s ease;
- touch-action: manipulation;
- }
-
- .btn:active {
- transform: translateY(1px);
- box-shadow: 0 1px 0 #0369a1;
- }
-
- .btn-secondary {
- background: linear-gradient(135deg, #94a3b8, #64748b);
- color: #ffffff;
- box-shadow: 0 2px 0 #475569;
- }
-
- .btn-danger {
- background: linear-gradient(135deg, #f43f5e, #e11d48);
- color: #ffffff;
- box-shadow: 0 2px 0 #be123c;
- }
-
- .btn-scan {
- background: linear-gradient(135deg, #10b981, #059669);
- font-size: 0.85rem;
- padding: 6px 10px;
- box-shadow: 0 2px 0 #047857;
- flex: 1.4;
- }
-
- .btn-action-next {
- background: linear-gradient(135deg, #f59e0b, #d97706);
- font-size: 0.92rem;
- padding: 8px 14px;
- width: 100%;
- box-shadow: 0 2px 0 #b45309;
- }
-
- .btn-group {
- display: flex;
- gap: 4px;
- flex-wrap: nowrap;
- justify-content: center;
- width: 100%;
- flex-shrink: 0;
- }
-
- .screen-wrapper {
- position: relative;
- width: 100%;
- background: #0f172a;
- border-radius: 10px;
- overflow: hidden;
- display: flex;
- align-items: center;
- justify-content: center;
- flex: 1;
- min-height: 120px;
- touch-action: none;
- border: 2px solid #7dd3fc;
- box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
- }
-
- video {
- position: fixed;
- top: -9999px;
- left: -9999px;
- width: 1px;
- height: 1px;
- opacity: 0.001;
- pointer-events: none;
- }
-
- canvas {
- width: 100%;
- height: 100%;
- display: block;
- touch-action: none;
- }
-
- .zoom-badge {
- position: absolute;
- top: 4px;
- left: 4px;
- background: rgba(255, 255, 255, 0.92);
- border: 1.5px solid #0284c7;
- color: #0284c7;
- font-size: 0.62rem;
- font-weight: 900;
- padding: 1px 6px;
- border-radius: 9999px;
- pointer-events: none;
- z-index: 10;
- box-shadow: 0 1px 3px rgba(0,0,0,0.15);
- }
-
- .angle-mode-badge {
- position: absolute;
- top: 4px;
- right: 4px;
- background: linear-gradient(135deg, #10b981, #059669);
- border: 1.5px solid #ffffff;
- color: #ffffff;
- font-size: 0.62rem;
- font-weight: 900;
- padding: 1px 6px;
- border-radius: 9999px;
- pointer-events: none;
- z-index: 10;
- box-shadow: 0 1px 3px rgba(0,0,0,0.2);
- }
-
- .player-tag-badge {
- position: absolute;
- bottom: 4px;
- left: 4px;
- background: rgba(15, 23, 42, 0.85);
- border: 1px solid #38bdf8;
- color: #facc15;
- font-size: 0.62rem;
- font-weight: 900;
- padding: 1px 6px;
- border-radius: 6px;
- pointer-events: none;
- z-index: 10;
- }
-
- .guidance-box {
- background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%);
- border: 1.5px solid #38bdf8;
- border-radius: 10px;
- padding: 4px 8px;
- font-size: 0.72rem;
- font-weight: 800;
- text-align: center;
- width: 100%;
- color: #0369a1;
- line-height: 1.25;
- box-shadow: 0 1px 3px rgba(56, 189, 248, 0.15);
- flex-shrink: 0;
- }
-
- .input-group {
- display: flex;
- flex-direction: column;
- align-items: center;
- gap: 3px;
- width: 100%;
- max-width: 300px;
- }
-
- .input-field {
- width: 100%;
- padding: 6px;
- border-radius: 10px;
- border: 2px solid #38bdf8;
- background: #ffffff;
- color: #0284c7;
- font-size: 1.05rem;
- text-align: center;
- font-weight: 900;
- box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
- }
-
- .toggle-group {
- display: flex;
- width: 100%;
- background: #e2e8f0;
- border-radius: 10px;
- border: 1.5px solid #cbd5e1;
- padding: 2px;
- gap: 3px;
- }
-
- .toggle-btn {
- flex: 1;
- padding: 6px;
- border-radius: 8px;
- border: none;
- background: transparent;
- color: #64748b;
- font-size: 0.85rem;
- font-weight: 900;
- cursor: pointer;
- transition: all 0.2s ease;
- }
-
- .toggle-btn.active {
- background: linear-gradient(135deg, #ff9f43, #ff5252);
- color: #ffffff;
- box-shadow: 0 2px 4px rgba(255, 82, 82, 0.3);
- }
-
- .dashboard {
- display: grid;
- grid-template-columns: repeat(2, 1fr);
- gap: 3px;
- width: 100%;
- flex-shrink: 0;
- }
-
- @media (min-width: 768px) {
- .dashboard {
- grid-template-columns: repeat(3, 1fr);
- }
- }
-
- .card {
- background: #ffffff;
- border: 1.5px solid #bae6fd;
- border-radius: 8px;
- padding: 2px 5px;
- display: flex;
- flex-direction: column;
- gap: 1px;
- box-shadow: 0 2px 0 #e2e8f0;
- position: relative;
- }
-
- .card-title {
- font-size: 0.60rem;
- font-weight: 900;
- color: #0369a1;
- display: flex;
- align-items: center;
- gap: 2px;
- white-space: nowrap;
- line-height: 1.1;
- }
-
- .card-val {
- font-size: 0.95rem;
- font-weight: 900;
- color: #ea580c;
- font-variant-numeric: tabular-nums;
- line-height: 1.0;
- text-shadow: 0 1px 0 rgba(255,255,255,0.8);
- }
-
- .card-max {
- font-size: 0.55rem;
- color: #0284c7;
- font-weight: 800;
- font-variant-numeric: tabular-nums;
- white-space: nowrap;
- background: #f0f9ff;
- border-radius: 3px;
- padding: 0.5px 2px;
- line-height: 1.1;
- }
-
- .controls-container {
- display: flex;
- flex-direction: column;
- gap: 3px;
- width: 100%;
- z-index: 15;
- flex-shrink: 0;
- }
-
- .seek-container {
- display: flex;
- align-items: center;
- gap: 4px;
- width: 100%;
- background: #ffffff;
- padding: 2px 6px;
- border-radius: 8px;
- border: 1.5px solid #bae6fd;
- box-shadow: 0 1px 0 #e2e8f0;
- }
-
- .seek-bar {
- flex: 1;
- height: 14px;
- cursor: pointer;
- accent-color: #ff5e36;
- }
-
- .time-disp {
- font-size: 0.68rem;
- font-family: ui-monospace, monospace;
- color: #0369a1;
- font-weight: 900;
- min-width: 66px;
- text-align: right;
- }
-
- .playback-rows {
- display: flex;
- flex-direction: column;
- gap: 3px;
- width: 100%;
- }
-
- .btn-row {
- display: flex;
- justify-content: center;
- align-items: center;
- gap: 4px;
- width: 100%;
- }
-
- .btn-ctrl {
- background: #ffffff;
- border: 1.5px solid #cbd5e1;
- color: #334155;
- padding: 6px 3px;
- border-radius: 8px;
- font-size: 0.72rem;
- font-weight: 900;
- cursor: pointer;
- box-shadow: 0 1.5px 0 #94a3b8;
- touch-action: manipulation;
- flex: 1;
- min-width: 0;
- text-align: center;
- white-space: nowrap;
- transition: all 0.1s;
- }
-
- .btn-ctrl:active {
- transform: translateY(1px);
- box-shadow: 0 0 0 #94a3b8;
- background: #f1f5f9;
- }
-
- .btn-fc-trigger {
- background: linear-gradient(135deg, #10b981, #059669);
- color: #ffffff;
- border-color: #ffffff;
- box-shadow: 0 1.5px 0 #047857;
- flex: 1.25;
- }
-
- .btn-save-trigger {
- background: linear-gradient(135deg, #f59e0b, #d97706);
- color: #ffffff;
- border-color: #ffffff;
- box-shadow: 0 1.5px 0 #b45309;
- }
-
- .loading-overlay {
- position: absolute;
- inset: 0;
- background: rgba(255, 255, 255, 0.9);
- display: flex;
- flex-direction: column;
- align-items: center;
- justify-content: center;
- gap: 4px;
- z-index: 30;
- pointer-events: none;
- }
-
- .spinner {
- width: 28px;
- height: 28px;
- border: 3.5px solid #e0f2fe;
- border-top-color: #ff5e36;
- border-right-color: #ffe600;
- border-radius: 50%;
- animation: spin 0.8s linear infinite;
- }
-
- @keyframes spin {
- to { transform: rotate(360deg); }
- }
-
- /* カルテモーダル（統合1枚化対応） */
- .modal-overlay {
- position: fixed;
- inset: 0;
- background: rgba(15, 23, 42, 0.6);
- backdrop-filter: blur(4px);
- display: none;
- align-items: center;
- justify-content: center;
- z-index: 100;
- padding: 8px;
- }
-
- .modal-card {
- background: #ffffff;
- border-radius: 16px;
- border: 3px solid #38bdf8;
- width: 100%;
- max-width: 540px;
- max-height: 88dvh;
- display: flex;
- flex-direction: column;
- box-shadow: 0 10px 25px rgba(0,0,0,0.25);
- overflow: hidden;
- }
-
- .modal-header {
- background: linear-gradient(135deg, #0284c7, #0369a1);
- color: #ffffff;
- padding: 8px 12px;
- font-weight: 900;
- font-size: 0.92rem;
- display: flex;
- justify-content: space-between;
- align-items: center;
- }
-
- .modal-body {
- padding: 8px;
- overflow-y: auto;
- flex: 1;
- display: flex;
- flex-direction: column;
- gap: 8px;
- }
-
- .history-card {
- background: #f8fafc;
- border: 1.5px solid #cbd5e1;
- border-radius: 10px;
- padding: 8px;
- display: flex;
- flex-direction: column;
- gap: 6px;
- position: relative;
- }
-
- .history-card-head {
- display: flex;
- justify-content: space-between;
- align-items: center;
- font-weight: 900;
- font-size: 0.78rem;
- color: #0369a1;
- border-bottom: 1px dashed #cbd5e1;
- padding-bottom: 4px;
- }
-
- .btn-item-delete {
- background: #fee2e2;
- border: 1px solid #f87171;
- color: #ef4444;
- border-radius: 6px;
- padding: 2px 6px;
- font-size: 0.65rem;
- font-weight: 900;
- cursor: pointer;
- line-height: 1;
- }
-
- .btn-item-delete:active {
- background: #ef4444;
- color: #fff;
- }
-
- /* 統合カルテの2列レイアウト */
- .history-unified-grid {
- display: grid;
- grid-template-columns: 1fr 1fr;
- gap: 6px;
- }
-
- @media (max-width: 440px) {
- .history-unified-grid {
- grid-template-columns: 1fr;
- }
- }
-
- .metric-section-block {
- background: #ffffff;
- border: 1px solid #cbd5e1;
- border-radius: 8px;
- padding: 6px;
- display: flex;
- flex-direction: column;
- gap: 3px;
- }
-
- .metric-section-title {
- font-size: 0.68rem;
- font-weight: 900;
- color: #0284c7;
- border-bottom: 1px solid #e2e8f0;
- padding-bottom: 2px;
- margin-bottom: 2px;
- display: flex;
- align-items: center;
- justify-content: space-between;
- }
-
- .metric-row-item {
- font-size: 0.65rem;
- font-weight: 800;
- color: #334155;
- display: flex;
- justify-content: space-between;
- line-height: 1.3;
- border-bottom: 1px dashed #f1f5f9;
- padding: 1px 0;
- }
-
- .metric-row-item b {
- color: #ea580c;
- }
-
- /* 🤖 AIコーチ診断レポートエリア */
- .ai-coach-report-box {
- background: linear-gradient(135deg, #fefce8 0%, #fffbeb 100%);
- border: 1.5px solid #facc15;
- border-radius: 8px;
- padding: 6px 8px;
- display: flex;
- flex-direction: column;
- gap: 4px;
- font-size: 0.68rem;
- line-height: 1.35;
- }
-
- .ai-coach-title {
- font-size: 0.74rem;
- font-weight: 900;
- color: #854d0e;
- display: flex;
- align-items: center;
- justify-content: space-between;
- border-bottom: 1px dashed #fde047;
- padding-bottom: 2px;
- }
-
- .ai-praise-block {
- background: #ffffff;
- border: 1px solid #fef08a;
- border-radius: 6px;
- padding: 4px 6px;
- color: #15803d;
- font-weight: 800;
- }
-
- .ai-training-block {
- background: #ffffff;
- border: 1px solid #bfdbfe;
- border-radius: 6px;
- padding: 4px 6px;
- color: #1e40af;
- font-weight: 800;
- }
-
- /* 👦 選手ふりかえり・レポートエリア */
- .player-reflection-box {
- background: #f0fdf4;
- border: 1.5px solid #86efac;
- border-radius: 8px;
- padding: 6px;
- display: flex;
- flex-direction: column;
- gap: 5px;
- }
-
- .reflection-sec-title {
- font-size: 0.70rem;
- font-weight: 900;
- color: #166534;
- display: flex;
- align-items: center;
- gap: 3px;
- }
-
- .chip-group {
- display: flex;
- gap: 3px;
- flex-wrap: wrap;
- }
-
- .choice-chip {
- flex: 1;
- min-width: 80px;
- padding: 4px 3px;
- border-radius: 6px;
- border: 1.5px solid #cbd5e1;
- background: #ffffff;
- color: #334155;
- font-size: 0.65rem;
- font-weight: 900;
- cursor: pointer;
- text-align: center;
- transition: all 0.15s;
- }
-
- .choice-chip.active {
- border-color: #10b981;
- background: #dcfce7;
- color: #166534;
- box-shadow: 0 1px 3px rgba(16, 185, 129, 0.25);
- }
-
- .player-textarea {
- width: 100%;
- height: 42px;
- border-radius: 6px;
- border: 1.5px solid #cbd5e1;
- padding: 4px 6px;
- font-size: 0.72rem;
- font-weight: 800;
- color: #334155;
- font-family: inherit;
- resize: none;
- box-sizing: border-box;
- background: #ffffff;
- }
-
- .player-textarea:focus {
- outline: none;
- border-color: #10b981;
- }
-
- .btn-share-line {
- background: linear-gradient(135deg, #06c755, #05a044);
- color: #ffffff;
- border: 1px solid #ffffff;
- padding: 6px 10px;
- border-radius: 8px;
- font-size: 0.72rem;
- font-weight: 900;
- cursor: pointer;
- display: flex;
- align-items: center;
- justify-content: center;
- gap: 4px;
- box-shadow: 0 1.5px 0 #047835;
- width: 100%;
- }
-
- .btn-share-line:active {
- transform: translateY(1px);
- box-shadow: 0 0.5px 0 #047835;
- }
- </style>
+<head>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#38bdf8">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>投球AIバイオメカニクス</title>
+  
+  <!-- MediaPipe CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --primary: #ff5e36;
+      --primary-hover: #e04822;
+      --accent: #00d2ff;
+      --accent-yellow: #ffe600;
+      --bg: #e0f2fe;
+      --surface: #ffffff;
+      --surface-light: #f0fdf4;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #cbd5e1;
+      --card-bg: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      --radius: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      font-family: "Hiragino Maru Gothic ProN", "Yu Gothic Rounded", "M PLUS Rounded 1c", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 50%, #f0fdf4 100%);
+      color: var(--text);
+      height: 100dvh;
+      max-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2px 4px calc(2px + env(safe-area-inset-bottom, 0px)) 4px;
+      overflow: hidden;
+      justify-content: flex-start;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1200px;
+      text-align: center;
+      margin-bottom: 2px;
+      flex-shrink: 0;
+    }
+
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .btn-nav-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1.5px solid #0284c7;
+      color: #0284c7;
+      font-size: 0.65rem;
+      font-weight: 900;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      text-decoration: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+      flex-shrink: 0;
+    }
+
+    .btn-nav-home:active {
+      transform: scale(0.95);
+      background: #e0f2fe;
+    }
+
+    h1 {
+      font-size: 0.88rem;
+      font-weight: 900;
+      color: #0369a1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      text-shadow: 0 1px 0 #ffffff;
+      line-height: 1.1;
+      flex: 1;
+    }
+
+    .steps-nav {
+      display: flex;
+      justify-content: center;
+      gap: 4px;
+      margin-top: 2px;
+      width: 100%;
+      max-width: 480px;
+      margin-inline: auto;
+    }
+
+    .step-pill {
+      flex: 1;
+      text-align: center;
+      padding: 2px 2px;
+      font-size: 0.65rem;
+      font-weight: 900;
+      border-radius: 9999px;
+      background: #ffffff;
+      color: #64748b;
+      border: 1.5px solid #cbd5e1;
+      box-shadow: 0 1px 0 #94a3b8;
+      transition: all 0.2s ease;
+    }
+
+    .step-pill.active {
+      background: linear-gradient(135deg, #ff9f43, #ff5252);
+      color: #ffffff;
+      border-color: #fff;
+      box-shadow: 0 2px 0 #c0392b;
+      transform: translateY(-1px);
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 1200px;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
+      border-radius: var(--radius);
+      border: 2px solid #38bdf8;
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.18);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .view-section {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      height: 100%;
+      justify-content: space-between;
+    }
+
+    .view-section.active {
+      display: flex;
+    }
+
+    /* STEP 1 MENU STYLES */
+    .top-mode-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      flex: 1;
+      justify-content: stretch;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .mode-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #cbd5e1;
+      transition: all 0.15s ease;
+      position: relative;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .mode-card:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #cbd5e1;
+    }
+
+    .mode-card-side {
+      border: 2.5px solid #38bdf8;
+      background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    }
+
+    .mode-card-front {
+      border: 2.5px solid #34d399;
+      background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    }
+
+    .mode-card-icon {
+      font-size: 2.2rem;
+      width: 58px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      flex-shrink: 0;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.12);
+    }
+
+    .mode-card-side .mode-card-icon {
+      background: linear-gradient(135deg, #38bdf8, #0284c7);
+      color: #fff;
+    }
+
+    .mode-card-front .mode-card-icon {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+    }
+
+    .mode-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      text-align: left;
+    }
+
+    .mode-card-title {
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+    .mode-card-desc {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #64748b;
+      line-height: 1.25;
+    }
+
+    .top-tips-box {
+      background: #fefce8;
+      border: 1.5px dashed #facc15;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #854d0e;
+      width: 100%;
+      text-align: center;
+      line-height: 1.2;
+      flex-shrink: 0;
+    }
+
+    .btn-carte-banner {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #ffffff;
+      border: 2px solid #ffffff;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 900;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 3px 0 #b45309;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-shrink: 0;
+      margin: 0 auto;
+    }
+
+    .btn-carte-banner:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #b45309;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #38bdf8, #0284c7);
+      color: #fff;
+      border: 2px solid #fff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: 0 2px 0 #0369a1;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 1px 0 #0369a1;
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #94a3b8, #64748b);
+      color: #ffffff;
+      box-shadow: 0 2px 0 #475569;
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #f43f5e, #e11d48);
+      color: #ffffff;
+      box-shadow: 0 2px 0 #be123c;
+    }
+
+    .btn-scan {
+      background: linear-gradient(135deg, #10b981, #059669);
+      font-size: 0.85rem;
+      padding: 6px 10px;
+      box-shadow: 0 2px 0 #047857;
+      flex: 1.4;
+    }
+
+    .btn-action-next {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      font-size: 0.92rem;
+      padding: 8px 14px;
+      width: 100%;
+      box-shadow: 0 2px 0 #b45309;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 4px;
+      flex-wrap: nowrap;
+      justify-content: center;
+      width: 100%;
+      flex-shrink: 0;
+    }
+
+    .screen-wrapper {
+      position: relative;
+      width: 100%;
+      background: #0f172a;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      min-height: 120px;
+      touch-action: none;
+      border: 2px solid #7dd3fc;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
+    }
+
+    video {
+      position: fixed;
+      top: -9999px;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0.001;
+      pointer-events: none;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    .zoom-badge {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1.5px solid #0284c7;
+      color: #0284c7;
+      font-size: 0.62rem;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+
+    .angle-mode-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border: 1.5px solid #ffffff;
+      color: #ffffff;
+      font-size: 0.62rem;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .player-tag-badge {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid #38bdf8;
+      color: #facc15;
+      font-size: 0.62rem;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 6px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .guidance-box {
+      background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%);
+      border: 1.5px solid #38bdf8;
+      border-radius: 10px;
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-align: center;
+      width: 100%;
+      color: #0369a1;
+      line-height: 1.25;
+      box-shadow: 0 1px 3px rgba(56, 189, 248, 0.15);
+      flex-shrink: 0;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 6px;
+      border-radius: 10px;
+      border: 2px solid #38bdf8;
+      background: #ffffff;
+      color: #0284c7;
+      font-size: 1.05rem;
+      text-align: center;
+      font-weight: 900;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .toggle-group {
+      display: flex;
+      width: 100%;
+      background: #e2e8f0;
+      border-radius: 10px;
+      border: 1.5px solid #cbd5e1;
+      padding: 2px;
+      gap: 3px;
+    }
+
+    .toggle-btn {
+      flex: 1;
+      padding: 6px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: #64748b;
+      font-size: 0.85rem;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-btn.active {
+      background: linear-gradient(135deg, #ff9f43, #ff5252);
+      color: #ffffff;
+      box-shadow: 0 2px 4px rgba(255, 82, 82, 0.3);
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 3px;
+      width: 100%;
+      flex-shrink: 0;
+    }
+
+    @media (min-width: 768px) {
+      .dashboard {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1.5px solid #bae6fd;
+      border-radius: 8px;
+      padding: 2px 5px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      box-shadow: 0 2px 0 #e2e8f0;
+      position: relative;
+    }
+
+    .card-title {
+      font-size: 0.60rem;
+      font-weight: 900;
+      color: #0369a1;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      white-space: nowrap;
+      line-height: 1.1;
+    }
+
+    .card-val {
+      font-size: 0.95rem;
+      font-weight: 900;
+      color: #ea580c;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.0;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+    }
+
+    .card-max {
+      font-size: 0.55rem;
+      color: #0284c7;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      background: #f0fdf4;
+      border-radius: 3px;
+      padding: 0.5px 2px;
+      line-height: 1.1;
+    }
+
+    .controls-container {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 100%;
+      z-index: 15;
+      flex-shrink: 0;
+    }
+
+    .seek-container {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+      background: #ffffff;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1.5px solid #bae6fd;
+      box-shadow: 0 1px 0 #e2e8f0;
+    }
+
+    .seek-bar {
+      flex: 1;
+      height: 14px;
+      cursor: pointer;
+      accent-color: #ff5e36;
+    }
+
+    .time-disp {
+      font-size: 0.68rem;
+      font-family: ui-monospace, monospace;
+      color: #0369a1;
+      font-weight: 900;
+      min-width: 66px;
+      text-align: right;
+    }
+
+    .playback-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 100%;
+    }
+
+    .btn-row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+    }
+
+    .btn-ctrl {
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      color: #334155;
+      padding: 6px 3px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 1.5px 0 #94a3b8;
+      touch-action: manipulation;
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+      white-space: nowrap;
+      transition: all 0.1s;
+    }
+
+    .btn-ctrl:active {
+      transform: translateY(1px);
+      box-shadow: 0 0 0 #94a3b8;
+      background: #f1f5f9;
+    }
+
+    .btn-fc-trigger {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #ffffff;
+      border-color: #ffffff;
+      box-shadow: 0 1.5px 0 #047857;
+      flex: 1.25;
+    }
+
+    .btn-save-trigger {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #ffffff;
+      border-color: #ffffff;
+      box-shadow: 0 1.5px 0 #b45309;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      z-index: 30;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3.5px solid #e0f2fe;
+      border-top-color: #ff5e36;
+      border-right-color: #ffe600;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 8px;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      border-radius: 16px;
+      border: 3px solid #38bdf8;
+      width: 100%;
+      max-width: 540px;
+      max-height: 88dvh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #ffffff;
+      padding: 8px 12px;
+      font-weight: 900;
+      font-size: 0.92rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-body {
+      padding: 8px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .history-card {
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+    }
+
+    .history-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 900;
+      font-size: 0.78rem;
+      color: #0369a1;
+      border-bottom: 1px dashed #cbd5e1;
+      padding-bottom: 4px;
+    }
+
+    .btn-item-delete {
+      background: #fee2e2;
+      border: 1px solid #f87171;
+      color: #ef4444;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 0.65rem;
+      font-weight: 900;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .btn-item-delete:active {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    .history-unified-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    @media (max-width: 440px) {
+      .history-unified-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .metric-section-block {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .metric-section-title {
+      font-size: 0.68rem;
+      font-weight: 900;
+      color: #0284c7;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 2px;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .metric-row-item {
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #334155;
+      display: flex;
+      justify-content: space-between;
+      line-height: 1.3;
+      border-bottom: 1px dashed #f1f5f9;
+      padding: 1px 0;
+    }
+
+    .metric-row-item b {
+      color: #ea580c;
+    }
+
+    .ai-coach-card {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border: 1.5px solid #34d399;
+      border-radius: 8px;
+      padding: 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ai-coach-title {
+      font-size: 0.72rem;
+      font-weight: 900;
+      color: #065f46;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .ai-coach-text {
+      font-size: 0.66rem;
+      font-weight: 800;
+      color: #1e293b;
+      line-height: 1.35;
+      white-space: pre-wrap;
+    }
+
+    .player-reflection-box {
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      border-radius: 8px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .reflection-sec-title {
+      font-size: 0.70rem;
+      font-weight: 900;
+      color: #166534;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .chip-group {
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
+    }
+
+    .choice-chip {
+      flex: 1;
+      min-width: 80px;
+      padding: 4px 3px;
+      border-radius: 6px;
+      border: 1.5px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      font-size: 0.65rem;
+      font-weight: 900;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .choice-chip.active {
+      border-color: #10b981;
+      background: #dcfce7;
+      color: #166534;
+      box-shadow: 0 1px 3px rgba(16, 185, 129, 0.25);
+    }
+
+    .player-textarea {
+      width: 100%;
+      height: 42px;
+      border-radius: 6px;
+      border: 1.5px solid #cbd5e1;
+      padding: 4px 6px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #334155;
+      font-family: inherit;
+      resize: none;
+      box-sizing: border-box;
+      background: #ffffff;
+    }
+
+    .player-textarea:focus {
+      outline: none;
+      border-color: #10b981;
+    }
+
+    .btn-share-line {
+      background: linear-gradient(135deg, #06c755, #05a044);
+      color: #ffffff;
+      border: 1px solid #ffffff;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: 0 1.5px 0 #047835;
+      width: 100%;
+    }
+
+    .btn-share-line:active {
+      transform: translateY(1px);
+      box-shadow: 0 0.5px 0 #047835;
+    }
+  </style>
 </head>
 <body>
 
- <header>
- <h1>⚾ 投球AIバイオメカニクス ⚾</h1>
- <div class="steps-nav">
- <div id="step-nav-1" class="step-pill active">1. どうが選択</div>
- <div id="step-nav-2" class="step-pill">2. 姿勢スキャン</div>
- <div id="step-nav-3" class="step-pill">3. 選手情報</div>
- </div>
- </header>
-
- <main class="app-container">
-
- <!-- STEP 1: Angle Selection & Video Input (大判カードデザイン版) -->
- <section id="view-step1" class="view-section active">
- 
-<div class="top-mode-grid">
- <label class="mode-card mode-card-side" id="label-side-video">
- <div class="mode-card-icon">⚾</div>
- <div class="mode-card-info">
- <div class="mode-card-title">横向き動画を解析</div>
- <div class="mode-card-desc">歩幅・腕のしなり・捻転差・リリース高・ヒザの曲がり</div>
- </div>
- <input type="file" id="video-input-side" accept="video/*" style="display: none;">
- </label>
-
- <label class="mode-card mode-card-front" id="label-front-video">
- <div class="mode-card-icon">🎯</div>
- <div class="mode-card-info">
- <div class="mode-card-title">正面・斜め前動画を解析</div>
- <div class="mode-card-desc">つま先の向き・ヒザの内外反・アームスロット・インステップ</div>
- </div>
- <input type="file" id="video-input-front" accept="video/*" style="display: none;">
- </label>
- </div>
-
- <div class="top-tips-box">
- 💡 <b>きれいに測るコツ:</b> 遠くから撮った動画は、写真アプリで投手の周りをトリミングしておくとAIの精度がアップするよ！
- </div>
-
- <button class="btn-carte-banner" id="btn-open-carte-top">
- <span>🏆</span>
- <span>保存した選手カルテ・測定履歴を見る</span>
- </button>
- </section>
-
- <!-- STEP 2: Stature Scan & Manual Fine-Tune -->
- <section id="view-step2" class="view-section">
- <div class="guidance-box" id="scan-guide-text">
- 🧍 <b>まっすぐ立っている瞬間</b>でバーを止めて「① AI自動スキャン」を押してね！
- </div>
-
- <div class="screen-wrapper" id="scan-screen-wrapper">
- <canvas id="scan-canvas"></canvas>
- <div class="loading-overlay" id="scan-loading" style="display: none;">
- <div class="spinner"></div>
- <div style="font-size: 0.75rem; color: #0284c7; font-weight: 900;">🚀 AIがからだを探しているよ...</div>
- </div>
- </div>
-
- <div class="seek-container">
- <input type="range" id="scan-seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
- <span class="time-disp" id="scan-time-disp">0.00 / 0.00</span>
- </div>
-
- <div class="btn-group">
- <button class="btn btn-ctrl" id="btn-scan-prev">◀ -1コマ</button>
- <button class="btn btn-scan" id="btn-scan-action">📏 ① AI自動スキャン</button>
- <button class="btn btn-ctrl" id="btn-scan-next">+1コマ ▶</button>
- </div>
- <button class="btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
- </section>
-
- <!-- STEP 3: Arm & Stature Input -->
- <section id="view-step3" class="view-section">
- <div class="guidance-box">
- 🔥 <b>せんしゅの名前・投げる腕・身長を入れてね！</b>
- </div>
- 
-<div class="input-group" style="padding: 2px 0; gap: 4px;">
- <div style="width: 100%;">
- <label for="player-name-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.8rem; color: #0369a1;">
- 選手名（なまえ）
- </label>
- <input type="text" id="player-name-input" class="input-field" value="せんしゅ1" placeholder="なまえを入力">
- </div>
-
- <div style="width: 100%;">
- <label style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; color: #0369a1; font-size: 0.8rem;">
- 投げる腕（ききうで）
- </label>
- <div class="toggle-group">
- <button type="button" class="toggle-btn" id="btn-arm-right">右なげ ⚾</button>
- <button type="button" class="toggle-btn active" id="btn-arm-left">左なげ ⚾</button>
- </div>
- </div>
-
- <div style="width: 100%;">
- <label for="height-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.8rem; color: #0369a1;">
- 身長 (cm)
- </label>
- <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
- </div>
- </div>
-
- <div class="btn-group" style="margin-top: 2px;">
- <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 やり直す</button>
- <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 2px 0 #047857;">
- 🚀 解析スタート！
- </button>
- </div>
- </section>
-
- <!-- STEP 4: Main Workspace (Dynamic Angle Dashboard) -->
- <section id="view-step4" class="view-section">
- 
-<!-- 6 Metrics Grid Dashboard -->
- <div class="dashboard">
- <!-- Card 1 -->
- <div class="card">
- <div class="card-title" id="c1-title">🚶 ステップ幅 (歩幅)</div>
- <div class="card-val" id="c1-val">-- cm</div>
- <div class="card-max" id="c1-max">最大: -- cm (0%身)</div>
- </div>
- <!-- Card 2 -->
- <div class="card">
- <div class="card-title" id="c2-title">💪 うでのしなり (左肩外旋)</div>
- <div class="card-val" id="c2-val">-- °</div>
- <div class="card-max" id="c2-max">最大: -- °</div>
- </div>
- <!-- Card 3 -->
- <div class="card">
- <div class="card-title" id="c3-title">🔄 捻転差 (胸と腰のひねり)</div>
- <div class="card-val" id="c3-val">-- °</div>
- <div class="card-max" id="c3-max">最大: -- °</div>
- </div>
- <!-- Card 4 -->
- <div class="card">
- <div class="card-title" id="c4-title">⚾ 指先リリース高</div>
- <div class="card-val" id="c4-val">-- cm</div>
- <div class="card-max" id="c4-max">最高: -- cm</div>
- </div>
- <!-- Card 5 -->
- <div class="card">
- <div class="card-title" id="c5-title">🦵 前足ヒザ屈曲角度 (曲がり)</div>
- <div class="card-val" id="c5-val">-- °</div>
- <div class="card-max" id="c5-max">FF時: 屈曲 --° (リリース時: 屈曲 --°)</div>
- </div>
- <!-- Card 6 -->
- <div class="card">
- <div class="card-title" id="c6-title">📐 体幹の前傾角度 (倒れ)</div>
- <div class="card-val" id="c6-val">-- °</div>
- <div class="card-max" id="c6-max">最大倒れ: -- °</div>
- </div>
- </div>
-
- <!-- Main Display Screen with Pinch Zoom -->
- <div class="screen-wrapper" id="main-screen-wrapper">
- <canvas id="output-canvas"></canvas>
- <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
- <div class="angle-mode-badge" id="angle-mode-badge">横向き解析</div>
- <div class="player-tag-badge" id="player-tag-badge">👤 せんしゅ1 (140cm)</div>
- <div class="loading-overlay" id="ai-loading" style="display: none;">
- <div class="spinner"></div>
- <div style="font-size: 0.75rem; color: #0284c7; font-weight: 900;">⚡ AI同期中...</div>
- </div>
- </div>
-
- <!-- Playback Controls -->
- <div class="controls-container">
- <div class="seek-container">
- <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
- <span class="time-disp" id="time-disp">0.00 / 0.00</span>
- </div>
- <div class="playback-rows">
- <!-- 上段: 投球動作の主操作 -->
- <div class="btn-row">
- <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
- <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: 0 1.5px 0 #c0392b; flex: 1.2;">再生 ▶</button>
- <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
- <button class="btn-ctrl btn-fc-trigger" id="btn-manual-fc">👟 べた足決定</button>
- </div>
- <!-- 下段: カルテ保存・ツール操作 -->
- <div class="btn-row">
- <button class="btn-ctrl btn-save-trigger" id="btn-save-record">💾 保存</button>
- <button class="btn-ctrl" id="btn-open-carte">📋 カルテ</button>
- <button class="btn-ctrl" id="btn-toggle-skeleton">🦴 骨格</button>
- <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム</button>
- <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
- <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 選択</button>
- </div>
- </div>
- </div>
-
- </section>
-
- </main>
-
- <!-- カルテ・履歴モーダル（統合1枚化対応） -->
- <div class="modal-overlay" id="carte-modal">
- <div class="modal-card">
- <div class="modal-header">
- <span>📋 選手カルテ（同日まとめレポート）</span>
- <button id="btn-close-carte" style="background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; font-weight: 900;">✕</button>
- </div>
- <div style="padding: 6px 8px; background: #e0f2fe; display: flex; gap: 4px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
- <select id="player-select-filter" style="padding: 4px 6px; border-radius: 8px; border: 1.5px solid #38bdf8; font-weight: 900; font-size: 0.75rem; flex: 1; min-width: 140px;"></select>
- <button id="btn-export-csv" class="btn" style="padding: 4px 8px; font-size: 0.70rem;">📥 CSV出力</button>
- <button id="btn-delete-action" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.70rem;">🗑️ 削除</button>
- </div>
- <div class="modal-body" id="carte-history-list"></div>
- </div>
- </div>
-
- <video id="hidden-video" playsinline webkit-playsinline preload="auto" muted></video>
- <canvas id="buffer-canvas" style="display: none;"></canvas>
-
- <script>
- const videoElement = document.getElementById('hidden-video');
- const bufferCanvas = document.getElementById('buffer-canvas');
- const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
-
- const scanCanvas = document.getElementById('scan-canvas');
- const scanCtx = scanCanvas.getContext('2d');
-
- const outputCanvas = document.getElementById('output-canvas');
- const outputCtx = outputCanvas.getContext('2d');
-
- let pose = null;
- let isPoseLoaded = false;
- let isProcessing = false;
- let animationFrameId = null;
- let scanModeActive = false;
-
- let playerName = "せんしゅ1";
- let userHeightCm = 140;
- let selectedThrowArm = 'LEFT';
- let videoFileUrl = null;
- let selectedAngleMode = 'SIDE';
-
- let isSkeletonVisible = true;
-
- let tuneRuler = {
- isActive: false,
- topYNorm: 0.2,
- bottomYNorm: 0.8,
- centerXNorm: 0.5
- };
- let activeDragHandle = null;
- let dragStartY = 0;
- let snapTop = 0, snapBottom = 0;
-
- let manualToeOffsetDeg = 0;
- let isDraggingToe = false;
- let toeDragOrigin = { x: 0, y: 0 };
- let smoothToeDeg = 0;
-
- let zoomScale = 1.0;
- let zoomPan = { x: 0, y: 0 };
- let initialPinchDistance = 0;
- let initialZoomScale = 1.0;
- let isPanning = false;
- let panStart = { x: 0, y: 0 };
- let panSnapshot = { x: 0, y: 0 };
-
- let prevLeadToeY = null;
- let leadFootFlatStationaryCount = 0;
-
- let currentCalculatedState = {
- displayToeAngle: 0,
- toeStateLabel: "◎ ストレート",
- kneeDevAngle: 0,
- kneeStateLabel: "まっすぐ (◎ 正常)",
- kneeFlexAngle: 0
- };
-
- let records = {
- maxStride: 0,
- maxMER: 0,
- maxTwist: 0,
- maxRelease: 0,
- ffKneeFlex: null,
- releaseKneeFlex: null,
- maxTrunkTilt: 0,
- toeAngle: 0,
- fcToeAngle: null,
- fcToeLabel: null,
- maxValgus: 0,
- ffValgusAngle: null,
- ffValgusLabel: null,
- maxTrunkLateral: 0,
- maxArmSlot: 0,
- maxInStepCm: 0,
- maxReleaseLateral: 0
- };
-
- const stepViews = {
- 1: document.getElementById('view-step1'),
- 2: document.getElementById('view-step2'),
- 3: document.getElementById('view-step3'),
- 4: document.getElementById('view-step4')
- };
-
- const stepPills = {
- 1: document.getElementById('step-nav-1'),
- 2: document.getElementById('step-nav-2'),
- 3: document.getElementById('step-nav-3')
- };
-
- const c1Title = document.getElementById('c1-title');
- const c1Val = document.getElementById('c1-val');
- const c1Max = document.getElementById('c1-max');
-
- const c2Title = document.getElementById('c2-title');
- const c2Val = document.getElementById('c2-val');
- const c2Max = document.getElementById('c2-max');
-
- const c3Title = document.getElementById('c3-title');
- const c3Val = document.getElementById('c3-val');
- const c3Max = document.getElementById('c3-max');
-
- const c4Title = document.getElementById('c4-title');
- const c4Val = document.getElementById('c4-val');
- const c4Max = document.getElementById('c4-max');
-
- const c5Title = document.getElementById('c5-title');
- const c5Val = document.getElementById('c5-val');
- const c5Max = document.getElementById('c5-max');
-
- const c6Title = document.getElementById('c6-title');
- const c6Val = document.getElementById('c6-val');
- const c6Max = document.getElementById('c6-max');
-
- const angleModeBadge = document.getElementById('angle-mode-badge');
- const playerTagBadge = document.getElementById('player-tag-badge');
-
- const scanSeekBar = document.getElementById('scan-seek-bar');
- const scanTimeDisp = document.getElementById('scan-time-disp');
- const seekBar = document.getElementById('seek-bar');
- const timeDisp = document.getElementById('time-disp');
- const btnPlayPause = document.getElementById('btn-play-pause');
- const zoomBadge = document.getElementById('zoom-badge');
- const aiLoading = document.getElementById('ai-loading');
- const scanLoading = document.getElementById('scan-loading');
- const btnScanNextStep = document.getElementById('btn-scan-next-step');
- const scanGuideText = document.getElementById('scan-guide-text');
-
- const btnArmRight = document.getElementById('btn-arm-right');
- const btnArmLeft = document.getElementById('btn-arm-left');
- const btnToggleSkeleton = document.getElementById('btn-toggle-skeleton');
-
- const carteModal = document.getElementById('carte-modal');
- const btnCloseCarte = document.getElementById('btn-close-carte');
- const carteHistoryList = document.getElementById('carte-history-list');
- const playerSelectFilter = document.getElementById('player-select-filter');
- const btnDeleteAction = document.getElementById('btn-delete-action');
-
- function updateCardLabels() {
- const isLeft = (selectedThrowArm === 'LEFT');
- if (selectedAngleMode === 'SIDE') {
- angleModeBadge.textContent = "横向き解析 ⚾";
- angleModeBadge.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
-
- c1Title.textContent = "🚶 ステップ幅 (歩幅)";
- c2Title.textContent = isLeft ? "💪 うでのしなり (左肩外旋)" : "💪 うでのしなり (右肩外旋)";
- c3Title.textContent = "🔄 捻転差 (胸と腰のひねり)";
- c4Title.textContent = "⚾ 指先リリース高";
- c5Title.textContent = isLeft ? "🦵 前足ヒザ屈曲角度 (右足)" : "🦵 前足ヒザ屈曲角度 (左足)";
- c6Title.textContent = "📐 体幹の前傾角度 (倒れ)";
- } else {
- angleModeBadge.textContent = "正面・斜め前解析 🎯";
- angleModeBadge.style.background = "linear-gradient(135deg, #10b981, #059669)";
-
- c1Title.textContent = "👟 前足つま先の向き";
- c2Title.textContent = "🦵 前足ヒザの内外反";
- c3Title.textContent = "📐 上半身の傾き (体幹側屈)";
- c4Title.textContent = isLeft ? "💪 アームスロット (左腕)" : "💪 アームスロット (右腕)";
- c5Title.textContent = "🚶 踏み出しのズレ (イン/アウト)";
- c6Title.textContent = "⚾ リリース左右位置 (打点)";
- }
- }
-
- btnArmRight.addEventListener('click', () => {
- selectedThrowArm = 'RIGHT';
- btnArmRight.classList.add('active');
- btnArmLeft.classList.remove('active');
- updateCardLabels();
- });
-
- btnArmLeft.addEventListener('click', () => {
- selectedThrowArm = 'LEFT';
- btnArmLeft.classList.add('active');
- btnArmRight.classList.remove('active');
- updateCardLabels();
- });
-
- btnToggleSkeleton.addEventListener('click', () => {
- isSkeletonVisible = !isSkeletonVisible;
- if (isSkeletonVisible) {
- btnToggleSkeleton.textContent = "🦴 骨格";
- btnToggleSkeleton.style.background = "#ffffff";
- btnToggleSkeleton.style.color = "#334155";
- } else {
- btnToggleSkeleton.textContent = "🦴 非表示";
- btnToggleSkeleton.style.background = "linear-gradient(135deg, #38bdf8, #0284c7)";
- btnToggleSkeleton.style.color = "#ffffff";
- }
- processSingleFrame();
- });
-
- function setStep(stepNum) {
- Object.keys(stepViews).forEach(s => stepViews[s].classList.remove('active'));
- if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
-
- Object.keys(stepPills).forEach(s => stepPills[s].classList.remove('active'));
- if (stepNum <= 3 && stepPills[stepNum]) {
- stepPills[stepNum].classList.add('active');
- } else if (stepNum === 4 && stepPills[3]) {
- stepPills[3].classList.add('active');
- }
- }
-
- function initMediaPipe() {
- if (pose) return Promise.resolve();
- scanLoading.style.display = 'flex';
- aiLoading.style.display = 'flex';
-
- pose = new Pose({
- locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
- });
-
- pose.setOptions({
- modelComplexity: 2,
- smoothLandmarks: true,
- enableSegmentation: false,
- smoothSegmentation: false,
- minDetectionConfidence: 0.15,
- minTrackingConfidence: 0.15
- });
-
- pose.onResults(onPoseResults);
- return pose.initialize().then(() => {
- isPoseLoaded = true;
- scanLoading.style.display = 'none';
- aiLoading.style.display = 'none';
- }).catch(err => {
- console.error("MediaPipe Load Error:", err);
- scanLoading.style.display = 'none';
- aiLoading.style.display = 'none';
- });
- }
-
- function getAspectFitBounds(srcW, srcH, dstW, dstH) {
- if (!srcW || !srcH || !dstW || !dstH) return { x: 0, y: 0, w: dstW || 300, h: dstH || 200 };
- const srcAspect = srcW / srcH;
- const dstAspect = dstW / dstH;
- let w, h, x, y;
- if (srcAspect > dstAspect) {
- w = dstW;
- h = dstW / srcAspect;
- x = 0;
- y = (dstH - h) / 2;
- } else {
- h = dstH;
- w = dstH * srcAspect;
- x = (dstW - w) / 2;
- y = 0;
- }
- return { x, y, w, h };
- }
-
- async function handleVideoLoad(file, angleMode) {
- if (!file) return;
- selectedAngleMode = angleMode;
-
- if (videoFileUrl) {
- URL.revokeObjectURL(videoFileUrl);
- videoFileUrl = null;
- }
- videoFileUrl = URL.createObjectURL(file);
- 
-videoElement.src = videoFileUrl;
- videoElement.load();
-
- updateCardLabels();
- setStep(2);
- await initMediaPipe();
- ensureScanVideoReady();
- }
-
- document.getElementById('video-input-side').addEventListener('change', function(e) {
- handleVideoLoad(e.target.files[0], 'SIDE');
- });
-
- document.getElementById('video-input-front').addEventListener('change', function(e) {
- handleVideoLoad(e.target.files[0], 'FRONT');
- });
-
- function ensureScanVideoReady() {
- videoElement.muted = true;
- videoElement.playsInline = true;
- videoElement.currentTime = 0.001;
- 
-videoElement.onloadeddata = () => {
- updateScanScreenSize();
- renderScanFrame();
- };
- setTimeout(() => {
- updateScanScreenSize();
- renderScanFrame();
- }, 150);
- }
-
- function updateScanScreenSize() {
- const rect = scanCanvas.parentElement.getBoundingClientRect();
- if (rect.width > 0 && rect.height > 0) {
- scanCanvas.width = rect.width;
- scanCanvas.height = rect.height;
- }
- }
-
- function renderScanFrame() {
- const cw = scanCanvas.width;
- const ch = scanCanvas.height;
- if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
-
- scanCtx.clearRect(0, 0, cw, ch);
- const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
- scanCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
-
- if (Number.isFinite(videoElement.duration) && videoElement.duration > 0) {
- scanSeekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
- scanTimeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
- }
-
- if (tuneRuler.isActive) {
- drawInteractiveRuler(b);
- }
- }
-
- function drawInteractiveRuler(b) {
- const topY = b.y + tuneRuler.topYNorm * b.h;
- const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
- const centerX = b.x + tuneRuler.centerXNorm * b.w;
- const barWidth = 50;
-
- scanCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
- scanCtx.lineWidth = 4;
- scanCtx.beginPath();
- scanCtx.moveTo(centerX, topY);
- scanCtx.lineTo(centerX, bottomY);
- scanCtx.stroke();
-
- scanCtx.strokeStyle = "#38bdf8";
- scanCtx.lineWidth = 2;
- scanCtx.beginPath();
- scanCtx.moveTo(centerX, topY);
- scanCtx.lineTo(centerX, bottomY);
- scanCtx.stroke();
-
- // Top Handle
- scanCtx.strokeStyle = "#10b981";
- scanCtx.lineWidth = 3.5;
- scanCtx.beginPath();
- scanCtx.moveTo(centerX - barWidth, topY);
- scanCtx.lineTo(centerX + barWidth, topY);
- scanCtx.stroke();
-
- scanCtx.fillStyle = "#10b981";
- scanCtx.beginPath();
- scanCtx.arc(centerX, topY, 11, 0, Math.PI * 2);
- scanCtx.fill();
- scanCtx.strokeStyle = "#ffffff";
- scanCtx.lineWidth = 2;
- scanCtx.stroke();
-
- scanCtx.fillStyle = "#ffffff";
- scanCtx.font = "bold 10px sans-serif";
- scanCtx.textAlign = "center";
- scanCtx.fillText("👑 あたま ↕", centerX, topY - 14);
-
- // Bottom Handle
- scanCtx.strokeStyle = "#f43f5e";
- scanCtx.lineWidth = 3.5;
- scanCtx.beginPath();
- scanCtx.moveTo(centerX - barWidth, bottomY);
- scanCtx.lineTo(centerX + barWidth, bottomY);
- scanCtx.stroke();
-
- scanCtx.fillStyle = "#f43f5e";
- scanCtx.beginPath();
- scanCtx.arc(centerX, bottomY, 11, 0, Math.PI * 2);
- scanCtx.fill();
- scanCtx.strokeStyle = "#ffffff";
- scanCtx.lineWidth = 2;
- scanCtx.stroke();
-
- scanCtx.fillStyle = "#ffffff";
- scanCtx.fillText("👟 じめん ↕", centerX, bottomY + 18);
- }
-
- function getCanvasPoint(evt, canvas) {
- const rect = canvas.getBoundingClientRect();
- const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
- const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
- return {
- x: (clientX - rect.left) * (canvas.width / rect.width),
- y: (clientY - rect.top) * (canvas.height / rect.height)
- };
- }
-
- function onScanPointerDown(e) {
- if (!tuneRuler.isActive) return;
- const pt = getCanvasPoint(e, scanCanvas);
- const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
- 
-const topY = b.y + tuneRuler.topYNorm * b.h;
- const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
- const centerX = b.x + tuneRuler.centerXNorm * b.w;
- const tol = 30;
-
- if (Math.abs(pt.y - topY) <= tol && Math.abs(pt.x - centerX) <= 65) {
- activeDragHandle = 'top';
- } else if (Math.abs(pt.y - bottomY) <= tol && Math.abs(pt.x - centerX) <= 65) {
- activeDragHandle = 'bottom';
- } else if (pt.y > topY && pt.y < bottomY && Math.abs(pt.x - centerX) <= 40) {
- activeDragHandle = 'both';
- }
- dragStartY = pt.y;
- snapTop = tuneRuler.topYNorm;
- snapBottom = tuneRuler.bottomYNorm;
- }
-
- function onScanPointerMove(e) {
- if (!activeDragHandle || !tuneRuler.isActive) return;
- const pt = getCanvasPoint(e, scanCanvas);
- const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
- const dNormY = (pt.y - dragStartY) / b.h;
-
- if (activeDragHandle === 'top') {
- tuneRuler.topYNorm = Math.min(tuneRuler.bottomYNorm - 0.1, Math.max(0.01, snapTop + dNormY));
- } else if (activeDragHandle === 'bottom') {
- tuneRuler.bottomYNorm = Math.max(tuneRuler.topYNorm + 0.1, Math.min(0.99, snapBottom + dNormY));
- } else if (activeDragHandle === 'both') {
- const heightNorm = snapBottom - snapTop;
- const newTop = Math.max(0.01, Math.min(0.99 - heightNorm, snapTop + dNormY));
- tuneRuler.topYNorm = newTop;
- tuneRuler.bottomYNorm = newTop + heightNorm;
- }
-
- renderScanFrame();
- }
-
- function onScanPointerUp() {
- activeDragHandle = null;
- }
-
- scanCanvas.addEventListener('mousedown', onScanPointerDown);
- scanCanvas.addEventListener('mousemove', onScanPointerMove);
- window.addEventListener('mouseup', onScanPointerUp);
-
- scanCanvas.addEventListener('touchstart', onScanPointerDown, { passive: true });
- scanCanvas.addEventListener('touchmove', onScanPointerMove, { passive: true });
- window.addEventListener('touchend', onScanPointerUp);
-
- scanSeekBar.addEventListener('input', () => {
- if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
- videoElement.currentTime = (scanSeekBar.value / 100) * videoElement.duration;
- tuneRuler.isActive = false;
- btnScanNextStep.style.display = 'none';
- renderScanFrame();
- });
-
- document.getElementById('btn-scan-prev').addEventListener('click', () => {
- videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
- tuneRuler.isActive = false;
- btnScanNextStep.style.display = 'none';
- renderScanFrame();
- });
-
- document.getElementById('btn-scan-next').addEventListener('click', () => {
- videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
- tuneRuler.isActive = false;
- btnScanNextStep.style.display = 'none';
- renderScanFrame();
- });
-
- /* --- Auto Stature Scan --- */
- document.getElementById('btn-scan-action').addEventListener('click', async () => {
- scanLoading.style.display = 'flex';
- scanModeActive = true;
-
- const vw = videoElement.videoWidth;
- const vh = videoElement.videoHeight;
- bufferCanvas.width = vw;
- bufferCanvas.height = vh;
- bufferCtx.drawImage(videoElement, 0, 0, vw, vh);
-
- try {
- await pose.send({ image: bufferCanvas });
- } catch (err) {
- console.error("Scan Error:", err);
- } finally {
- scanLoading.style.display = 'none';
- scanModeActive = false;
- }
- });
-
- btnScanNextStep.addEventListener('click', () => {
- setStep(3);
- });
-
- document.getElementById('btn-re-scan').addEventListener('click', () => {
- tuneRuler.isActive = false;
- btnScanNextStep.style.display = 'none';
- setStep(2);
- setTimeout(() => {
- updateScanScreenSize();
- renderScanFrame();
- }, 100);
- });
-
- /* --- Start Analysis Workspace --- */
- document.getElementById('btn-start-analysis').addEventListener('click', () => {
- const pName = document.getElementById('player-name-input').value.trim();
- playerName = pName || "せんしゅ1";
-
- const hVal = parseFloat(document.getElementById('height-input').value);
- userHeightCm = (Number.isFinite(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
-
- playerTagBadge.textContent = `👤 ${playerName} (${userHeightCm}cm)`;
-
- setStep(4);
- setTimeout(() => {
- resetWorkspaceDimensions();
- processSingleFrame();
- }, 150);
- });
-
- function resetWorkspaceDimensions() {
- const rect = outputCanvas.parentElement.getBoundingClientRect();
- if (rect.width > 0 && rect.height > 0) {
- outputCanvas.width = rect.width;
- outputCanvas.height = rect.height;
- }
- }
-
- window.addEventListener('resize', () => {
- if (stepViews[4].classList.contains('active')) {
- resetWorkspaceDimensions();
- processSingleFrame();
- } else if (stepViews[2].classList.contains('active')) {
- updateScanScreenSize();
- renderScanFrame();
- }
- });
-
- /* --- Pinch Zoom & Interactive Toe Handle Dragging --- */
- function updateZoomBadge() {
- zoomBadge.textContent = `🔍 ${zoomScale.toFixed(1)}x (ピンチ可)`;
- }
-
- outputCanvas.addEventListener('wheel', (e) => {
- e.preventDefault();
- const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
- const newScale = Math.max(1.0, Math.min(5.0, zoomScale * zoomFactor));
- if (newScale === 1.0) zoomPan = { x: 0, y: 0 };
- zoomScale = newScale;
- updateZoomBadge();
- processSingleFrame();
- }, { passive: false });
-
- let lastCalculatedLeadToePt = null;
-
- outputCanvas.addEventListener('touchstart', (e) => {
- if (e.touches.length === 2) {
- initialPinchDistance = Math.hypot(
- e.touches[0].clientX - e.touches[1].clientX,
- e.touches[0].clientY - e.touches[1].clientY
- );
- initialZoomScale = zoomScale;
- } else if (e.touches.length === 1) {
- const pt = getCanvasPoint(e, outputCanvas);
- if (selectedAngleMode === 'FRONT' && lastCalculatedLeadToePt) {
- const distToToe = Math.hypot(pt.x - lastCalculatedLeadToePt.x, pt.y - lastCalculatedLeadToePt.y);
- if (distToToe <= 35) {
- isDraggingToe = true;
- toeDragOrigin = { ...pt };
- return;
- }
- }
- if (zoomScale > 1.0) {
- isPanning = true;
- panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
- panSnapshot = { ...zoomPan };
- }
- }
- }, { passive: true });
-
- outputCanvas.addEventListener('touchmove', (e) => {
- if (e.touches.length === 2) {
- const dist = Math.hypot(
- e.touches[0].clientX - e.touches[1].clientX,
- e.touches[0].clientY - e.touches[1].clientY
- );
- if (initialPinchDistance > 0) {
- const factor = dist / initialPinchDistance;
- zoomScale = Math.max(1.0, Math.min(5.0, initialZoomScale * factor));
- if (zoomScale === 1.0) zoomPan = { x: 0, y: 0 };
- updateZoomBadge();
- processSingleFrame();
- }
- } else if (e.touches.length === 1) {
- if (isDraggingToe) {
- const pt = getCanvasPoint(e, outputCanvas);
- const dx = pt.x - toeDragOrigin.x;
- manualToeOffsetDeg = Math.max(-30, Math.min(30, manualToeOffsetDeg + dx * 0.4));
- toeDragOrigin = { ...pt };
- processSingleFrame();
- } else if (isPanning && zoomScale > 1.0) {
- const dx = e.touches[0].clientX - panStart.x;
- const dy = e.touches[0].clientY - panStart.y;
- zoomPan.x = panSnapshot.x + dx;
- zoomPan.y = panSnapshot.y + dy;
- processSingleFrame();
- }
- }
- }, { passive: true });
-
- outputCanvas.addEventListener('touchend', (e) => {
- if (e.touches.length < 2) initialPinchDistance = 0;
- if (e.touches.length === 0) {
- isPanning = false;
- isDraggingToe = false;
- }
- });
-
- document.getElementById('btn-zoom-reset').addEventListener('click', () => {
- zoomScale = 1.0;
- zoomPan = { x: 0, y: 0 };
- manualToeOffsetDeg = 0;
- updateZoomBadge();
- processSingleFrame();
- });
-
- /* --- 子ども向け「👟 べた足決定」ボタンのクリック処理 --- */
- document.getElementById('btn-manual-fc').addEventListener('click', () => {
- if (selectedAngleMode === 'FRONT') {
- records.fcToeAngle = currentCalculatedState.displayToeAngle;
- records.fcToeLabel = `べた足時: ${currentCalculatedState.displayToeAngle}° (${currentCalculatedState.toeStateLabel})`;
- records.ffValgusAngle = currentCalculatedState.kneeDevAngle;
- records.ffValgusLabel = `べた足時: ${currentCalculatedState.kneeDevAngle}° (${currentCalculatedState.kneeStateLabel})`;
- 
-c1Max.textContent = records.fcToeLabel;
- c2Max.textContent = records.ffValgusLabel;
- } else {
- records.ffKneeFlex = currentCalculatedState.kneeFlexAngle;
- const brText = records.releaseKneeFlex !== null ? `屈曲 ${records.releaseKneeFlex}°` : '屈曲 --°';
- c5Max.textContent = `FF時: 屈曲 ${records.ffKneeFlex}° (リリース時: ${brText})`;
- }
- });
-
- /* ========================================================
-   端末内AIコーチ診断エンジン（ルールベース・外部通信不要）
- ======================================================== */
- function generateAICoachAdvice(sideRec, frontRec) {
-   let praises = [];
-   let trainings = [];
-
-   // 横向きデータの評価
-   if (sideRec && sideRec.metrics) {
-     const m = sideRec.metrics;
-
-     // 1. 歩幅 (スピードUP)
-     if (m.strideRatio >= 75 && m.strideRatio <= 88) {
-       praises.push(`【スピードUP⚡】歩幅が身長比 ${m.strideRatio}% とハナマル！下半身の体重移動がしっかり使えて球速アップにつながっています！`);
-     } else if (m.strideRatio < 75) {
-       trainings.push(`【ジャンプトレーニング🦘】歩幅（${m.strideRatio}%）を広げるため、軸足で地面を強く押す色んなジャンプや下半身の強化運動をしよう！（下半身でスピードUP⚡）`);
-     }
-
-     // 2. 肩外旋・しなり (球速＆キレUP)
-     if (m.mer >= 155) {
-       praises.push(`【球速＆キレUP⚡】腕のしなり（肩外旋 ${m.mer}°）がムチのように柔らかく、ボールにスピンとキレを与える素晴らしいしなりです！`);
-     } else if (m.mer < 145) {
-       trainings.push(`【ストレッチ🧘】腕のしなり（${m.mer}°）を高めるため、肩甲骨・胸・肩まわりの色んなストレッチを取り入れよう！（腕がしなって球速UP⚡＆ヒジ保護🛡️）`);
-     }
-
-     // 3. 捻転差 (回転スピードUP)
-     if (m.twist >= 25 && m.twist <= 45) {
-       praises.push(`【回転スピードUP⚡】骨盤と胸の捻転差（${m.twist}°）がしっかり作れており、上半身のキレの良い回転力が出せています！`);
-     } else if (m.twist < 25) {
-       trainings.push(`【バランス・体幹訓練🔄】下半身を残して胸だけをひねる体幹トレーニングやツイスト運動を試してみよう！（体の開きを抑えて球速UP⚡）`);
-     }
-
-     // 4. 前足ヒザの踏ん張り (制球＆ボールの伸びUP)
-     if (m.ffKneeFlex !== null && m.releaseKneeFlex !== null) {
-       if (m.ffKneeFlex <= 45 && m.releaseKneeFlex <= 40) {
-         praises.push(`【コントロールUP🎯】着地からリリースにかけて前足ヒザでガシッと踏ん張れており、リリース位置が安定して制球力◎です！`);
-       } else if (m.releaseKneeFlex > 50) {
-         trainings.push(`【バランス訓練🦵】前足のヒザが前に流れないよう、片足立ちバランスや下半身の踏ん張り運動をしよう！（軸が安定してコントロールUP🎯）`);
-       }
-     }
-   }
-
-   // 正面データの評価
-   if (frontRec && frontRec.metrics) {
-     const m = frontRec.metrics;
-
-     // 1. つま先向き (コントロールUP)
-     if (m.toeAngle <= 10) {
-       praises.push(`【コントロールUP🎯】着地した前足のつま先がキャッチャーへまっすぐ向いており、狙ったコースへズバッと投げられる足運びです！`);
-     } else if (m.toeAngle > 10) {
-       trainings.push(`【バランス・ステップ練習🎯】つま先が外に開かないよう、ラインにまっすぐ踏み込む足運びやバランス訓練をしよう！（シュート回転を防いでコントロールUP🎯）`);
-     }
-
-     // 2. ヒザの内外反 (ケガ予防＆制球力UP)
-     if (m.valgus <= 6) {
-       praises.push(`【ケガ予防＆制球安定🛡️】着地したヒザの横ブレがなくドッシリ安定！ヒジ・肩への負担が少なくストライクゾーンも安定します！`);
-     } else if (m.valgus > 6) {
-       trainings.push(`【バランス訓練🦵】着地でヒザが内側に入らないよう、片足ピタッと着地訓練や股関節のストレッチをしよう！（ヒジ・肩のケガ予防🛡️＆制球UP🎯）`);
-     }
-   }
-
-   // デフォルト補完
-   if (praises.length === 0) {
-     praises.push(`【総合バランス🌟】全身を大きく使ってまっすぐターゲットに向かって投げられています！`);
-   }
-   if (trainings.length === 0) {
-     trainings.push(`【コンディショニング🌟】今の素晴らしいフォームを保つために、投球後のストレッチや全身のバランス運動を継続しよう！`);
-   }
-
-   return {
-     praise: praises.join("<br>"),
-     training: trainings.join("<br>"),
-     praiseText: praises.join("\n"),
-     trainingText: trainings.join("\n")
-   };
- }
-
- /* ========================================================
- カルテ（データ保存・履歴管理・削除）システム
- ======================================================== */
- const STORAGE_KEY = 'pitching_ai_records_v1';
-
- function getSavedRecords() {
- try {
- const data = localStorage.getItem(STORAGE_KEY);
- return data ? JSON.parse(data) : [];
- } catch (e) {
- console.error("Storage Load Error", e);
- return [];
- }
- }
-
- function saveCurrentRecord() {
- const allRecords = getSavedRecords();
- const now = new Date();
- const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}`;
- const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-
- const newEntry = {
- id: Date.now(),
- date: dateStr,
- time: timeStr,
- playerName: playerName,
- height: userHeightCm,
- throwArm: selectedThrowArm,
- mode: selectedAngleMode,
- feelGrade: "😆 めっちゃ良かった！",
- bodyCondition: "🟢 どこも痛くない！元気！",
- playerNote: "",
- metrics: selectedAngleMode === 'SIDE' ? {
- stride: records.maxStride,
- strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
- mer: records.maxMER,
- twist: records.maxTwist,
- releaseH: records.maxRelease,
- ffKneeFlex: records.ffKneeFlex !== null ? records.ffKneeFlex : currentCalculatedState.kneeFlexAngle,
- releaseKneeFlex: records.releaseKneeFlex !== null ? records.releaseKneeFlex : currentCalculatedState.kneeFlexAngle,
- trunkTilt: records.maxTrunkTilt
- } : {
- toeAngle: records.fcToeAngle !== null ? records.fcToeAngle : 0,
- toeLabel: records.fcToeLabel || "未測定",
- valgus: records.ffValgusAngle !== null ? records.ffValgusAngle : records.maxValgus,
- valgusLabel: records.ffValgusLabel || "未測定",
- trunkLateral: records.maxTrunkLateral,
- armSlot: records.maxArmSlot,
- inStep: records.maxInStepCm,
- releaseLateral: records.maxReleaseLateral
- }
- };
-
- allRecords.unshift(newEntry);
- try {
- localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
- alert(`✅ ${playerName}君の測定データをカルテに保存しました！`);
- } catch (e) {
- alert("⚠️ 保存容量がいっぱいです");
- }
- }
-
- document.getElementById('btn-save-record').addEventListener('click', saveCurrentRecord);
-
- function openCarteModal() {
- renderCarteList(true);
- carteModal.style.display = 'flex';
- }
-
- function closeCarteModal() {
- carteModal.style.display = 'none';
- }
-
- document.getElementById('btn-open-carte').addEventListener('click', openCarteModal);
- document.getElementById('btn-open-carte-top').addEventListener('click', openCarteModal);
- btnCloseCarte.addEventListener('click', closeCarteModal);
-
- function deleteSingleDayGroup(key) {
- if (confirm("この日の測定カルテを削除しますか？")) {
- let allRecords = getSavedRecords();
- allRecords = allRecords.filter(r => `${r.playerName}_${r.date}` !== key);
- localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
- renderCarteList(false);
- }
- }
-
- /* LINE・メール・メッセージ送信機能（AIコーチ診断付き統合データ対応） */
- function shareRecordToLine(groupKey) {
- const allRecords = getSavedRecords();
- const groupRecords = allRecords.filter(r => `${r.playerName}_${r.date}` === groupKey);
- if (groupRecords.length === 0) return;
-
- const first = groupRecords[0];
- const sideRec = groupRecords.find(r => r.mode === 'SIDE');
- const frontRec = groupRecords.find(r => r.mode === 'FRONT');
-
- const coachAdvice = generateAICoachAdvice(sideRec, frontRec);
-
- let text = `⚾ 【投球バイオメカニクス 選手レポート】 ⚾\n`;
- text += `👤 選手名: ${first.playerName} 選手 (${first.height}cm / ${first.throwArm === 'RIGHT' ? '右投げ' : '左投げ'})\n`;
- text += `📅 測定日: ${first.date}\n\n`;
-
- if (sideRec) {
- text += `📊 【横向き測定データ】\n`;
- text += `・ステップ幅: ${sideRec.metrics.stride}cm (${sideRec.metrics.strideRatio}%身)\n`;
- text += `・腕のしなり(肩外旋): ${sideRec.metrics.mer}°\n`;
- text += `・捻転差: ${sideRec.metrics.twist}°\n`;
- text += `・リリース高: ${sideRec.metrics.releaseH}cm\n`;
- text += `・前足ヒザ: FF時 屈曲 ${sideRec.metrics.ffKneeFlex}° (リリース時: 屈曲 ${sideRec.metrics.releaseKneeFlex}°)\n`;
- text += `・体幹前傾: ${sideRec.metrics.trunkTilt}°\n\n`;
- }
-
- if (frontRec) {
- text += `🎯 【正面測定データ】\n`;
- text += `・つま先の向き: ${frontRec.metrics.toeAngle}°\n`;
- text += `・ヒザ内外反: ${frontRec.metrics.valgus}°\n`;
- text += `・体幹の傾き: ${frontRec.metrics.trunkLateral}°\n`;
- text += `・アームスロット: ${frontRec.metrics.armSlot}°\n`;
- text += `・踏み出しズレ: ${frontRec.metrics.inStep}cm\n`;
- text += `・リリース横幅: ${frontRec.metrics.releaseLateral}cm\n\n`;
- }
-
- text += `🤖 【AIコーチ診断＆アドバイス】\n`;
- text += `🌟 ナイスポイント（長所）:\n${coachAdvice.praiseText}\n\n`;
- text += `💪 おすすめトレーニング（伸びしろ）:\n${coachAdvice.trainingText}\n\n`;
-
- text += `👦 【せんしゅのふりかえり】\n`;
- text += `・なげた感覚: ${first.feelGrade || '😆 めっちゃ良かった！'}\n`;
- text += `・カラダの調子: ${first.bodyCondition || '🟢 どこも痛くない！元気！'}\n`;
- if (first.playerNote && first.playerNote.trim() !== '') {
- text += `・ひとこと: 「${first.playerNote.trim()}」\n`;
- }
-
- if (navigator.share) {
- navigator.share({
- title: `${first.playerName}選手の投球フォームレポート`,
- text: text
- }).catch(err => {
- if (err.name !== 'AbortError') console.log('Share error:', err);
- });
- } else {
- navigator.clipboard.writeText(text).then(() => {
- alert("📋 レポート文をクリップボードにコピーしました！LINEやメールに貼り付けて監督・コーチに送れます。");
- }).catch(() => {
- alert(text);
- });
- }
- }
-
- function renderCarteList(isInitialOpen) {
- const allRecords = getSavedRecords();
- carteHistoryList.innerHTML = '';
-
- const playerNames = Array.from(new Set(allRecords.map(r => r.playerName)));
- const previousSelection = playerSelectFilter.value;
-
- playerSelectFilter.innerHTML = '<option value="ALL">🌟 全員のカルテを表示</option>';
- playerNames.forEach(p => {
- const opt = document.createElement('option');
- opt.value = p;
- opt.textContent = `👤 ${p}`;
- playerSelectFilter.appendChild(opt);
- });
-
- if (isInitialOpen) {
- if (playerNames.includes(playerName)) {
- playerSelectFilter.value = playerName;
- } else {
- playerSelectFilter.value = 'ALL';
- }
- } else if (playerNames.includes(previousSelection) || previousSelection === 'ALL') {
- playerSelectFilter.value = previousSelection;
- } else {
- playerSelectFilter.value = 'ALL';
- }
-
- const selectedFilter = playerSelectFilter.value;
-
- if (selectedFilter === 'ALL') {
- btnDeleteAction.textContent = "⚠️ 全カルテ初期化";
- } else {
- btnDeleteAction.textContent = `🗑️ ${selectedFilter}を全削除`;
- }
-
- const filtered = selectedFilter === 'ALL' ? allRecords : allRecords.filter(r => r.playerName === selectedFilter);
-
- if (filtered.length === 0) {
- carteHistoryList.innerHTML = '<div style="text-align:center; padding: 20px; color:#64748b; font-weight:800;">保存されたカルテはありません</div>';
- return;
- }
-
- // 同一選手・同一日付でグループ化（1つに統合）
- const groups = {};
- filtered.forEach(r => {
- const key = `${r.playerName}_${r.date}`;
- if (!groups[key]) groups[key] = [];
- groups[key].push(r);
- });
-
- Object.keys(groups).forEach(key => {
- const recs = groups[key];
- const first = recs[0];
- const sideRec = recs.find(r => r.mode === 'SIDE');
- const frontRec = recs.find(r => r.mode === 'FRONT');
-
- const curFeel = first.feelGrade || "😆 めっちゃ良かった！";
- const curBody = first.bodyCondition || "🟢 どこも痛くない！元気！";
-
- const coachAdvice = generateAICoachAdvice(sideRec, frontRec);
-
- const card = document.createElement('div');
- card.className = 'history-card';
-
- card.innerHTML = `
- <div class="history-card-head">
- <span>👤 ${first.playerName} (${first.height}cm・${first.throwArm === 'RIGHT' ? '右' : '左'})</span>
- <div style="display:flex; align-items:center; gap:6px;">
- <span style="color:#64748b; font-size:0.65rem;">📅 ${first.date}</span>
- <button class="btn-item-delete" data-group="${key}">🗑️</button>
- </div>
- </div>
-
- <div class="history-unified-grid">
- <!-- 横向きデータブロック -->
- <div class="metric-section-block">
- <div class="metric-section-title">
- <span>⚾ 横向き解析</span>
- <span style="font-size:0.60rem; color:${sideRec ? '#10b981' : '#94a3b8'};">${sideRec ? '● 測定済' : '○ 未測定'}</span>
- </div>
- ${sideRec ? `
- <div class="metric-row-item"><span>🚶 ステップ幅:</span><b>${sideRec.metrics.stride}cm (${sideRec.metrics.strideRatio}%)</b></div>
- <div class="metric-row-item"><span>💪 腕のしなり:</span><b>${sideRec.metrics.mer}°</b></div>
- <div class="metric-row-item"><span>🔄 捻転差:</span><b>${sideRec.metrics.twist}°</b></div>
- <div class="metric-row-item"><span>⚾ リリース高:</span><b>${sideRec.metrics.releaseH}cm</b></div>
- <div class="metric-row-item"><span>🦵 FF時ヒザ:</span><b>屈曲 ${sideRec.metrics.ffKneeFlex}°</b></div>
- <div class="metric-row-item"><span>🦵 離球時ヒザ:</span><b>屈曲 ${sideRec.metrics.releaseKneeFlex}°</b></div>
- <div class="metric-row-item"><span>📐 体幹前傾:</span><b>${sideRec.metrics.trunkTilt}°</b></div>
- ` : `
- <div style="text-align:center; padding: 10px 0; color:#94a3b8; font-size:0.65rem;">横向き動画の測定データなし</div>
- `}
- </div>
-
- <!-- 正面データブロック -->
- <div class="metric-section-block">
- <div class="metric-section-title">
- <span>🎯 正面・斜め前解析</span>
- <span style="font-size:0.60rem; color:${frontRec ? '#10b981' : '#94a3b8'};">${frontRec ? '● 測定済' : '○ 未測定'}</span>
- </div>
- ${frontRec ? `
- <div class="metric-row-item"><span>👟 つま先向き:</span><b>${frontRec.metrics.toeAngle}°</b></div>
- <div class="metric-row-item"><span>🦵 膝内外反:</span><b>${frontRec.metrics.valgus}°</b></div>
- <div class="metric-row-item"><span>📐 体幹側屈:</span><b>${frontRec.metrics.trunkLateral}°</b></div>
- <div class="metric-row-item"><span>💪 腕の高さ:</span><b>${frontRec.metrics.armSlot}°</b></div>
- <div class="metric-row-item"><span>🚶 踏出ズレ:</span><b>${frontRec.metrics.inStep}cm</b></div>
- <div class="metric-row-item"><span>⚾ リリース横:</span><b>${frontRec.metrics.releaseLateral}cm</b></div>
- ` : `
- <div style="text-align:center; padding: 10px 0; color:#94a3b8; font-size:0.65rem;">正面動画の測定データなし</div>
- `}
- </div>
- </div>
-
- <!-- 🤖 AIコーチ診断レポートエリア -->
- <div class="ai-coach-report-box">
-   <div class="ai-coach-title">
-     <span>🤖 AIコーチ診断レポート</span>
-     <span style="font-size: 0.58rem; color: #a16207;">スピード・制球・ケガ予防判定</span>
-   </div>
-   <div class="ai-praise-block">
-     <div style="font-size: 0.62rem; color: #166534; font-weight: 900; margin-bottom: 2px;">🌟 ナイスポイント（長所）</div>
-     <div>${coachAdvice.praise}</div>
-   </div>
-   <div class="ai-training-block">
-     <div style="font-size: 0.62rem; color: #1e40af; font-weight: 900; margin-bottom: 2px;">💪 おすすめトレーニング（伸びしろ）</div>
-     <div>${coachAdvice.training}</div>
-   </div>
- </div>
-
- <!-- 👦 選手ふりかえり＆監督への送信エリア -->
- <div class="player-reflection-box">
- <div class="reflection-sec-title">⚾ 今日のなげた感覚は？</div>
- <div class="chip-group" data-type="feel" data-group="${key}">
- <div class="choice-chip ${curFeel.includes('良かった') ? 'active' : ''}" data-val="😆 めっちゃ良かった！">😆 良かった</div>
- <div class="choice-chip ${curFeel.includes('ふつう') ? 'active' : ''}" data-val="😊 ふつう・いつも通り">😊 いつも通り</div>
- <div class="choice-chip ${curFeel.includes('いまいち') || curFeel.includes('良くなかった') ? 'active' : ''}" data-val="😣 いまいち / タイミング合わず">😣 いまいち</div>
- </div>
-
- <div class="reflection-sec-title">💪 カラダの調子・違和感</div>
- <div class="chip-group" data-type="body" data-group="${key}">
- <div class="choice-chip ${curBody.includes('痛くない') ? 'active' : ''}" data-val="🟢 どこも痛くない！元気！">🟢 痛くない</div>
- <div class="choice-chip ${curBody.includes('重い') ? 'active' : ''}" data-val="🟡 ひじ・肩がちょっと重い">🟡 ちょっと重い</div>
- <div class="choice-chip ${curBody.includes('痛い') && !curBody.includes('痛くない') ? 'active' : ''}" data-val="🔴 ひじ・肩に違和感・痛みあり">🔴 違和感あり</div>
- </div>
-
- <div class="reflection-sec-title">📝 じぶんの気づき・監督へひとこと</div>
- <textarea class="player-textarea" data-group="${key}" placeholder="気づいたことや、次にやってみたいことを書いてね！">${first.playerNote || ''}</textarea>
-
- <button class="btn-share-line" data-group="${key}">
- <span>💬 📤 今日の総合レポートを監督に送る</span>
- </button>
- </div>
- `;
- carteHistoryList.appendChild(card);
- });
-
- // チップ選択イベント
- carteHistoryList.querySelectorAll('.choice-chip').forEach(chip => {
- chip.addEventListener('click', (e) => {
- const parent = e.currentTarget.parentElement;
- const type = parent.getAttribute('data-type');
- const groupKey = parent.getAttribute('data-group');
- const val = e.currentTarget.getAttribute('data-val');
-
- parent.querySelectorAll('.choice-chip').forEach(c => c.classList.remove('active'));
- e.currentTarget.classList.add('active');
-
- let allRecs = getSavedRecords();
- allRecs.forEach(item => {
- if (`${item.playerName}_${item.date}` === groupKey) {
- if (type === 'feel') item.feelGrade = val;
- if (type === 'body') item.bodyCondition = val;
- }
- });
- localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
- });
- });
-
- // 選手コメントの自動保存
- carteHistoryList.querySelectorAll('.player-textarea').forEach(textarea => {
- textarea.addEventListener('input', (e) => {
- const groupKey = e.currentTarget.getAttribute('data-group');
- const textVal = e.currentTarget.value;
- let allRecs = getSavedRecords();
- allRecs.forEach(item => {
- if (`${item.playerName}_${item.date}` === groupKey) {
- item.playerNote = textVal;
- }
- });
- localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
- });
- });
-
- // LINE / メール送信ボタン
- carteHistoryList.querySelectorAll('.btn-share-line').forEach(btn => {
- btn.addEventListener('click', (e) => {
- const groupKey = e.currentTarget.getAttribute('data-group');
- shareRecordToLine(groupKey);
- });
- });
-
- // 削除ボタン
- carteHistoryList.querySelectorAll('.btn-item-delete').forEach(btn => {
- btn.addEventListener('click', (e) => {
- const groupKey = e.currentTarget.getAttribute('data-group');
- deleteSingleDayGroup(groupKey);
- });
- });
- }
-
- playerSelectFilter.addEventListener('change', () => renderCarteList(false));
-
- btnDeleteAction.addEventListener('click', () => {
- const selectedFilter = playerSelectFilter.value;
- let allRecords = getSavedRecords();
-
- if (allRecords.length === 0) {
- alert("削除するデータがありません");
- return;
- }
-
- if (selectedFilter === 'ALL') {
- if (confirm("⚠️ 【注意】すべての選手のカルテデータを完全に初期化しますか？")) {
- if (confirm("本当によろしいですか？この操作は元に戻せません。")) {
- localStorage.removeItem(STORAGE_KEY);
- renderCarteList(false);
- }
- }
- } else {
- if (confirm(`👤 ${selectedFilter} 選手のすべての測定データを削除しますか？`)) {
- allRecords = allRecords.filter(r => r.playerName !== selectedFilter);
- localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
- renderCarteList(false);
- }
- }
- });
-
- // CSVエクスポート機能
- document.getElementById('btn-export-csv').addEventListener('click', () => {
- const allRecords = getSavedRecords();
- if (allRecords.length === 0) {
- alert("保存されたデータがありません");
- return;
- }
-
- let csvContent = "\uFEFF日付,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),FF時ヒザ屈曲(deg),リリース時ヒザ屈曲(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm),なげた感覚,カラダの調子,選手コメント\n";
-
- allRecords.forEach(r => {
- const isSide = (r.mode === 'SIDE');
- const noteSafe = `"${(r.playerNote || '').replace(/"/g, '""')}"`;
- const row = [
- `"${r.date}"`,
- `"${r.playerName}"`,
- r.height,
- r.throwArm === 'RIGHT' ? "右" : "左",
- isSide ? "横向き" : "正面",
- isSide ? r.metrics.stride : "",
- isSide ? r.metrics.strideRatio : "",
- isSide ? r.metrics.mer : "",
- isSide ? r.metrics.twist : "",
- isSide ? r.metrics.releaseH : "",
- isSide ? r.metrics.ffKneeFlex : "",
- isSide ? r.metrics.releaseKneeFlex : "",
- isSide ? r.metrics.trunkTilt : "",
- !isSide ? r.metrics.toeAngle : "",
- !isSide ? r.metrics.valgus : "",
- !isSide ? r.metrics.trunkLateral : "",
- !isSide ? r.metrics.armSlot : "",
- !isSide ? r.metrics.inStep : "",
- !isSide ? r.metrics.releaseLateral : "",
- `"${r.feelGrade || '😆 良かった'}"`,
- `"${r.bodyCondition || '🟢 痛くない'}"`,
- noteSafe
- ];
- csvContent += row.join(",") + "\n";
- });
-
- const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
- const url = URL.createObjectURL(blob);
- const link = document.createElement("a");
- link.setAttribute("href", url);
- link.setAttribute("download", `投球AIカルテ_${new Date().toISOString().slice(0,10)}.csv`);
- document.body.appendChild(link);
- link.click();
- document.body.removeChild(link);
- });
-
- /* --- Processing Engine --- */
- function processSingleFrame() {
- if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
- renderFrameOnly();
- return;
- }
-
- const vw = videoElement.videoWidth;
- const vh = videoElement.videoHeight;
- bufferCanvas.width = vw;
- bufferCanvas.height = vh;
- bufferCtx.drawImage(videoElement, 0, 0, vw, vh);
-
- isProcessing = true;
- pose.send({ image: bufferCanvas }).catch(err => {
- console.error("Inference Error:", err);
- }).finally(() => {
- isProcessing = false;
- });
- }
-
- function renderFrameOnly() {
- const cw = outputCanvas.width;
- const ch = outputCanvas.height;
- if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
-
- outputCtx.clearRect(0, 0, cw, ch);
- outputCtx.save();
- outputCtx.translate(cw / 2 + zoomPan.x, ch / 2 + zoomPan.y);
- outputCtx.scale(zoomScale, zoomScale);
- outputCtx.translate(-cw / 2, -ch / 2);
-
- const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
- if (videoElement.readyState >= 2) {
- outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
- }
- outputCtx.restore();
- }
-
- function getSegmentAngle3D(p1, p2) {
- if (!p1 || !p2) return NaN;
- return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
- }
-
- function calcJointAngle3D(p1, p2, p3) {
- if (!p1 || !p2 || !p3) return NaN;
- const v1 = { x: p1.x - p2.x, y: p1.y - p2.y, z: (p1.z || 0) - (p2.z || 0) };
- const v2 = { x: p3.x - p2.x, y: p3.y - p2.y, z: (p3.z || 0) - (p2.z || 0) };
-
- const mag1 = Math.hypot(v1.x, v1.y, v1.z);
- const mag2 = Math.hypot(v2.x, v2.y, v2.z);
- if (mag1 < 1e-6 || mag2 < 1e-6) return NaN;
-
- const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
- const cosVal = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
- return (Math.acos(cosVal) * 180.0) / Math.PI;
- }
-
- function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
- if (!shoulderL || !shoulderR || !hipL || !hipR || !elbow || !wrist) return NaN;
-
- const midShoulder = {
- x: (shoulderL.x + shoulderR.x) / 2,
- y: (shoulderL.y + shoulderR.y) / 2,
- z: ((shoulderL.z || 0) + (shoulderR.z || 0)) / 2
- };
- const midHip = {
- x: (hipL.x + hipR.x) / 2,
- y: (hipL.y + hipR.y) / 2,
- z: ((hipL.z || 0) + (hipR.z || 0)) / 2
- };
-
- const trunkV = {
- x: midShoulder.x - midHip.x,
- y: midShoulder.y - midHip.y,
- z: midShoulder.z - midHip.z
- };
-
- const forearmV = {
- x: wrist.x - elbow.x,
- y: wrist.y - elbow.y,
- z: (wrist.z || 0) - (elbow.z || 0)
- };
-
- const trunkMag = Math.hypot(trunkV.x, trunkV.y, trunkV.z);
- const forearmMag = Math.hypot(forearmV.x, forearmV.y, forearmV.z);
- if (trunkMag < 1e-6 || forearmMag < 1e-6) return NaN;
-
- const dot = trunkV.x * forearmV.x + trunkV.y * forearmV.y + trunkV.z * forearmV.z;
- const cosVal = Math.max(-1.0, Math.min(1.0, dot / (trunkMag * forearmMag)));
- const baseAngle = (Math.acos(cosVal) * 180.0) / Math.PI;
-
- return 180.0 - baseAngle;
- }
-
- /* --- MediaPipe Results --- */
- function onPoseResults(results) {
- if (scanModeActive) {
- if (results.poseLandmarks) {
- const landmarks = results.poseLandmarks;
- const NOSE = landmarks[0];
- const L_HEEL = landmarks[29] || landmarks[27];
- const R_HEEL = landmarks[30] || landmarks[28];
- 
-if (NOSE && L_HEEL && R_HEEL) {
- tuneRuler.isActive = true;
- tuneRuler.topYNorm = Math.max(0.02, NOSE.y - 0.08);
- tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
- tuneRuler.centerXNorm = NOSE.x;
-
- btnScanNextStep.style.display = 'block';
- scanGuideText.innerHTML = "🎯 <b>AIが検知したよ！</b> ズレがあれば<b>丸いハンドルを上下にドラッグ</b>して頭と足元にピッタリ合わせてね！";
- renderScanFrame();
- }
- }
- return;
- }
-
- const cw = outputCanvas.width;
- const ch = outputCanvas.height;
- if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
-
- outputCtx.clearRect(0, 0, cw, ch);
- outputCtx.save();
- outputCtx.translate(cw / 2 + zoomPan.x, ch / 2 + zoomPan.y);
- outputCtx.scale(zoomScale, zoomScale);
- outputCtx.translate(-cw / 2, -ch / 2);
-
- const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
- outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
-
- if (results.poseLandmarks) {
- const landmarks = results.poseLandmarks;
-
- const L_SHOULDER = landmarks[11];
- const R_SHOULDER = landmarks[12];
- const L_ELBOW = landmarks[13];
- const R_ELBOW = landmarks[14];
- const L_WRIST = landmarks[15];
- const R_WRIST = landmarks[16];
- const L_INDEX = landmarks[19];
- const R_INDEX = landmarks[20];
- const L_HIP = landmarks[23];
- const R_HIP = landmarks[24];
- const L_KNEE = landmarks[25];
- const R_KNEE = landmarks[26];
- const L_ANKLE = landmarks[27];
- const R_ANKLE = landmarks[28];
- const L_HEEL = landmarks[29];
- const R_HEEL = landmarks[30];
- const L_FOOT_INDEX = landmarks[31];
- const R_FOOT_INDEX = landmarks[32];
-
- const normalizedStatureHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.1 ? (tuneRuler.bottomYNorm - tuneRuler.topYNorm) : 0.75;
- const activePxPerCm = (normalizedStatureHeight * b.h) / userHeightCm;
-
- const isRightHanded = (selectedThrowArm === 'RIGHT');
- const isSouthpaw = !isRightHanded;
-
- const throwShoulder = isRightHanded ? R_SHOULDER : L_SHOULDER;
- const throwElbow = isRightHanded ? R_ELBOW : L_ELBOW;
- const throwWrist = isRightHanded ? R_WRIST : L_WRIST;
- let throwIndex = isRightHanded ? R_INDEX : L_INDEX;
-
- /* 指先マーカー外れ防止の幾何フィルタ */
- if (throwWrist && throwIndex) {
- const handDist = Math.hypot(throwIndex.x - throwWrist.x, throwIndex.y - throwWrist.y);
- if (handDist > 0.18 || throwIndex.visibility < 0.25) {
- throwIndex = throwWrist;
- }
- }
-
- const leadHip = isRightHanded ? L_HIP : R_HIP;
- const leadKnee = isRightHanded ? L_KNEE : R_KNEE;
- const leadAnkle = isRightHanded ? L_ANKLE : R_ANKLE;
- const leadHeel = isRightHanded ? (L_HEEL || L_ANKLE) : (R_HEEL || R_ANKLE);
- const leadToe = isRightHanded ? (L_FOOT_INDEX || L_ANKLE) : (R_FOOT_INDEX || R_ANKLE);
-
- const pivotHeel = isRightHanded ? (R_HEEL || R_ANKLE) : (L_HEEL || L_ANKLE);
-
- if (leadToe) {
- lastCalculatedLeadToePt = {
- x: b.x + leadToe.x * b.w,
- y: b.y + leadToe.y * b.h
- };
- }
-
- if (isSkeletonVisible) {
- drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
- }
-
- /* ========================================================
- FF (Foot Flat / べた足接地) 高精度運動学検知エンジン
- ======================================================== */
- let currentStrideCm = 0;
- let isStepping = false;
- let isKinematicFF = false;
- 
-if (leadHeel && leadToe && pivotHeel) {
- const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
- currentStrideCm = currentStridePx / activePxPerCm;
- isStepping = currentStrideCm > (userHeightCm * 0.35);
-
- if (isStepping) {
- const currentLeadToeY = leadToe.y;
- if (prevLeadToeY !== null) {
- const toeVel = (currentLeadToeY - prevLeadToeY);
- if (Math.abs(toeVel) < 0.003 && currentLeadToeY >= (pivotHeel.y - 0.05)) {
- leadFootFlatStationaryCount++;
- if (leadFootFlatStationaryCount === 2) {
- isKinematicFF = true;
- }
- } else {
- leadFootFlatStationaryCount = 0;
- }
- }
- prevLeadToeY = currentLeadToeY;
- }
- }
-
- /* ========================================================
- MODE-SPECIFIC BIOMECHANICS ENGINE
- ======================================================== */
-
- if (selectedAngleMode === 'SIDE') {
- // 1. Stride Width
- if (Number.isFinite(currentStrideCm)) {
- const strideCm = Math.round(currentStrideCm);
- if (strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
- const strideRatio = Math.round((strideCm / userHeightCm) * 100);
- c1Val.textContent = `${strideCm} cm`;
- if (strideCm > records.maxStride) {
- records.maxStride = strideCm;
- c1Max.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
- }
- }
- }
-
- // 2. MER
- if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP && throwElbow && throwWrist) {
- const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist);
- if (Number.isFinite(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
- const roundedMER = Math.round(trueMerDeg);
- c2Val.textContent = `${roundedMER} °`;
- if (roundedMER > records.maxMER && roundedMER <= 190) {
- records.maxMER = roundedMER;
- c2Max.textContent = `最大: ${roundedMER} °`;
- }
- }
- }
-
- // 3. Twist
- if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
- const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
- const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
- if (Number.isFinite(shoulderAngle) && Number.isFinite(hipAngle)) {
- let diff = Math.abs(shoulderAngle - hipAngle);
- if (diff > 180) diff = 360 - diff;
- const roundedTwist = Math.round(diff);
- if (roundedTwist <= 65) {
- c3Val.textContent = `${roundedTwist} °`;
- if (roundedTwist > records.maxTwist && roundedTwist >= 5) {
- records.maxTwist = roundedTwist;
- c3Max.textContent = `最大: ${roundedTwist} °`;
- }
- }
- }
- }
-
- // 4. Release Height & 5. Lead Knee (FF & Release 屈曲角度の同時計測)
- // 手首が肩よりキャッチャー側（前足側）に振り出されているかを判定し、セットやトップでの誤検知を防止
- const isHandForward = (throwWrist && throwShoulder && leadHeel) ? 
-   (Math.abs(throwWrist.x - leadHeel.x) < Math.abs(throwShoulder.x - leadHeel.x)) : false;
-
- const isThrowingPhase = isStepping && (currentStrideCm > userHeightCm * 0.45) && 
-   throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y) && isHandForward;
-
- if (leadHip && leadKnee && leadAnkle) {
- const rawKneeAngle = calcJointAngle3D(leadHip, leadKnee, leadAnkle);
- if (Number.isFinite(rawKneeAngle) && rawKneeAngle >= 40 && rawKneeAngle <= 180) {
- const flexAngle = Math.max(0, Math.round(180 - rawKneeAngle));
- currentCalculatedState.kneeFlexAngle = flexAngle;
- c5Val.textContent = `屈曲 ${flexAngle} °`;
-
- if (isKinematicFF && records.ffKneeFlex === null) {
- records.ffKneeFlex = flexAngle;
- }
-
- if (isThrowingPhase && leadHeel && pivotHeel) {
- const lowestGroundY = Math.max(leadHeel.y, pivotHeel.y) * b.h;
- const releaseTarget = (throwIndex && throwIndex.y !== undefined) ? throwIndex : throwWrist;
- if (releaseTarget) {
- const releasePointY = releaseTarget.y * b.h;
- const releaseHeightPx = Math.max(0, lowestGroundY - releasePointY);
- const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
-
- if (Number.isFinite(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.45)) {
- c4Val.textContent = `${releaseHeightCm} cm`;
- if (releaseHeightCm > records.maxRelease) {
- records.maxRelease = releaseHeightCm;
- records.releaseKneeFlex = flexAngle;
- c4Max.textContent = `最高: ${releaseHeightCm} cm`;
- }
- }
- }
- }
-
- const ffText = records.ffKneeFlex !== null ? `屈曲 ${records.ffKneeFlex}°` : '屈曲 --°';
- const brText = records.releaseKneeFlex !== null ? `屈曲 ${records.releaseKneeFlex}°` : '屈曲 --°';
- c5Max.textContent = `FF時: ${ffText} (リリース時: ${brText})`;
- }
- }
-
- // 6. Forward Trunk Tilt
- if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
- const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
- const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
- const trunkDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
- if (Number.isFinite(trunkDeg) && trunkDeg <= 60) {
- c6Val.textContent = `${trunkDeg} °`;
- if (trunkDeg > records.maxTrunkTilt) {
- records.maxTrunkTilt = trunkDeg;
- c6Max.textContent = `最大前傾: ${trunkDeg} °`;
- }
- }
- }
-
- } else {
- // --- FRONT VIEW (正面・斜め前解析) ---
-
- // 1. Lead Toe Angle
- if (leadHeel && leadToe && leadAnkle) {
- if (!isStepping) {
- smoothToeDeg = 0;
- c1Val.textContent = `0 °`;
- if (!records.fcToeLabel) {
- c1Max.textContent = `構え位置`;
- }
- } else {
- const deltaX = (leadToe.x - leadHeel.x) * b.w;
- const deltaY = Math.max(10, (leadToe.y - leadHeel.y) * b.h);
- 
-let angleDeg = (Math.atan2(deltaX, deltaY) * 180.0 / Math.PI) + manualToeOffsetDeg;
- let signedToeDev = isRightHanded ? angleDeg : -angleDeg;
- 
-smoothToeDeg = smoothToeDeg === 0 ? signedToeDev : (smoothToeDeg * 0.7 + signedToeDev * 0.3);
- 
-const displayAngle = Math.round(Math.abs(smoothToeDeg));
- let stateLabel = "◎ ストレート (0〜10°)";
-
- if (smoothToeDeg > 20) {
- stateLabel = "⚠️ 開き注意 (アウト)";
- } else if (smoothToeDeg > 10) {
- stateLabel = "○ やや開き";
- } else if (smoothToeDeg < -15) {
- stateLabel = "⚠️ 被り・閉じすぎ (イン)";
- } else if (smoothToeDeg < -5) {
- stateLabel = "○ やや閉じ (クローズ)";
- }
-
- currentCalculatedState.displayToeAngle = displayAngle;
- currentCalculatedState.toeStateLabel = stateLabel;
-
- c1Val.textContent = `${displayAngle} °`;
-
- if (isKinematicFF && records.fcToeAngle === null) {
- records.fcToeAngle = displayAngle;
- records.fcToeLabel = `べた足時: ${displayAngle}° (${stateLabel})`;
- }
-
- if (records.fcToeLabel) {
- c1Max.textContent = records.fcToeLabel;
- } else {
- c1Max.textContent = stateLabel;
- }
- }
- }
-
- // 2. Knee Valgus / Varus
- if (leadHip && leadKnee && leadAnkle) {
- const thighAngle = Math.atan2(leadKnee.y - leadHip.y, leadKnee.x - leadHip.x);
- const shankAngle = Math.atan2(leadAnkle.y - leadKnee.y, leadAnkle.x - leadKnee.x);
- 
-let valgusDiff = (shankAngle - thighAngle) * 180.0 / Math.PI;
- if (valgusDiff > 180) valgusDiff -= 360;
- if (valgusDiff < -180) valgusDiff += 360;
-
- let devAngle = isRightHanded ? -valgusDiff : valgusDiff;
- let absDev = Math.min(30, Math.round(Math.abs(devAngle)));
-
- let valgusStatus = "まっすぐ (◎ 正常)";
- if (absDev > 12) {
- valgusStatus = (devAngle > 0) ? "⚠️ ニーイン (外反)" : "⚠️ 割れ (内反)";
- } else if (absDev > 6) {
- valgusStatus = (devAngle > 0) ? "○ やや内入り" : "○ やや外開き";
- }
-
- currentCalculatedState.kneeDevAngle = absDev;
- currentCalculatedState.kneeStateLabel = valgusStatus;
-
- c2Val.textContent = `${absDev} °`;
-
- if (isKinematicFF && records.ffValgusAngle === null) {
- records.ffValgusAngle = absDev;
- records.ffValgusLabel = `べた足時: ${absDev}° (${valgusStatus})`;
- }
-
- if (records.ffValgusLabel) {
- c2Max.textContent = records.ffValgusLabel;
- } else {
- c2Max.textContent = valgusStatus;
- }
-
- if (absDev > records.maxValgus && isStepping) {
- records.maxValgus = absDev;
- }
- }
-
- // 3. Trunk Lateral Tilt
- if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
- const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
- const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
- const lateralDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
- if (Number.isFinite(lateralDeg) && lateralDeg <= 45) {
- c3Val.textContent = `${lateralDeg} °`;
- if (lateralDeg > records.maxTrunkLateral) {
- records.maxTrunkLateral = lateralDeg;
- c3Max.textContent = `最大傾き: ${lateralDeg} °`;
- }
- }
- }
-
- // 4. Arm Slot
- if (throwWrist && throwShoulder && L_SHOULDER && R_SHOULDER) {
- const otherShoulder = isRightHanded ? L_SHOULDER : R_SHOULDER;
- const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, otherShoulder);
- if (Number.isFinite(armSlotAngle) && armSlotAngle >= 30 && armSlotAngle <= 180) {
- const roundedSlot = Math.round(armSlotAngle);
- c4Val.textContent = `${roundedSlot} °`;
- if (roundedSlot > records.maxArmSlot) {
- records.maxArmSlot = roundedSlot;
- c4Max.textContent = `最大挙上: ${roundedSlot} °`;
- }
- }
- }
-
- // 5. In-Step / Out-Step
- if (leadHeel && pivotHeel) {
- if (!isStepping) {
- c5Val.textContent = `0 cm`;
- c5Max.textContent = `構え位置`;
- } else {
- const lateralOffsetPx = Math.abs((leadHeel.x - pivotHeel.x) * b.w);
- const lateralOffsetCm = Math.round(lateralOffsetPx / activePxPerCm);
- if (Number.isFinite(lateralOffsetCm) && lateralOffsetCm <= 40) {
- const isCross = isRightHanded ? (leadHeel.x < pivotHeel.x) : (leadHeel.x > pivotHeel.x);
- const dirText = isCross ? "インステップ" : "アウトステップ";
- c5Val.textContent = `${lateralOffsetCm} cm`;
- if (lateralOffsetCm > records.maxInStepCm) {
- records.maxInStepCm = lateralOffsetCm;
- c5Max.textContent = `${dirText}: ${lateralOffsetCm} cm`;
- }
- }
- }
- }
-
- // 6. Lateral Release Point
- const isFrontThrowingPhase = isStepping && (currentStrideCm > userHeightCm * 0.45) && 
-   throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y);
- if (isFrontThrowingPhase && L_SHOULDER && R_SHOULDER) {
- const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
- const releaseTarget = (throwIndex && throwIndex.x !== undefined) ? throwIndex : throwWrist;
- if (releaseTarget) {
- const lateralReleasePx = Math.abs((releaseTarget.x - midShoulder.x) * b.w);
- const lateralReleaseCm = Math.round(lateralReleasePx / activePxPerCm);
- if (Number.isFinite(lateralReleaseCm) && lateralReleaseCm <= 80) {
- c6Val.textContent = `${lateralReleaseCm} cm`;
- if (lateralReleaseCm > records.maxReleaseLateral) {
- records.maxReleaseLateral = lateralReleaseCm;
- c6Max.textContent = `最大横幅: ${lateralReleaseCm} cm`;
- }
- }
- }
- }
- }
- }
-
- outputCtx.restore();
- }
-
- function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw, isRightHanded) {
- const connections = [
- [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21],
- [12, 14], [14, 16], [16, 18], [16, 20], [16, 22],
- [11, 23], [12, 24], [23, 24],
- [23, 25], [25, 27], [27, 29], [29, 31], [27, 31],
- [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]
- ];
-
- outputCtx.strokeStyle = "#10b981";
- outputCtx.lineWidth = 3.5;
- connections.forEach(([i, j]) => {
- const p1 = landmarks[i];
- const p2 = landmarks[j];
- if (p1 && p2) {
- outputCtx.beginPath();
- outputCtx.moveTo(ox + p1.x * bw, oy + p1.y * bh);
- outputCtx.lineTo(ox + p2.x * bw, oy + p2.y * bh);
- outputCtx.stroke();
- }
- });
-
- const keyJoints = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
- 
-const throwWristIdx = isRightHanded ? 16 : 15;
- const throwElbowIdx = isRightHanded ? 14 : 13;
- const throwIndexIdx = isRightHanded ? 20 : 19;
- 
-const leadKneeIdx = isRightHanded ? 25 : 26;
- const leadToeIdx = isRightHanded ? 31 : 32;
-
- keyJoints.forEach(idx => {
- const p = landmarks[idx];
- if (p) {
- let drawX = ox + p.x * bw;
- let drawY = oy + p.y * bh;
-
- if (idx === throwIndexIdx && landmarks[throwWristIdx]) {
- const wristP = landmarks[throwWristIdx];
- const dist = Math.hypot(p.x - wristP.x, p.y - wristP.y);
- if (dist > 0.18) {
- drawX = ox + wristP.x * bw;
- drawY = oy + wristP.y * bh;
- }
- }
-
- outputCtx.beginPath();
- let radius = 4.5;
- if (idx === throwIndexIdx) radius = 7;
- else if (idx === throwWristIdx) radius = 6;
- else if (idx === throwElbowIdx) radius = 5.5;
- else if (idx === leadKneeIdx) radius = 6;
- else if (idx === leadToeIdx) radius = 7;
-
- outputCtx.arc(drawX, drawY, radius, 0, Math.PI * 2);
- 
-if (idx === throwIndexIdx) {
- outputCtx.fillStyle = "#ff007f";
- } else if (idx === throwWristIdx) {
- outputCtx.fillStyle = "#ff5252";
- } else if (idx === throwElbowIdx) {
- outputCtx.fillStyle = "#ff9f43";
- } else if (idx === leadKneeIdx) {
- outputCtx.fillStyle = "#ffe600";
- } else if (idx === leadToeIdx) {
- outputCtx.fillStyle = "#00d2ff";
- } else if ([17, 18, 21, 22].includes(idx)) {
- outputCtx.fillStyle = "#a855f7";
- } else {
- outputCtx.fillStyle = "#38bdf8";
- }
-
- outputCtx.fill();
- outputCtx.strokeStyle = "#ffffff";
- outputCtx.lineWidth = 1.5;
- outputCtx.stroke();
- }
- });
- }
-
- /* --- Video Playback Engine --- */
- function updatePlayState() {
- if (animationFrameId) {
- cancelAnimationFrame(animationFrameId);
- animationFrameId = null;
- }
- 
-if (videoElement.paused) {
- btnPlayPause.textContent = "再生 ▶";
- btnPlayPause.style.background = "linear-gradient(135deg, #ff9f43, #ff5252)";
- } else {
- btnPlayPause.textContent = "停止 ⏸";
- btnPlayPause.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
- renderLoop();
- }
- }
-
- function renderLoop() {
- if (!videoElement.paused && !videoElement.ended) {
- processSingleFrame();
- updateTimeUI();
- animationFrameId = requestAnimationFrame(renderLoop);
- }
- }
-
- function updateTimeUI() {
- if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
- seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
- timeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
- }
-
- videoElement.addEventListener('play', updatePlayState);
- videoElement.addEventListener('pause', updatePlayState);
- videoElement.addEventListener('ended', updatePlayState);
- videoElement.addEventListener('seeked', () => {
- if (stepViews[4].classList.contains('active')) {
- processSingleFrame();
- }
- });
-
- btnPlayPause.addEventListener('click', (e) => {
- e.stopPropagation();
- if (videoElement.paused) {
- videoElement.play().catch(err => {
- if (err.name !== 'AbortError') {
- console.warn("Video Play Interrupted:", err);
- }
- });
- } else {
- videoElement.pause();
- }
- });
-
- seekBar.addEventListener('input', () => {
- if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
- videoElement.pause();
- videoElement.currentTime = (seekBar.value / 100) * videoElement.duration;
- updateTimeUI();
- });
-
- document.getElementById('btn-frame-prev').addEventListener('click', (e) => {
- e.stopPropagation();
- videoElement.pause();
- videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
- updateTimeUI();
- });
-
- document.getElementById('btn-frame-next').addEventListener('click', (e) => {
- e.stopPropagation();
- videoElement.pause();
- videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
- updateTimeUI();
- });
-
- document.getElementById('btn-reset-max').addEventListener('click', () => {
- records = {
- maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0, ffKneeFlex: null, releaseKneeFlex: null, maxTrunkTilt: 0,
- toeAngle: 0, fcToeAngle: null, fcToeLabel: null, maxValgus: 0, ffValgusAngle: null, ffValgusLabel: null, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
- };
- smoothToeDeg = 0;
- manualToeOffsetDeg = 0;
- prevLeadToeY = null;
- leadFootFlatStationaryCount = 0;
-
- if (selectedAngleMode === 'SIDE') {
- c1Max.textContent = "最大: -- cm (0%身)";
- c2Max.textContent = "最大: -- °";
- c3Max.textContent = "最大: -- °";
- c4Max.textContent = "最高: -- cm";
- c5Max.textContent = "FF時: 屈曲 --° (リリース時: 屈曲 --°)";
- c6Max.textContent = "最大倒れ: -- °";
- } else {
- c1Max.textContent = "状態: --";
- c2Max.textContent = "状態: --";
- c3Max.textContent = "最大傾き: -- °";
- c4Max.textContent = "最大挙上: -- °";
- c5Max.textContent = "最大ズレ: -- cm";
- c6Max.textContent = "最大横幅: -- cm";
- }
- });
-
- document.getElementById('btn-re-select').addEventListener('click', () => {
- videoElement.pause();
- if (animationFrameId) {
- cancelAnimationFrame(animationFrameId);
- animationFrameId = null;
- }
- tuneRuler.isActive = false;
- btnScanNextStep.style.display = 'none';
- zoomScale = 1.0;
- zoomPan = { x: 0, y: 0 };
- smoothToeDeg = 0;
- manualToeOffsetDeg = 0;
- prevLeadToeY = null;
- leadFootFlatStationaryCount = 0;
- updateZoomBadge();
- setStep(1);
- });
- </script>
-</body><script>
- if ('serviceWorker' in navigator) {
- window.addEventListener('load', function() {
- navigator.serviceWorker.register('sw.js').then(function(registration) {
- console.log('ServiceWorker登録成功:', registration.scope);
- }).catch(function(err) {
- console.log('ServiceWorker登録失敗:', err);
- });
- });
- }
- </script>
+  <header>
+    <div class="header-bar">
+      <!-- 🏠 総合トップへ戻るボタン -->
+      <a href="./index.html" class="btn-nav-home" title="トップメニューへ戻る">🏠 ホーム</a>
+      <h1>⚾ 投球AIバイオメカニクス ⚾</h1>
+      <div style="width: 52px;"></div><!-- バランス保持用の余白 -->
+    </div>
+    <div class="steps-nav">
+      <div id="step-nav-1" class="step-pill active">1. どうが選択</div>
+      <div id="step-nav-2" class="step-pill">2. 姿勢スキャン</div>
+      <div id="step-nav-3" class="step-pill">3. 選手情報</div>
+    </div>
+  </header>
+
+  <main class="app-container">
+
+    <!-- STEP 1: Angle Selection & Video Input -->
+    <section id="view-step1" class="view-section active">
+      <div class="top-mode-grid">
+        <label class="mode-card mode-card-side" id="label-side-video">
+          <div class="mode-card-icon">⚾</div>
+          <div class="mode-card-info">
+            <div class="mode-card-title">横向き動画を解析</div>
+            <div class="mode-card-desc">歩幅・腕のしなり・捻転差・リリース高・ヒザの曲がり</div>
+          </div>
+          <input type="file" id="video-input-side" accept="video/*" style="display: none;">
+        </label>
+
+        <label class="mode-card mode-card-front" id="label-front-video">
+          <div class="mode-card-icon">🎯</div>
+          <div class="mode-card-info">
+            <div class="mode-card-title">正面・斜め前動画を解析</div>
+            <div class="mode-card-desc">つま先の向き・ヒザの内外反・アームスロット・インステップ</div>
+          </div>
+          <input type="file" id="video-input-front" accept="video/*" style="display: none;">
+        </label>
+      </div>
+
+      <div class="top-tips-box">
+        💡 <b>きれいに測るコツ:</b> 遠くから撮った動画は、写真アプリで投手の周りをトリミングしておくとAIの精度がアップするよ！
+      </div>
+
+      <button class="btn-carte-banner" id="btn-open-carte-top">
+        <span>🏆</span>
+        <span>保存した選手カルテ・測定履歴を見る</span>
+      </button>
+    </section>
+
+    <!-- STEP 2: Stature Scan & Manual Fine-Tune -->
+    <section id="view-step2" class="view-section">
+      <div class="guidance-box" id="scan-guide-text">
+        🧍 <b>まっすぐ立っている瞬間</b>でバーを止めて「① AI自動スキャン」を押してね！
+      </div>
+
+      <div class="screen-wrapper" id="scan-screen-wrapper">
+        <canvas id="scan-canvas"></canvas>
+        <div class="loading-overlay" id="scan-loading" style="display: none;">
+          <div class="spinner"></div>
+          <div style="font-size: 0.75rem; color: #0284c7; font-weight: 900;">🚀 AIがからだを探しているよ...</div>
+        </div>
+      </div>
+
+      <div class="seek-container">
+        <input type="range" id="scan-seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
+        <span class="time-disp" id="scan-time-disp">0.00 / 0.00</span>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-ctrl" id="btn-scan-prev">◀ -1コマ</button>
+        <button class="btn btn-scan" id="btn-scan-action">📏 ① AI自動スキャン</button>
+        <button class="btn btn-ctrl" id="btn-scan-next">+1コマ ▶</button>
+      </div>
+      <button class="btn btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
+    </section>
+
+    <!-- STEP 3: Arm & Stature Input -->
+    <section id="view-step3" class="view-section">
+      <div class="guidance-box">
+        🔥 <b>せんしゅの名前・投げる腕・身長を入れてね！</b>
+      </div>
+      
+      <div class="input-group" style="padding: 2px 0; gap: 4px;">
+        <div style="width: 100%;">
+          <label for="player-name-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.8rem; color: #0369a1;">
+            選手名（なまえ）
+          </label>
+          <input type="text" id="player-name-input" class="input-field" value="せんしゅ1" placeholder="なまえを入力">
+        </div>
+
+        <div style="width: 100%;">
+          <label style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; color: #0369a1; font-size: 0.8rem;">
+            投げる腕（ききうで）
+          </label>
+          <div class="toggle-group">
+            <button type="button" class="toggle-btn" id="btn-arm-right">右なげ ⚾</button>
+            <button type="button" class="toggle-btn active" id="btn-arm-left">左なげ ⚾</button>
+          </div>
+        </div>
+
+        <div style="width: 100%;">
+          <label for="height-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.8rem; color: #0369a1;">
+            身長 (cm)
+          </label>
+          <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
+        </div>
+      </div>
+
+      <div class="btn-group" style="margin-top: 2px;">
+        <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 やり直す</button>
+        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 2px 0 #047857;">
+          🚀 解析スタート！
+        </button>
+      </div>
+    </section>
+
+    <section id="view-step4" class="view-section">
+      <div class="dashboard">
+        <div class="card">
+          <div class="card-title" id="c1-title">🚶 ステップ幅 (歩幅)</div>
+          <div class="card-val" id="c1-val">-- cm</div>
+          <div class="card-max" id="c1-max">最大: -- cm (0%身)</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c2-title">💪 うでのしなり (左肩外旋)</div>
+          <div class="card-val" id="c2-val">-- °</div>
+          <div class="card-max" id="c2-max">最大: -- °</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c3-title">🔄 捻転差 (胸と腰のひねり)</div>
+          <div class="card-val" id="c3-val">-- °</div>
+          <div class="card-max" id="c3-max">最大: -- °</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c4-title">⚾ 指先リリース高</div>
+          <div class="card-val" id="c4-val">-- cm</div>
+          <div class="card-max" id="c4-max">最高: -- cm</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c5-title">🦵 前足ヒザ屈曲角度 (曲がり)</div>
+          <div class="card-val" id="c5-val">-- °</div>
+          <div class="card-max" id="c5-max">FF時: 屈曲 --° (リリース時: 屈曲 --°)</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c6-title">📐 体幹の前傾角度 (倒れ)</div>
+          <div class="card-val" id="c6-val">-- °</div>
+          <div class="card-max" id="c6-max">最大倒れ: -- °</div>
+        </div>
+      </div>
+
+      <div class="screen-wrapper" id="main-screen-wrapper">
+        <canvas id="output-canvas"></canvas>
+        <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
+        <div class="angle-mode-badge" id="angle-mode-badge">横向き解析</div>
+        <div class="player-tag-badge" id="player-tag-badge">👤 せんしゅ1 (140cm)</div>
+        <div class="loading-overlay" id="ai-loading" style="display: none;">
+          <div class="spinner"></div>
+          <div style="font-size: 0.75rem; color: #0284c7; font-weight: 900;">⚡ AI同期中...</div>
+        </div>
+      </div>
+
+      <div class="controls-container">
+        <div class="seek-container">
+          <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
+          <span class="time-disp" id="time-disp">0.00 / 0.00</span>
+        </div>
+        <div class="playback-rows">
+          <div class="btn-row">
+            <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
+            <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: 0 1.5px 0 #c0392b; flex: 1.2;">再生 ▶</button>
+            <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
+            <button class="btn-ctrl btn-fc-trigger" id="btn-manual-fc">👟 べた足決定</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn-ctrl btn-save-trigger" id="btn-save-record">💾 保存</button>
+            <button class="btn-ctrl" id="btn-open-carte">📋 カルテ</button>
+            <button class="btn-ctrl" id="btn-toggle-skeleton">🦴 骨格</button>
+            <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム</button>
+            <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
+            <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 選択</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="modal-overlay" id="carte-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span>📋 選手カルテ（同日まとめレポート）</span>
+        <button id="btn-close-carte" style="background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; font-weight: 900;">✕</button>
+      </div>
+      <div style="padding: 6px 8px; background: #e0f2fe; display: flex; gap: 4px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <select id="player-select-filter" style="padding: 4px 6px; border-radius: 8px; border: 1.5px solid #38bdf8; font-weight: 900; font-size: 0.75rem; flex: 1; min-width: 140px;"></select>
+        <button id="btn-export-csv" class="btn" style="padding: 4px 8px; font-size: 0.70rem;">📥 CSV出力</button>
+        <button id="btn-delete-action" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.70rem;">🗑️ 削除</button>
+      </div>
+      <div class="modal-body" id="carte-history-list"></div>
+    </div>
+  </div>
+
+  <video id="hidden-video" playsinline webkit-playsinline preload="auto" muted></video>
+  <canvas id="buffer-canvas" style="display: none;"></canvas>
+
+  <script>
+    const videoElement = document.getElementById('hidden-video');
+    const bufferCanvas = document.getElementById('buffer-canvas');
+    const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
+
+    const scanCanvas = document.getElementById('scan-canvas');
+    const scanCtx = scanCanvas.getContext('2d');
+
+    const outputCanvas = document.getElementById('output-canvas');
+    const outputCtx = outputCanvas.getContext('2d');
+
+    let pose = null;
+    let isPoseLoaded = false;
+    let isProcessing = false;
+    let animationFrameId = null;
+    let scanModeActive = false;
+
+    let playerName = "せんしゅ1";
+    let userHeightCm = 140;
+    let selectedThrowArm = 'LEFT';
+    let videoFileUrl = null;
+    let selectedAngleMode = 'SIDE';
+
+    let isSkeletonVisible = true;
+
+    let tuneRuler = {
+      isActive: false,
+      topYNorm: 0.2,
+      bottomYNorm: 0.8,
+      centerXNorm: 0.5
+    };
+    let activeDragHandle = null;
+    let dragStartY = 0;
+    let snapTop = 0, snapBottom = 0;
+
+    let manualToeOffsetDeg = 0;
+    let isDraggingToe = false;
+    let toeDragOrigin = { x: 0, y: 0 };
+    let smoothToeDeg = 0;
+
+    let zoomScale = 1.0;
+    let zoomPan = { x: 0, y: 0 };
+    let initialPinchDistance = 0;
+    let initialZoomScale = 1.0;
+    let isPanning = false;
+    let panStart = { x: 0, y: 0 };
+    let panSnapshot = { x: 0, y: 0 };
+
+    let prevLeadToeY = null;
+    let leadFootFlatStationaryCount = 0;
+
+    let currentCalculatedState = {
+      displayToeAngle: 0,
+      toeStateLabel: "◎ ストレート",
+      kneeDevAngle: 0,
+      kneeStateLabel: "まっすぐ (◎ 正常)",
+      kneeFlexAngle: 0
+    };
+
+    let records = {
+      maxStride: 0,
+      maxMER: 0,
+      maxTwist: 0,
+      maxRelease: 0,
+      ffKneeFlex: null,
+      releaseKneeFlex: null,
+      maxTrunkTilt: 0,
+      toeAngle: 0,
+      fcToeAngle: null,
+      fcToeLabel: null,
+      maxValgus: 0,
+      ffValgusAngle: null,
+      ffValgusLabel: null,
+      maxTrunkLateral: 0,
+      maxArmSlot: 0,
+      maxInStepCm: 0,
+      maxReleaseLateral: 0
+    };
+
+    const stepViews = {
+      1: document.getElementById('view-step1'),
+      2: document.getElementById('view-step2'),
+      3: document.getElementById('view-step3'),
+      4: document.getElementById('view-step4')
+    };
+
+    const stepPills = {
+      1: document.getElementById('step-nav-1'),
+      2: document.getElementById('step-nav-2'),
+      3: document.getElementById('step-nav-3')
+    };
+
+    const c1Title = document.getElementById('c1-title');
+    const c1Val = document.getElementById('c1-val');
+    const c1Max = document.getElementById('c1-max');
+
+    const c2Title = document.getElementById('c2-title');
+    const c2Val = document.getElementById('c2-val');
+    const c2Max = document.getElementById('c2-max');
+
+    const c3Title = document.getElementById('c3-title');
+    const c3Val = document.getElementById('c3-val');
+    const c3Max = document.getElementById('c3-max');
+
+    const c4Title = document.getElementById('c4-title');
+    const c4Val = document.getElementById('c4-val');
+    const c4Max = document.getElementById('c4-max');
+
+    const c5Title = document.getElementById('c5-title');
+    const c5Val = document.getElementById('c5-val');
+    const c5Max = document.getElementById('c5-max');
+
+    const c6Title = document.getElementById('c6-title');
+    const c6Val = document.getElementById('c6-val');
+    const c6Max = document.getElementById('c6-max');
+
+    const angleModeBadge = document.getElementById('angle-mode-badge');
+    const playerTagBadge = document.getElementById('player-tag-badge');
+
+    const scanSeekBar = document.getElementById('scan-seek-bar');
+    const scanTimeDisp = document.getElementById('scan-time-disp');
+    const seekBar = document.getElementById('seek-bar');
+    const timeDisp = document.getElementById('time-disp');
+    const btnPlayPause = document.getElementById('btn-play-pause');
+    const zoomBadge = document.getElementById('zoom-badge');
+    const aiLoading = document.getElementById('ai-loading');
+    const scanLoading = document.getElementById('scan-loading');
+    const btnScanNextStep = document.getElementById('btn-scan-next-step');
+    const scanGuideText = document.getElementById('scan-guide-text');
+
+    const btnArmRight = document.getElementById('btn-arm-right');
+    const btnArmLeft = document.getElementById('btn-arm-left');
+    const btnToggleSkeleton = document.getElementById('btn-toggle-skeleton');
+
+    const carteModal = document.getElementById('carte-modal');
+    const btnCloseCarte = document.getElementById('btn-close-carte');
+    const carteHistoryList = document.getElementById('carte-history-list');
+    const playerSelectFilter = document.getElementById('player-select-filter');
+    const btnDeleteAction = document.getElementById('btn-delete-action');
+
+    function updateCardLabels() {
+      const isLeft = (selectedThrowArm === 'LEFT');
+      if (selectedAngleMode === 'SIDE') {
+        angleModeBadge.textContent = "横向き解析 ⚾";
+        angleModeBadge.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
+
+        c1Title.textContent = "🚶 ステップ幅 (歩幅)";
+        c2Title.textContent = isLeft ? "💪 うでのしなり (左肩外旋)" : "💪 うでのしなり (右肩外旋)";
+        c3Title.textContent = "🔄 捻転差 (胸と腰のひねり)";
+        c4Title.textContent = "⚾ 指先リリース高";
+        c5Title.textContent = isLeft ? "🦵 前足ヒザ屈曲角度 (右足)" : "🦵 前足ヒザ屈曲角度 (左足)";
+        c6Title.textContent = "📐 体幹の前傾角度 (倒れ)";
+      } else {
+        angleModeBadge.textContent = "正面・斜め前解析 🎯";
+        angleModeBadge.style.background = "linear-gradient(135deg, #10b981, #059669)";
+
+        c1Title.textContent = "👟 前足つま先の向き";
+        c2Title.textContent = "🦵 前足ヒザの内外反";
+        c3Title.textContent = "📐 上半身の傾き (体幹側屈)";
+        c4Title.textContent = isLeft ? "💪 アームスロット (左腕)" : "💪 アームスロット (右腕)";
+        c5Title.textContent = "🚶 踏み出しのズレ (イン/アウト)";
+        c6Title.textContent = "⚾ リリース左右位置 (打点)";
+      }
+    }
+
+    btnArmRight.addEventListener('click', () => {
+      selectedThrowArm = 'RIGHT';
+      btnArmRight.classList.add('active');
+      btnArmLeft.classList.remove('active');
+      updateCardLabels();
+    });
+
+    btnArmLeft.addEventListener('click', () => {
+      selectedThrowArm = 'LEFT';
+      btnArmLeft.classList.add('active');
+      btnArmRight.classList.remove('active');
+      updateCardLabels();
+    });
+
+    btnToggleSkeleton.addEventListener('click', () => {
+      isSkeletonVisible = !isSkeletonVisible;
+      btnToggleSkeleton.textContent = isSkeletonVisible ? "🦴 骨格" : "🦴 非表示";
+      btnToggleSkeleton.style.background = isSkeletonVisible ? "#ffffff" : "linear-gradient(135deg, #38bdf8, #0284c7)";
+      btnToggleSkeleton.style.color = isSkeletonVisible ? "#334155" : "#ffffff";
+      processSingleFrame();
+    });
+
+    function setStep(stepNum) {
+      Object.keys(stepViews).forEach(s => stepViews[s].classList.remove('active'));
+      if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
+
+      Object.keys(stepPills).forEach(s => stepPills[s].classList.remove('active'));
+      if (stepNum <= 3 && stepPills[stepNum]) {
+        stepPills[stepNum].classList.add('active');
+      } else if (stepNum === 4 && stepPills[3]) {
+        stepPills[3].classList.add('active');
+      }
+    }
+
+    function generatePitchingAICoachAdvice(entry) {
+      let praises = [];
+      let improvements = [];
+
+      if (entry.mode === 'SIDE') {
+        const m = entry.metrics;
+        // 1. 歩幅
+        if (m.strideRatio >= 75 && m.strideRatio <= 88) {
+          praises.push(`🌟 歩幅が身長の【${m.strideRatio}%】とバッチリ！下半身の体重移動が力強く使えています！ (⚡ スピードUP)`);
+        } else if (m.strideRatio < 72 && m.strideRatio > 0) {
+          improvements.push(`【ジャンプトレーニング・下半身強化】 歩幅が身長の【${m.strideRatio}%】と少し狭めです。連続立ち幅跳びやサイドステップジャンプで前への推進力を鍛えると、並進エネルギーが使えて球速が上がります！ (⚡ スピードUP)`);
+        }
+
+        // 2. 肩外旋（しなり）
+        if (m.mer >= 155) {
+          praises.push(`🔥 腕のしなりが【${m.mer}°】と素晴らしい！ムチのようにしなやかに腕が振れています！ (⚡ スピードUP)`);
+        } else if (m.mer > 0) {
+          improvements.push(`【肩甲骨・胸のストレッチ】 腕のしなりが【${m.mer}°】でした。胸椎を反らすストレッチや肩甲骨はがしを行うと、肩に負担をかけずに自然としなりが作れるようになります！ (🛡️ ヒジ肩予防・⚡ スピードUP)`);
+        }
+
+        // 3. 捻転差
+        if (m.twist >= 25 && m.twist <= 45) {
+          praises.push(`🌪️ 捻転差が【${m.twist}°】と理想的！体幹のタメが効いてキレのあるボールが投げられます！ (⚡ キレ・初速UP)`);
+        } else if (m.twist > 0 && m.twist < 22) {
+          improvements.push(`【体幹・ひねり訓練】 捻転差が【${m.twist}°】と少し小さめです。下半身が着地するまで上半身を開かない「メディシンボール回旋スロー」などでタメを覚えると球のキレが増します！ (⚡ スピードUP)`);
+        }
+
+        // 4. ヒザの壁
+        const ffK = m.ffKneeFlex || 0;
+        const relK = m.releaseKneeFlex || 0;
+        if (relK > 0 && relK <= ffK) {
+          praises.push(`🦵 前足ヒザが割れずにしっかり踏ん張れており、回転のブレーキ（壁）が効いています！ (🎯 コントロールUP)`);
+        } else if (relK > ffK + 10) {
+          improvements.push(`【バランス・足腰訓練】 リリースにかけて前足ヒザが大きく曲がって力が逃げています。ランジキープや片足スクワットで着地足をビシッと固定し、回転軸を安定させましょう！ (🎯 コントロールUP)`);
+        }
+      } else {
+        // FRONT MODE
+        const m = entry.metrics;
+        // つま先
+        if (m.toeAngle <= 12) {
+          praises.push(`👟 つま先の向きが捕手方向へ真っ直ぐ向いており、骨盤の開きが抑えられています！ (🎯 コントロールUP・🛡️ 肘負担軽減)`);
+        } else {
+          improvements.push(`【ステップ方向ドリル】 つま先が外に【${m.toeAngle}°】開いています。ラインを踏んで真っ直ぐ踏み出す練習をすると、体が早く開かず球持ちが良くなります！ (🎯 制球力UP)`);
+        }
+
+        // ヒザ内外反
+        if (m.valgus <= 6) {
+          praises.push(`🛡️ 着地足のヒザが真っ直ぐ保たれており、ブレがありません！ (🎯 コントロールUP)`);
+        } else {
+          improvements.push(`【股関節・中殿筋バランス訓練】 ヒザが内側（または外側）に【${m.valgus}°】ブレています。チューブを使ったカニ歩きや片足バランストレーニングで軸を固めましょう！ (🎯 コントロールUP・🛡️ ケガ予防)`);
+        }
+      }
+
+      if (praises.length === 0) {
+        praises.push("🌟 元気よく思い切り腕を振って投げられています！フォームの基礎ができています！");
+      }
+      if (improvements.length === 0) {
+        improvements.push("💡 現在のフォームの数値は全体的にとても安定しています！このバランスを保って投げ込みましょう！");
+      }
+
+      let text = "【🤖 AIコーチ診断レポート】\n";
+      text += "🌟 ナイスポイント:\n" + praises.map(p => "・" + p).join("\n") + "\n\n";
+      text += "💪 おすすめトレーニングメニュー:\n" + improvements.map(i => "・" + i).join("\n");
+      return text;
+    }
+
+    function initMediaPipe() {
+      if (pose) return Promise.resolve();
+      scanLoading.style.display = 'flex';
+      aiLoading.style.display = 'flex';
+
+      pose = new Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+      });
+
+      pose.setOptions({
+        modelComplexity: 2,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        smoothSegmentation: false,
+        minDetectionConfidence: 0.15,
+        minTrackingConfidence: 0.15
+      });
+
+      pose.onResults(onPoseResults);
+      return pose.initialize().then(() => {
+        isPoseLoaded = true;
+        scanLoading.style.display = 'none';
+        aiLoading.style.display = 'none';
+      }).catch(err => {
+        console.error("MediaPipe Load Error:", err);
+        scanLoading.style.display = 'none';
+        aiLoading.style.display = 'none';
+      });
+    }
+
+    function getAspectFitBounds(srcW, srcH, dstW, dstH) {
+      if (!srcW || !srcH || !dstW || !dstH) return { x: 0, y: 0, w: dstW || 300, h: dstH || 200 };
+      const srcAspect = srcW / srcH;
+      const dstAspect = dstW / dstH;
+      let w, h, x, y;
+      if (srcAspect > dstAspect) {
+        w = dstW;
+        h = dstW / srcAspect;
+        x = 0;
+        y = (dstH - h) / 2;
+      } else {
+        h = dstH;
+        w = dstH * srcAspect;
+        x = (dstW - w) / 2;
+        y = 0;
+      }
+      return { x, y, w, h };
+    }
+
+    async function handleVideoLoad(file, angleMode) {
+      if (!file) return;
+      selectedAngleMode = angleMode;
+
+      if (videoFileUrl) {
+        URL.revokeObjectURL(videoFileUrl);
+        videoFileUrl = null;
+      }
+      videoFileUrl = URL.createObjectURL(file);
+      
+      videoElement.src = videoFileUrl;
+      videoElement.load();
+
+      updateCardLabels();
+      setStep(2);
+      await initMediaPipe();
+      ensureScanVideoReady();
+    }
+
+    document.getElementById('video-input-side').addEventListener('change', function(e) {
+      handleVideoLoad(e.target.files[0], 'SIDE');
+    });
+
+    document.getElementById('video-input-front').addEventListener('change', function(e) {
+      handleVideoLoad(e.target.files[0], 'FRONT');
+    });
+
+    function ensureScanVideoReady() {
+      videoElement.muted = true;
+      videoElement.playsInline = true;
+      videoElement.currentTime = 0.001;
+      
+      videoElement.onloadeddata = () => {
+        updateScanScreenSize();
+        renderScanFrame();
+      };
+      setTimeout(() => {
+        updateScanScreenSize();
+        renderScanFrame();
+      }, 150);
+    }
+
+    function updateScanScreenSize() {
+      const rect = scanCanvas.parentElement.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        scanCanvas.width = rect.width;
+        scanCanvas.height = rect.height;
+      }
+    }
+
+    function renderScanFrame() {
+      const cw = scanCanvas.width;
+      const ch = scanCanvas.height;
+      if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
+
+      scanCtx.clearRect(0, 0, cw, ch);
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
+      scanCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
+
+      if (Number.isFinite(videoElement.duration) && videoElement.duration > 0) {
+        scanSeekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
+        scanTimeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
+      }
+
+      if (tuneRuler.isActive) {
+        drawInteractiveRuler(b);
+      }
+    }
+
+    function drawInteractiveRuler(b) {
+      const topY = b.y + tuneRuler.topYNorm * b.h;
+      const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
+      const centerX = b.x + tuneRuler.centerXNorm * b.w;
+      const barWidth = 50;
+
+      scanCtx.strokeStyle = "rgba(56, 189, 248, 0.4)";
+      scanCtx.lineWidth = 4;
+      scanCtx.beginPath();
+      scanCtx.moveTo(centerX, topY);
+      scanCtx.lineTo(centerX, bottomY);
+      scanCtx.stroke();
+
+      scanCtx.strokeStyle = "#38bdf8";
+      scanCtx.lineWidth = 2;
+      scanCtx.beginPath();
+      scanCtx.moveTo(centerX, topY);
+      scanCtx.lineTo(centerX, bottomY);
+      scanCtx.stroke();
+
+      // Top Handle
+      scanCtx.strokeStyle = "#10b981";
+      scanCtx.lineWidth = 3.5;
+      scanCtx.beginPath();
+      scanCtx.moveTo(centerX - barWidth, topY);
+      scanCtx.lineTo(centerX + barWidth, topY);
+      scanCtx.stroke();
+
+      scanCtx.fillStyle = "#10b981";
+      scanCtx.beginPath();
+      scanCtx.arc(centerX, topY, 11, 0, Math.PI * 2);
+      scanCtx.fill();
+      scanCtx.strokeStyle = "#ffffff";
+      scanCtx.lineWidth = 2;
+      scanCtx.stroke();
+
+      scanCtx.fillStyle = "#ffffff";
+      scanCtx.font = "bold 10px sans-serif";
+      scanCtx.textAlign = "center";
+      scanCtx.fillText("👑 あたま ↕", centerX, topY - 14);
+
+      // Bottom Handle
+      scanCtx.strokeStyle = "#f43f5e";
+      scanCtx.lineWidth = 3.5;
+      scanCtx.beginPath();
+      scanCtx.moveTo(centerX - barWidth, bottomY);
+      scanCtx.lineTo(centerX + barWidth, bottomY);
+      scanCtx.stroke();
+
+      scanCtx.fillStyle = "#f43f5e";
+      scanCtx.beginPath();
+      scanCtx.arc(centerX, bottomY, 11, 0, Math.PI * 2);
+      scanCtx.fill();
+      scanCtx.strokeStyle = "#ffffff";
+      scanCtx.lineWidth = 2;
+      scanCtx.stroke();
+
+      scanCtx.fillStyle = "#ffffff";
+      scanCtx.fillText("👟 じめん ↕", centerX, bottomY + 18);
+    }
+
+    function getCanvasPoint(evt, canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+      return {
+        x: (clientX - rect.left) * (canvas.width / rect.width),
+        y: (clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function onScanPointerDown(e) {
+      if (!tuneRuler.isActive) return;
+      const pt = getCanvasPoint(e, scanCanvas);
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
+      
+      const topY = b.y + tuneRuler.topYNorm * b.h;
+      const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
+      const centerX = b.x + tuneRuler.centerXNorm * b.w;
+      const tol = 30;
+
+      if (Math.abs(pt.y - topY) <= tol && Math.abs(pt.x - centerX) <= 65) {
+        activeDragHandle = 'top';
+      } else if (Math.abs(pt.y - bottomY) <= tol && Math.abs(pt.x - centerX) <= 65) {
+        activeDragHandle = 'bottom';
+      } else if (pt.y > topY && pt.y < bottomY && Math.abs(pt.x - centerX) <= 40) {
+        activeDragHandle = 'both';
+      }
+      dragStartY = pt.y;
+      snapTop = tuneRuler.topYNorm;
+      snapBottom = tuneRuler.bottomYNorm;
+    }
+
+    function onScanPointerMove(e) {
+      if (!activeDragHandle || !tuneRuler.isActive) return;
+      const pt = getCanvasPoint(e, scanCanvas);
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
+      const dNormY = (pt.y - dragStartY) / b.h;
+
+      if (activeDragHandle === 'top') {
+        tuneRuler.topYNorm = Math.min(tuneRuler.bottomYNorm - 0.1, Math.max(0.01, snapTop + dNormY));
+      } else if (activeDragHandle === 'bottom') {
+        tuneRuler.bottomYNorm = Math.max(tuneRuler.topYNorm + 0.1, Math.min(0.99, snapBottom + dNormY));
+      } else if (activeDragHandle === 'both') {
+        const heightNorm = snapBottom - snapTop;
+        const newTop = Math.max(0.01, Math.min(0.99 - heightNorm, snapTop + dNormY));
+        tuneRuler.topYNorm = newTop;
+        tuneRuler.bottomYNorm = newTop + heightNorm;
+      }
+      renderScanFrame();
+    }
+
+    function onScanPointerUp() {
+      activeDragHandle = null;
+    }
+
+    scanCanvas.addEventListener('mousedown', onScanPointerDown);
+    scanCanvas.addEventListener('mousemove', onScanPointerMove);
+    window.addEventListener('mouseup', onScanPointerUp);
+
+    scanCanvas.addEventListener('touchstart', onScanPointerDown, { passive: true });
+    scanCanvas.addEventListener('touchmove', onScanPointerMove, { passive: true });
+    window.addEventListener('touchend', onScanPointerUp);
+
+    scanSeekBar.addEventListener('input', () => {
+      if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
+      videoElement.currentTime = (scanSeekBar.value / 100) * videoElement.duration;
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
+      renderScanFrame();
+    });
+
+    document.getElementById('btn-scan-prev').addEventListener('click', () => {
+      videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
+      renderScanFrame();
+    });
+
+    document.getElementById('btn-scan-next').addEventListener('click', () => {
+      videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
+      renderScanFrame();
+    });
+
+    document.getElementById('btn-scan-action').addEventListener('click', async () => {
+      scanLoading.style.display = 'flex';
+      scanModeActive = true;
+
+      const vw = videoElement.videoWidth;
+      const vh = videoElement.videoHeight;
+      bufferCanvas.width = vw;
+      bufferCanvas.height = vh;
+      bufferCtx.drawImage(videoElement, 0, 0, vw, vh);
+
+      try {
+        await pose.send({ image: bufferCanvas });
+      } catch (err) {
+        console.error("Scan Error:", err);
+      } finally {
+        scanLoading.style.display = 'none';
+        scanModeActive = false;
+      }
+    });
+
+    btnScanNextStep.addEventListener('click', () => {
+      setStep(3);
+    });
+
+    document.getElementById('btn-re-scan').addEventListener('click', () => {
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
+      setStep(2);
+      setTimeout(() => {
+        updateScanScreenSize();
+        renderScanFrame();
+      }, 100);
+    });
+
+    document.getElementById('btn-start-analysis').addEventListener('click', () => {
+      const pName = document.getElementById('player-name-input').value.trim();
+      playerName = pName || "せんしゅ1";
+
+      const hVal = parseFloat(document.getElementById('height-input').value);
+      userHeightCm = (Number.isFinite(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
+
+      playerTagBadge.textContent = `👤 ${playerName} (${userHeightCm}cm)`;
+
+      setStep(4);
+      setTimeout(() => {
+        resetWorkspaceDimensions();
+        processSingleFrame();
+      }, 150);
+    });
+
+    function resetWorkspaceDimensions() {
+      const rect = outputCanvas.parentElement.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        outputCanvas.width = rect.width;
+        outputCanvas.height = rect.height;
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      if (stepViews[4].classList.contains('active')) {
+        resetWorkspaceDimensions();
+        processSingleFrame();
+      } else if (stepViews[2].classList.contains('active')) {
+        updateScanScreenSize();
+        renderScanFrame();
+      }
+    });
+
+    function updateZoomBadge() {
+      zoomBadge.textContent = `🔍 ${zoomScale.toFixed(1)}x (ピンチ可)`;
+    }
+
+    outputCanvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      const newScale = Math.max(1.0, Math.min(5.0, zoomScale * zoomFactor));
+      if (newScale === 1.0) zoomPan = { x: 0, y: 0 };
+      zoomScale = newScale;
+      updateZoomBadge();
+      processSingleFrame();
+    }, { passive: false });
+
+    let lastCalculatedLeadToePt = null;
+
+    outputCanvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        initialPinchDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        initialZoomScale = zoomScale;
+      } else if (e.touches.length === 1) {
+        const pt = getCanvasPoint(e, outputCanvas);
+        if (selectedAngleMode === 'FRONT' && lastCalculatedLeadToePt) {
+          const distToToe = Math.hypot(pt.x - lastCalculatedLeadToePt.x, pt.y - lastCalculatedLeadToePt.y);
+          if (distToToe <= 35) {
+            isDraggingToe = true;
+            toeDragOrigin = { ...pt };
+            return;
+          }
+        }
+        if (zoomScale > 1.0) {
+          isPanning = true;
+          panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          panSnapshot = { ...zoomPan };
+        }
+      }
+    }, { passive: true });
+
+    outputCanvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        if (initialPinchDistance > 0) {
+          const factor = dist / initialPinchDistance;
+          zoomScale = Math.max(1.0, Math.min(5.0, initialZoomScale * factor));
+          if (zoomScale === 1.0) zoomPan = { x: 0, y: 0 };
+          updateZoomBadge();
+          processSingleFrame();
+        }
+      } else if (e.touches.length === 1) {
+        if (isDraggingToe) {
+          const pt = getCanvasPoint(e, outputCanvas);
+          const dx = pt.x - toeDragOrigin.x;
+          manualToeOffsetDeg = Math.max(-30, Math.min(30, manualToeOffsetDeg + dx * 0.4));
+          toeDragOrigin = { ...pt };
+          processSingleFrame();
+        } else if (isPanning && zoomScale > 1.0) {
+          const dx = e.touches[0].clientX - panStart.x;
+          const dy = e.touches[0].clientY - panStart.y;
+          zoomPan.x = panSnapshot.x + dx;
+          zoomPan.y = panSnapshot.y + dy;
+          processSingleFrame();
+        }
+      }
+    }, { passive: true });
+
+    outputCanvas.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) initialPinchDistance = 0;
+      if (e.touches.length === 0) {
+        isPanning = false;
+        isDraggingToe = false;
+      }
+    });
+
+    document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+      zoomScale = 1.0;
+      zoomPan = { x: 0, y: 0 };
+      manualToeOffsetDeg = 0;
+      updateZoomBadge();
+      processSingleFrame();
+    });
+
+    document.getElementById('btn-manual-fc').addEventListener('click', () => {
+      if (selectedAngleMode === 'FRONT') {
+        records.fcToeAngle = currentCalculatedState.displayToeAngle;
+        records.fcToeLabel = `べた足時: ${currentCalculatedState.displayToeAngle}° (${currentCalculatedState.toeStateLabel})`;
+        records.ffValgusAngle = currentCalculatedState.kneeDevAngle;
+        records.ffValgusLabel = `べた足時: ${currentCalculatedState.kneeDevAngle}° (${currentCalculatedState.kneeStateLabel})`;
+        
+        c1Max.textContent = records.fcToeLabel;
+        c2Max.textContent = records.ffValgusLabel;
+      } else {
+        records.ffKneeFlex = currentCalculatedState.kneeFlexAngle;
+        const brText = records.releaseKneeFlex !== null ? `屈曲 ${records.releaseKneeFlex}°` : '屈曲 --°';
+        c5Max.textContent = `FF時: 屈曲 ${records.ffKneeFlex}° (リリース時: ${brText})`;
+      }
+    });
+
+    const STORAGE_KEY = 'pitching_ai_records_v1';
+
+    function getSavedRecords() {
+      try {
+        const data = localStorage.getItem(STORAGE_KEY);
+        return data ? JSON.parse(data) : [];
+      } catch (e) {
+        console.error("Storage Load Error", e);
+        return [];
+      }
+    }
+
+    function saveCurrentRecord() {
+      const allRecords = getSavedRecords();
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}`;
+      const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+      const newEntry = {
+        id: Date.now(),
+        date: dateStr,
+        time: timeStr,
+        playerName: playerName,
+        height: userHeightCm,
+        throwArm: selectedThrowArm,
+        mode: selectedAngleMode,
+        feelGrade: "😆 めっちゃ良かった！",
+        bodyCondition: "🟢 どこも痛くない！元気！",
+        playerNote: "",
+        metrics: selectedAngleMode === 'SIDE' ? {
+          stride: records.maxStride,
+          strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
+          mer: records.maxMER,
+          twist: records.maxTwist,
+          releaseH: records.maxRelease,
+          ffKneeFlex: records.ffKneeFlex !== null ? records.ffKneeFlex : currentCalculatedState.kneeFlexAngle,
+          releaseKneeFlex: records.releaseKneeFlex !== null ? records.releaseKneeFlex : currentCalculatedState.kneeFlexAngle,
+          trunkTilt: records.maxTrunkTilt
+        } : {
+          toeAngle: records.fcToeAngle !== null ? records.fcToeAngle : 0,
+          toeLabel: records.fcToeLabel || "未測定",
+          valgus: records.ffValgusAngle !== null ? records.ffValgusAngle : records.maxValgus,
+          valgusLabel: records.ffValgusLabel || "未測定",
+          trunkLateral: records.maxTrunkLateral,
+          armSlot: records.maxArmSlot,
+          inStep: records.maxInStepCm,
+          releaseLateral: records.maxReleaseLateral
+        }
+      };
+
+      allRecords.unshift(newEntry);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+        alert(`✅ ${playerName}君の測定データをカルテに保存しました！`);
+      } catch (e) {
+        alert("⚠️ 保存容量がいっぱいです");
+      }
+    }
+
+    document.getElementById('btn-save-record').addEventListener('click', saveCurrentRecord);
+
+    function openCarteModal() {
+      renderCarteList(true);
+      carteModal.style.display = 'flex';
+    }
+
+    function closeCarteModal() {
+      carteModal.style.display = 'none';
+    }
+
+    document.getElementById('btn-open-carte').addEventListener('click', openCarteModal);
+    document.getElementById('btn-open-carte-top').addEventListener('click', openCarteModal);
+    btnCloseCarte.addEventListener('click', closeCarteModal);
+
+    function deleteSingleDayGroup(key) {
+      if (confirm("この日の測定カルテを削除しますか？")) {
+        let allRecords = getSavedRecords();
+        allRecords = allRecords.filter(r => `${r.playerName}_${r.date}` !== key);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+        renderCarteList(false);
+      }
+    }
+
+    function shareRecordToLine(groupKey) {
+      const allRecords = getSavedRecords();
+      const groupRecords = allRecords.filter(r => `${r.playerName}_${r.date}` === groupKey);
+      if (groupRecords.length === 0) return;
+
+      const first = groupRecords[0];
+      const sideRec = groupRecords.find(r => r.mode === 'SIDE');
+      const frontRec = groupRecords.find(r => r.mode === 'FRONT');
+
+      let text = `⚾ 【投球バイオメカニクス 選手レポート】 ⚾\n`;
+      text += `👤 選手名: ${first.playerName} 選手 (${first.height}cm / ${first.throwArm === 'RIGHT' ? '右投げ' : '左投げ'})\n`;
+      text += `📅 測定日: ${first.date}\n\n`;
+
+      if (sideRec) {
+        text += `📊 【横向き測定データ】\n`;
+        text += `・ステップ幅: ${sideRec.metrics.stride}cm (${sideRec.metrics.strideRatio}%身)\n`;
+        text += `・腕のしなり(肩外旋): ${sideRec.metrics.mer}°\n`;
+        text += `・捻転差: ${sideRec.metrics.twist}°\n`;
+        text += `・リリース高: ${sideRec.metrics.releaseH}cm\n`;
+        text += `・前足ヒザ: FF時 屈曲 ${sideRec.metrics.ffKneeFlex}° (リリース時: 屈曲 ${sideRec.metrics.releaseKneeFlex}°)\n`;
+        text += `・体幹前傾: ${sideRec.metrics.trunkTilt}°\n\n`;
+      }
+
+      if (frontRec) {
+        text += `🎯 【正面測定データ】\n`;
+        text += `・つま先の向き: ${frontRec.metrics.toeAngle}°\n`;
+        text += `・ヒザ内外反: ${frontRec.metrics.valgus}°\n`;
+        text += `・体幹の傾き: ${frontRec.metrics.trunkLateral}°\n`;
+        text += `・アームスロット: ${frontRec.metrics.armSlot}°\n`;
+        text += `・踏み出しズレ: ${frontRec.metrics.inStep}cm\n`;
+        text += `・リリース横幅: ${frontRec.metrics.releaseLateral}cm\n\n`;
+      }
+
+      text += generatePitchingAICoachAdvice(first) + "\n\n";
+
+      text += `👦 【せんしゅのふりかえり】\n`;
+      text += `・なげた感覚: ${first.feelGrade || '😆 めっちゃ良かった！'}\n`;
+      text += `・カラダの調子: ${first.bodyCondition || '🟢 どこも痛くない！元気！'}\n`;
+      if (first.playerNote && first.playerNote.trim() !== '') {
+        text += `・ひとこと: 「${first.playerNote.trim()}」\n`;
+      }
+
+      if (navigator.share) {
+        navigator.share({
+          title: `${first.playerName}選手の投球フォームレポート`,
+          text: text
+        }).catch(err => {
+          if (err.name !== 'AbortError') console.log('Share error:', err);
+        });
+      } else {
+        document.execCommand('copy');
+        alert("📋 レポート文をクリップボードにコピーしました！LINEやメールに貼り付けて監督に送れます。\n\n" + text);
+      }
+    }
+
+    function renderCarteList(isInitialOpen) {
+      const allRecords = getSavedRecords();
+      carteHistoryList.innerHTML = '';
+
+      const playerNames = Array.from(new Set(allRecords.map(r => r.playerName)));
+      const previousSelection = playerSelectFilter.value;
+
+      playerSelectFilter.innerHTML = '<option value="ALL">🌟 全員のカルテを表示</option>';
+      playerNames.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = `👤 ${p}`;
+        playerSelectFilter.appendChild(opt);
+      });
+
+      if (isInitialOpen) {
+        playerSelectFilter.value = playerNames.includes(playerName) ? playerName : 'ALL';
+      } else if (playerNames.includes(previousSelection) || previousSelection === 'ALL') {
+        playerSelectFilter.value = previousSelection;
+      } else {
+        playerSelectFilter.value = 'ALL';
+      }
+
+      const selectedFilter = playerSelectFilter.value;
+      btnDeleteAction.textContent = (selectedFilter === 'ALL') ? "⚠️ 全カルテ初期化" : `🗑️ ${selectedFilter}を全削除`;
+
+      const filtered = selectedFilter === 'ALL' ? allRecords : allRecords.filter(r => r.playerName === selectedFilter);
+
+      if (filtered.length === 0) {
+        carteHistoryList.innerHTML = '<div style="text-align:center; padding: 20px; color:#64748b; font-weight:800;">保存されたカルテはありません</div>';
+        return;
+      }
+
+      const groups = {};
+      filtered.forEach(r => {
+        const key = `${r.playerName}_${r.date}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(r);
+      });
+
+      Object.keys(groups).forEach(key => {
+        const recs = groups[key];
+        const first = recs[0];
+        const sideRec = recs.find(r => r.mode === 'SIDE');
+        const frontRec = recs.find(r => r.mode === 'FRONT');
+
+        const curFeel = first.feelGrade || "😆 めっちゃ良かった！";
+        const curBody = first.bodyCondition || "🟢 どこも痛くない！元気！";
+
+        const card = document.createElement('div');
+        card.className = 'history-card';
+
+        const aiAdviceHtml = generatePitchingAICoachAdvice(first).replace(/\n/g, '<br>');
+
+        card.innerHTML = `
+          <div class="history-card-head">
+            <span>👤 ${first.playerName} (${first.height}cm・${first.throwArm === 'RIGHT' ? '右' : '左'})</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="color:#64748b; font-size:0.65rem;">📅 ${first.date}</span>
+              <button class="btn-item-delete" data-group="${key}">🗑️</button>
+            </div>
+          </div>
+
+          <div class="history-unified-grid">
+            <div class="metric-section-block">
+              <div class="metric-section-title">
+                <span>⚾ 横向き解析</span>
+                <span style="font-size:0.60rem; color:${sideRec ? '#10b981' : '#94a3b8'};">${sideRec ? '● 測定済' : '○ 未測定'}</span>
+              </div>
+              ${sideRec ? `
+                <div class="metric-row-item"><span>🚶 ステップ幅:</span><b>${sideRec.metrics.stride}cm (${sideRec.metrics.strideRatio}%)</b></div>
+                <div class="metric-row-item"><span>💪 腕のしなり:</span><b>${sideRec.metrics.mer}°</b></div>
+                <div class="metric-row-item"><span>🔄 捻転差:</span><b>${sideRec.metrics.twist}°</b></div>
+                <div class="metric-row-item"><span>⚾ リリース高:</span><b>${sideRec.metrics.releaseH}cm</b></div>
+                <div class="metric-row-item"><span>🦵 FF時ヒザ:</span><b>屈曲 ${sideRec.metrics.ffKneeFlex}°</b></div>
+                <div class="metric-row-item"><span>🦵 離球時ヒザ:</span><b>屈曲 ${sideRec.metrics.releaseKneeFlex}°</b></div>
+                <div class="metric-row-item"><span>📐 体幹前傾:</span><b>${sideRec.metrics.trunkTilt}°</b></div>
+              ` : `
+                <div style="text-align:center; padding: 10px 0; color:#94a3b8; font-size:0.65rem;">横向き動画の測定データなし</div>
+              `}
+            </div>
+
+            <div class="metric-section-block">
+              <div class="metric-section-title">
+                <span>🎯 正面・斜め前解析</span>
+                <span style="font-size:0.60rem; color:${frontRec ? '#10b981' : '#94a3b8'};">${frontRec ? '● 測定済' : '○ 未測定'}</span>
+              </div>
+              ${frontRec ? `
+                <div class="metric-row-item"><span>👟 つま先向き:</span><b>${frontRec.metrics.toeAngle}°</b></div>
+                <div class="metric-row-item"><span>🦵 膝内外反:</span><b>${frontRec.metrics.valgus}°</b></div>
+                <div class="metric-row-item"><span>📐 体幹側屈:</span><b>${frontRec.metrics.trunkLateral}°</b></div>
+                <div class="metric-row-item"><span>💪 腕の高さ:</span><b>${frontRec.metrics.armSlot}°</b></div>
+                <div class="metric-row-item"><span>🚶 踏出ズレ:</span><b>${frontRec.metrics.inStep}cm</b></div>
+                <div class="metric-row-item"><span>⚾ リリース横:</span><b>${frontRec.metrics.releaseLateral}cm</b></div>
+              ` : `
+                <div style="text-align:center; padding: 10px 0; color:#94a3b8; font-size:0.65rem;">正面動画の測定データなし</div>
+              `}
+            </div>
+          </div>
+
+          <div class="ai-coach-card">
+            <div class="ai-coach-title">🤖 AIコーチ診断</div>
+            <div class="ai-coach-text">${aiAdviceHtml}</div>
+          </div>
+
+          <div class="player-reflection-box">
+            <div class="reflection-sec-title">⚾ 今日のなげた感覚は？</div>
+            <div class="chip-group" data-type="feel" data-group="${key}">
+              <div class="choice-chip ${curFeel.includes('良かった') ? 'active' : ''}" data-val="😆 めっちゃ良かった！">😆 良かった</div>
+              <div class="choice-chip ${curFeel.includes('ふつう') ? 'active' : ''}" data-val="😊 ふつう・いつも通り">😊 いつも通り</div>
+              <div class="choice-chip ${curFeel.includes('いまいち') ? 'active' : ''}" data-val="😣 いまいち / タイミング合わず">😣 いまいち</div>
+            </div>
+
+            <div class="reflection-sec-title">💪 カラダの調子・違和感</div>
+            <div class="chip-group" data-type="body" data-group="${key}">
+              <div class="choice-chip ${curBody.includes('痛くない') ? 'active' : ''}" data-val="🟢 どこも痛くない！元気！">🟢 痛くない</div>
+              <div class="choice-chip ${curBody.includes('重い') ? 'active' : ''}" data-val="🟡 ひじ・肩がちょっと重い">🟡 ちょっと重い</div>
+              <div class="choice-chip ${curBody.includes('違和感') || (curBody.includes('痛みあり') && !curBody.includes('痛くない')) ? 'active' : ''}" data-val="🔴 ひじ・肩に違和感・痛みあり">🔴 違和感あり</div>
+            </div>
+
+            <div class="reflection-sec-title">📝 じぶんの気づき・監督へひとこと</div>
+            <textarea class="player-textarea" data-group="${key}" placeholder="気づいたことや、次にやってみたいことを書いてね！">${first.playerNote || ''}</textarea>
+
+            <button class="btn-share-line" data-group="${key}">
+              <span>💬 📤 今日の総合レポートを監督に送る</span>
+            </button>
+          </div>
+        `;
+        carteHistoryList.appendChild(card);
+      });
+
+      // チップ選択
+      carteHistoryList.querySelectorAll('.choice-chip').forEach(chip => {
+        chip.addEventListener('click', (e) => {
+          const parent = e.currentTarget.parentElement;
+          const type = parent.getAttribute('data-type');
+          const groupKey = parent.getAttribute('data-group');
+          const val = e.currentTarget.getAttribute('data-val');
+
+          parent.querySelectorAll('.choice-chip').forEach(c => c.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+
+          let allRecs = getSavedRecords();
+          allRecs.forEach(item => {
+            if (`${item.playerName}_${item.date}` === groupKey) {
+              if (type === 'feel') item.feelGrade = val;
+              if (type === 'body') item.bodyCondition = val;
+            }
+          });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
+        });
+      });
+
+      // 選手コメント保存
+      carteHistoryList.querySelectorAll('.player-textarea').forEach(textarea => {
+        textarea.addEventListener('input', (e) => {
+          const groupKey = e.currentTarget.getAttribute('data-group');
+          const textVal = e.currentTarget.value;
+          let allRecs = getSavedRecords();
+          allRecs.forEach(item => {
+            if (`${item.playerName}_${item.date}` === groupKey) {
+              item.playerNote = textVal;
+            }
+          });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
+        });
+      });
+
+      // LINE共有
+      carteHistoryList.querySelectorAll('.btn-share-line').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const groupKey = e.currentTarget.getAttribute('data-group');
+          shareRecordToLine(groupKey);
+        });
+      });
+
+      // 削除
+      carteHistoryList.querySelectorAll('.btn-item-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const groupKey = e.currentTarget.getAttribute('data-group');
+          deleteSingleDayGroup(groupKey);
+        });
+      });
+    }
+
+    playerSelectFilter.addEventListener('change', () => renderCarteList(false));
+
+    btnDeleteAction.addEventListener('click', () => {
+      const selectedFilter = playerSelectFilter.value;
+      let allRecords = getSavedRecords();
+      if (allRecords.length === 0) return;
+
+      if (selectedFilter === 'ALL') {
+        if (confirm("⚠️ 【注意】すべての選手のカルテデータを完全に初期化しますか？")) {
+          localStorage.removeItem(STORAGE_KEY);
+          renderCarteList(false);
+        }
+      } else {
+        if (confirm(`👤 ${selectedFilter} 選手のすべての測定データを削除しますか？`)) {
+          allRecords = allRecords.filter(r => r.playerName !== selectedFilter);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+          renderCarteList(false);
+        }
+      }
+    });
+
+    // CSVエクスポート
+    document.getElementById('btn-export-csv').addEventListener('click', () => {
+      const allRecords = getSavedRecords();
+      if (allRecords.length === 0) {
+        alert("保存されたデータがありません");
+        return;
+      }
+
+      let csvContent = "\uFEFF日付,選手名,身長,利き腕,測定向き,歩幅(cm),歩幅率(%),肩外旋(deg),捻転差(deg),リリース高(cm),FF時ヒザ屈曲(deg),リリース時ヒザ屈曲(deg),体幹前傾(deg),つま先角度(deg),ヒザ内外反(deg),体幹側屈(deg),アームスロット(deg),ステップズレ(cm),リリース横幅(cm),なげた感覚,カラダの調子,選手コメント\n";
+
+      allRecords.forEach(r => {
+        const isSide = (r.mode === 'SIDE');
+        const noteSafe = `"${(r.playerNote || '').replace(/"/g, '""')}"`;
+        const row = [
+          `"${r.date}"`,
+          `"${r.playerName}"`,
+          r.height,
+          r.throwArm === 'RIGHT' ? "右" : "左",
+          isSide ? "横向き" : "正面",
+          isSide ? r.metrics.stride : "",
+          isSide ? r.metrics.strideRatio : "",
+          isSide ? r.metrics.mer : "",
+          isSide ? r.metrics.twist : "",
+          isSide ? r.metrics.releaseH : "",
+          isSide ? r.metrics.ffKneeFlex : "",
+          isSide ? r.metrics.releaseKneeFlex : "",
+          isSide ? r.metrics.trunkTilt : "",
+          !isSide ? r.metrics.toeAngle : "",
+          !isSide ? r.metrics.valgus : "",
+          !isSide ? r.metrics.trunkLateral : "",
+          !isSide ? r.metrics.armSlot : "",
+          !isSide ? r.metrics.inStep : "",
+          !isSide ? r.metrics.releaseLateral : "",
+          `"${r.feelGrade || '😆 良かった'}"`,
+          `"${r.bodyCondition || '🟢 痛くない'}"`,
+          noteSafe
+        ];
+        csvContent += row.join(",") + "\n";
+      });
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `投球AIカルテ_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    function processSingleFrame() {
+      if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
+        renderFrameOnly();
+        return;
+      }
+
+      const vw = videoElement.videoWidth;
+      const vh = videoElement.videoHeight;
+      bufferCanvas.width = vw;
+      bufferCanvas.height = vh;
+      bufferCtx.drawImage(videoElement, 0, 0, vw, vh);
+
+      isProcessing = true;
+      pose.send({ image: bufferCanvas }).catch(err => {
+        console.error("Inference Error:", err);
+      }).finally(() => {
+        isProcessing = false;
+      });
+    }
+
+    function renderFrameOnly() {
+      const cw = outputCanvas.width;
+      const ch = outputCanvas.height;
+      if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
+
+      outputCtx.clearRect(0, 0, cw, ch);
+      outputCtx.save();
+      outputCtx.translate(cw / 2 + zoomPan.x, ch / 2 + zoomPan.y);
+      outputCtx.scale(zoomScale, zoomScale);
+      outputCtx.translate(-cw / 2, -ch / 2);
+
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
+      if (videoElement.readyState >= 2) {
+        outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
+      }
+      outputCtx.restore();
+    }
+
+    function getSegmentAngle3D(p1, p2) {
+      if (!p1 || !p2) return NaN;
+      return (Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180.0) / Math.PI;
+    }
+
+    function calcJointAngle3D(p1, p2, p3) {
+      if (!p1 || !p2 || !p3) return NaN;
+      const v1 = { x: p1.x - p2.x, y: p1.y - p2.y, z: (p1.z || 0) - (p2.z || 0) };
+      const v2 = { x: p3.x - p2.x, y: p3.y - p2.y, z: (p3.z || 0) - (p2.z || 0) };
+
+      const mag1 = Math.hypot(v1.x, v1.y, v1.z);
+      const mag2 = Math.hypot(v2.x, v2.y, v2.z);
+      if (mag1 < 1e-6 || mag2 < 1e-6) return NaN;
+
+      const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+      const cosVal = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
+      return (Math.acos(cosVal) * 180.0) / Math.PI;
+    }
+
+    function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
+      if (!shoulderL || !shoulderR || !hipL || !hipR || !elbow || !wrist) return NaN;
+
+      const midShoulder = {
+        x: (shoulderL.x + shoulderR.x) / 2,
+        y: (shoulderL.y + shoulderR.y) / 2,
+        z: ((shoulderL.z || 0) + (shoulderR.z || 0)) / 2
+      };
+      const midHip = {
+        x: (hipL.x + hipR.x) / 2,
+        y: (hipL.y + hipR.y) / 2,
+        z: ((hipL.z || 0) + (hipR.z || 0)) / 2
+      };
+
+      const trunkV = {
+        x: midShoulder.x - midHip.x,
+        y: midShoulder.y - midHip.y,
+        z: midShoulder.z - midHip.z
+      };
+
+      const forearmV = {
+        x: wrist.x - elbow.x,
+        y: wrist.y - elbow.y,
+        z: (wrist.z || 0) - (elbow.z || 0)
+      };
+
+      const trunkMag = Math.hypot(trunkV.x, trunkV.y, trunkV.z);
+      const forearmMag = Math.hypot(forearmV.x, forearmV.y, forearmV.z);
+      if (trunkMag < 1e-6 || forearmMag < 1e-6) return NaN;
+
+      const dot = trunkV.x * forearmV.x + trunkV.y * forearmV.y + trunkV.z * forearmV.z;
+      const cosVal = Math.max(-1.0, Math.min(1.0, dot / (trunkMag * forearmMag)));
+      const baseAngle = (Math.acos(cosVal) * 180.0) / Math.PI;
+
+      return 180.0 - baseAngle;
+    }
+
+    function onPoseResults(results) {
+      if (scanModeActive) {
+        if (results.poseLandmarks) {
+          const landmarks = results.poseLandmarks;
+          const NOSE = landmarks[0];
+          const L_HEEL = landmarks[29] || landmarks[27];
+          const R_HEEL = landmarks[30] || landmarks[28];
+          
+          if (NOSE && L_HEEL && R_HEEL) {
+            tuneRuler.isActive = true;
+            tuneRuler.topYNorm = Math.max(0.02, NOSE.y - 0.08);
+            tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
+            tuneRuler.centerXNorm = NOSE.x;
+
+            btnScanNextStep.style.display = 'block';
+            scanGuideText.innerHTML = "🎯 <b>AIが検知したよ！</b> ズレがあれば<b>丸いハンドルを上下にドラッグ</b>して頭と足元にピッタリ合わせてね！";
+            renderScanFrame();
+          }
+        }
+        return;
+      }
+
+      const cw = outputCanvas.width;
+      const ch = outputCanvas.height;
+      if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
+
+      outputCtx.clearRect(0, 0, cw, ch);
+      outputCtx.save();
+      outputCtx.translate(cw / 2 + zoomPan.x, ch / 2 + zoomPan.y);
+      outputCtx.scale(zoomScale, zoomScale);
+      outputCtx.translate(-cw / 2, -ch / 2);
+
+      const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
+      outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
+
+      if (results.poseLandmarks) {
+        const landmarks = results.poseLandmarks;
+
+        const L_SHOULDER = landmarks[11];
+        const R_SHOULDER = landmarks[12];
+        const L_ELBOW = landmarks[13];
+        const R_ELBOW = landmarks[14];
+        const L_WRIST = landmarks[15];
+        const R_WRIST = landmarks[16];
+        const L_INDEX = landmarks[19];
+        const R_INDEX = landmarks[20];
+        const L_HIP = landmarks[23];
+        const R_HIP = landmarks[24];
+        const L_KNEE = landmarks[25];
+        const R_KNEE = landmarks[26];
+        const L_ANKLE = landmarks[27];
+        const R_ANKLE = landmarks[28];
+        const L_HEEL = landmarks[29];
+        const R_HEEL = landmarks[30];
+        const L_FOOT_INDEX = landmarks[31];
+        const R_FOOT_INDEX = landmarks[32];
+
+        const normalizedStatureHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.1 ? (tuneRuler.bottomYNorm - tuneRuler.topYNorm) : 0.75;
+        const activePxPerCm = (normalizedStatureHeight * b.h) / userHeightCm;
+
+        const isRightHanded = (selectedThrowArm === 'RIGHT');
+        const isSouthpaw = !isRightHanded;
+
+        const throwShoulder = isRightHanded ? R_SHOULDER : L_SHOULDER;
+        const throwElbow = isRightHanded ? R_ELBOW : L_ELBOW;
+        const throwWrist = isRightHanded ? R_WRIST : L_WRIST;
+        let throwIndex = isRightHanded ? R_INDEX : L_INDEX;
+
+        if (throwWrist && throwIndex) {
+          const handDist = Math.hypot(throwIndex.x - throwWrist.x, throwIndex.y - throwWrist.y);
+          if (handDist > 0.18 || throwIndex.visibility < 0.25) {
+            throwIndex = throwWrist;
+          }
+        }
+
+        const leadHip = isRightHanded ? L_HIP : R_HIP;
+        const leadKnee = isRightHanded ? L_KNEE : R_KNEE;
+        const leadAnkle = isRightHanded ? L_ANKLE : R_ANKLE;
+        const leadHeel = isRightHanded ? (L_HEEL || L_ANKLE) : (R_HEEL || R_ANKLE);
+        const leadToe = isRightHanded ? (L_FOOT_INDEX || L_ANKLE) : (R_FOOT_INDEX || R_ANKLE);
+
+        const pivotHeel = isRightHanded ? (R_HEEL || R_ANKLE) : (L_HEEL || L_ANKLE);
+
+        if (leadToe) {
+          lastCalculatedLeadToePt = {
+            x: b.x + leadToe.x * b.w,
+            y: b.y + leadToe.y * b.h
+          };
+        }
+
+        if (isSkeletonVisible) {
+          drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
+        }
+
+        let currentStrideCm = 0;
+        let isStepping = false;
+        let isKinematicFF = false;
+        
+        if (leadHeel && leadToe && pivotHeel) {
+          const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
+          currentStrideCm = currentStridePx / activePxPerCm;
+          isStepping = currentStrideCm > (userHeightCm * 0.35);
+
+          if (isStepping) {
+            const currentLeadToeY = leadToe.y;
+            if (prevLeadToeY !== null) {
+              const toeVel = (currentLeadToeY - prevLeadToeY);
+              if (Math.abs(toeVel) < 0.003 && currentLeadToeY >= (pivotHeel.y - 0.05)) {
+                leadFootFlatStationaryCount++;
+                if (leadFootFlatStationaryCount === 2) {
+                  isKinematicFF = true;
+                }
+              } else {
+                leadFootFlatStationaryCount = 0;
+              }
+            }
+            prevLeadToeY = currentLeadToeY;
+          }
+        }
+
+        if (selectedAngleMode === 'SIDE') {
+          // 1. Stride Width
+          if (Number.isFinite(currentStrideCm)) {
+            const strideCm = Math.round(currentStrideCm);
+            if (strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
+              const strideRatio = Math.round((strideCm / userHeightCm) * 100);
+              c1Val.textContent = `${strideCm} cm`;
+              if (strideCm > records.maxStride) {
+                records.maxStride = strideCm;
+                c1Max.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
+              }
+            }
+          }
+
+          // 2. MER
+          if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP && throwElbow && throwWrist) {
+            const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist);
+            if (Number.isFinite(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
+              const roundedMER = Math.round(trueMerDeg);
+              c2Val.textContent = `${roundedMER} °`;
+              if (roundedMER > records.maxMER && roundedMER <= 190) {
+                records.maxMER = roundedMER;
+                c2Max.textContent = `最大: ${roundedMER} °`;
+              }
+            }
+          }
+
+          // 3. Twist
+          if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
+            const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
+            const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
+            if (Number.isFinite(shoulderAngle) && Number.isFinite(hipAngle)) {
+              let diff = Math.abs(shoulderAngle - hipAngle);
+              if (diff > 180) diff = 360 - diff;
+              const roundedTwist = Math.round(diff);
+              if (roundedTwist <= 65) {
+                c3Val.textContent = `${roundedTwist} °`;
+                if (roundedTwist > records.maxTwist && roundedTwist >= 5) {
+                  records.maxTwist = roundedTwist;
+                  c3Max.textContent = `最大: ${roundedTwist} °`;
+                }
+              }
+            }
+          }
+
+          // 4. Release Point with forward-swing validation
+          let isHandForward = false;
+          if (throwWrist && throwShoulder && leadHeel && pivotHeel) {
+            const isThrowingToRight = leadHeel.x > pivotHeel.x;
+            isHandForward = isThrowingToRight ? (throwWrist.x >= throwShoulder.x - 0.05) : (throwWrist.x <= throwShoulder.x + 0.05);
+          }
+          const isThrowingPhase = (currentStrideCm > (userHeightCm * 0.50)) && throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y) && isHandForward;
+
+          if (leadHip && leadKnee && leadAnkle) {
+            const rawKneeAngle = calcJointAngle3D(leadHip, leadKnee, leadAnkle);
+            if (Number.isFinite(rawKneeAngle) && rawKneeAngle >= 40 && rawKneeAngle <= 180) {
+              const flexAngle = Math.max(0, Math.round(180 - rawKneeAngle));
+              currentCalculatedState.kneeFlexAngle = flexAngle;
+              c5Val.textContent = `屈曲 ${flexAngle} °`;
+
+              if (isKinematicFF && records.ffKneeFlex === null) {
+                records.ffKneeFlex = flexAngle;
+              }
+
+              if (isThrowingPhase && leadHeel && pivotHeel) {
+                const lowestGroundY = Math.max(leadHeel.y, pivotHeel.y) * b.h;
+                const releaseTarget = (throwIndex && throwIndex.y !== undefined) ? throwIndex : throwWrist;
+                if (releaseTarget) {
+                  const releasePointY = releaseTarget.y * b.h;
+                  const releaseHeightPx = Math.max(0, lowestGroundY - releasePointY);
+                  const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
+
+                  if (Number.isFinite(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.45)) {
+                    c4Val.textContent = `${releaseHeightCm} cm`;
+                    if (releaseHeightCm > records.maxRelease) {
+                      records.maxRelease = releaseHeightCm;
+                      records.releaseKneeFlex = flexAngle;
+                      c4Max.textContent = `最高: ${releaseHeightCm} cm`;
+                    }
+                  }
+                }
+              }
+
+              const ffText = records.ffKneeFlex !== null ? `屈曲 ${records.ffKneeFlex}°` : '屈曲 --°';
+              const brText = records.releaseKneeFlex !== null ? `屈曲 ${records.releaseKneeFlex}°` : '屈曲 --°';
+              c5Max.textContent = `FF時: ${ffText} (リリース時: ${brText})`;
+            }
+          }
+
+          // 6. Forward Trunk Tilt
+          if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
+            const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
+            const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
+            const trunkDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
+            if (Number.isFinite(trunkDeg) && trunkDeg <= 60) {
+              c6Val.textContent = `${trunkDeg} °`;
+              if (trunkDeg > records.maxTrunkTilt) {
+                records.maxTrunkTilt = trunkDeg;
+                c6Max.textContent = `最大前傾: ${trunkDeg} °`;
+              }
+            }
+          }
+
+        } else {
+          // --- FRONT VIEW ---
+          if (leadHeel && leadToe && leadAnkle) {
+            if (!isStepping) {
+              smoothToeDeg = 0;
+              c1Val.textContent = `0 °`;
+              if (!records.fcToeLabel) c1Max.textContent = `構え位置`;
+            } else {
+              const deltaX = (leadToe.x - leadHeel.x) * b.w;
+              const deltaY = Math.max(10, (leadToe.y - leadHeel.y) * b.h);
+              let angleDeg = (Math.atan2(deltaX, deltaY) * 180.0 / Math.PI) + manualToeOffsetDeg;
+              let signedToeDev = isRightHanded ? angleDeg : -angleDeg;
+              smoothToeDeg = smoothToeDeg === 0 ? signedToeDev : (smoothToeDeg * 0.7 + signedToeDev * 0.3);
+              const displayAngle = Math.round(Math.abs(smoothToeDeg));
+              let stateLabel = "◎ ストレート (0〜10°)";
+
+              if (smoothToeDeg > 20) stateLabel = "⚠️ 開き注意 (アウト)";
+              else if (smoothToeDeg > 10) stateLabel = "○ やや開き";
+              else if (smoothToeDeg < -15) stateLabel = "⚠️ 被り・閉じすぎ (イン)";
+              else if (smoothToeDeg < -5) stateLabel = "○ やや閉じ (クローズ)";
+
+              currentCalculatedState.displayToeAngle = displayAngle;
+              currentCalculatedState.toeStateLabel = stateLabel;
+              c1Val.textContent = `${displayAngle} °`;
+
+              if (isKinematicFF && records.fcToeAngle === null) {
+                records.fcToeAngle = displayAngle;
+                records.fcToeLabel = `べた足時: ${displayAngle}° (${stateLabel})`;
+              }
+              c1Max.textContent = records.fcToeLabel || stateLabel;
+            }
+          }
+
+          if (leadHip && leadKnee && leadAnkle) {
+            const thighAngle = Math.atan2(leadKnee.y - leadHip.y, leadKnee.x - leadHip.x);
+            const shankAngle = Math.atan2(leadAnkle.y - leadKnee.y, leadAnkle.x - leadKnee.x);
+            let valgusDiff = (shankAngle - thighAngle) * 180.0 / Math.PI;
+            if (valgusDiff > 180) valgusDiff -= 360;
+            if (valgusDiff < -180) valgusDiff += 360;
+
+            let devAngle = isRightHanded ? -valgusDiff : valgusDiff;
+            let absDev = Math.min(30, Math.round(Math.abs(devAngle)));
+            let valgusStatus = "まっすぐ (◎ 正常)";
+            if (absDev > 12) valgusStatus = (devAngle > 0) ? "⚠️ ニーイン (外反)" : "⚠️ 割れ (内反)";
+            else if (absDev > 6) valgusStatus = (devAngle > 0) ? "○ やや内入り" : "○ やや外開き";
+
+            currentCalculatedState.kneeDevAngle = absDev;
+            currentCalculatedState.kneeStateLabel = valgusStatus;
+            c2Val.textContent = `${absDev} °`;
+
+            if (isKinematicFF && records.ffValgusAngle === null) {
+              records.ffValgusAngle = absDev;
+              records.ffValgusLabel = `べた足時: ${absDev}° (${valgusStatus})`;
+            }
+            c2Max.textContent = records.ffValgusLabel || valgusStatus;
+            if (absDev > records.maxValgus && isStepping) records.maxValgus = absDev;
+          }
+
+          if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
+            const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
+            const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
+            const lateralDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
+            if (Number.isFinite(lateralDeg) && lateralDeg <= 45) {
+              c3Val.textContent = `${lateralDeg} °`;
+              if (lateralDeg > records.maxTrunkLateral) {
+                records.maxTrunkLateral = lateralDeg;
+                c3Max.textContent = `最大傾き: ${lateralDeg} °`;
+              }
+            }
+          }
+
+          if (throwWrist && throwShoulder && L_SHOULDER && R_SHOULDER) {
+            const otherShoulder = isRightHanded ? L_SHOULDER : R_SHOULDER;
+            const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, otherShoulder);
+            if (Number.isFinite(armSlotAngle) && armSlotAngle >= 30 && armSlotAngle <= 180) {
+              const roundedSlot = Math.round(armSlotAngle);
+              c4Val.textContent = `${roundedSlot} °`;
+              if (roundedSlot > records.maxArmSlot) {
+                records.maxArmSlot = roundedSlot;
+                c4Max.textContent = `最大挙上: ${roundedSlot} °`;
+              }
+            }
+          }
+
+          if (leadHeel && pivotHeel) {
+            if (!isStepping) {
+              c5Val.textContent = `0 cm`;
+              c5Max.textContent = `構え位置`;
+            } else {
+              const lateralOffsetPx = Math.abs((leadHeel.x - pivotHeel.x) * b.w);
+              const lateralOffsetCm = Math.round(lateralOffsetPx / activePxPerCm);
+              if (Number.isFinite(lateralOffsetCm) && lateralOffsetCm <= 40) {
+                const isCross = isRightHanded ? (leadHeel.x < pivotHeel.x) : (leadHeel.x > pivotHeel.x);
+                const dirText = isCross ? "インステップ" : "アウトステップ";
+                c5Val.textContent = `${lateralOffsetCm} cm`;
+                if (lateralOffsetCm > records.maxInStepCm) {
+                  records.maxInStepCm = lateralOffsetCm;
+                  c5Max.textContent = `${dirText}: ${lateralOffsetCm} cm`;
+                }
+              }
+            }
+          }
+
+          const isFrontThrowingPhase = isStepping && throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y);
+          if (isFrontThrowingPhase && L_SHOULDER && R_SHOULDER) {
+            const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
+            const releaseTarget = (throwIndex && throwIndex.x !== undefined) ? throwIndex : throwWrist;
+            if (releaseTarget) {
+              const lateralReleasePx = Math.abs((releaseTarget.x - midShoulder.x) * b.w);
+              const lateralReleaseCm = Math.round(lateralReleasePx / activePxPerCm);
+              if (Number.isFinite(lateralReleaseCm) && lateralReleaseCm <= 80) {
+                c6Val.textContent = `${lateralReleaseCm} cm`;
+                if (lateralReleaseCm > records.maxReleaseLateral) {
+                  records.maxReleaseLateral = lateralReleaseCm;
+                  c6Max.textContent = `最大横幅: ${lateralReleaseCm} cm`;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      outputCtx.restore();
+    }
+
+    function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw, isRightHanded) {
+      const connections = [
+        [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21],
+        [12, 14], [14, 16], [16, 18], [16, 20], [16, 22],
+        [11, 23], [12, 24], [23, 24],
+        [23, 25], [25, 27], [27, 29], [29, 31], [27, 31],
+        [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]
+      ];
+
+      outputCtx.strokeStyle = "#10b981";
+      outputCtx.lineWidth = 3.5;
+      connections.forEach(([i, j]) => {
+        const p1 = landmarks[i];
+        const p2 = landmarks[j];
+        if (p1 && p2) {
+          outputCtx.beginPath();
+          outputCtx.moveTo(ox + p1.x * bw, oy + p1.y * bh);
+          outputCtx.lineTo(ox + p2.x * bw, oy + p2.y * bh);
+          outputCtx.stroke();
+        }
+      });
+
+      const keyJoints = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
+      const throwWristIdx = isRightHanded ? 16 : 15;
+      const throwElbowIdx = isRightHanded ? 14 : 13;
+      const throwIndexIdx = isRightHanded ? 20 : 19;
+      const leadKneeIdx = isRightHanded ? 25 : 26;
+      const leadToeIdx = isRightHanded ? 31 : 32;
+
+      keyJoints.forEach(idx => {
+        const p = landmarks[idx];
+        if (p) {
+          let drawX = ox + p.x * bw;
+          let drawY = oy + p.y * bh;
+
+          if (idx === throwIndexIdx && landmarks[throwWristIdx]) {
+            const wristP = landmarks[throwWristIdx];
+            const dist = Math.hypot(p.x - wristP.x, p.y - wristP.y);
+            if (dist > 0.18) {
+              drawX = ox + wristP.x * bw;
+              drawY = oy + wristP.y * bh;
+            }
+          }
+
+          outputCtx.beginPath();
+          let radius = 4.5;
+          if (idx === throwIndexIdx) radius = 7;
+          else if (idx === throwWristIdx) radius = 6;
+          else if (idx === throwElbowIdx) radius = 5.5;
+          else if (idx === leadKneeIdx) radius = 6;
+          else if (idx === leadToeIdx) radius = 7;
+
+          outputCtx.arc(drawX, drawY, radius, 0, Math.PI * 2);
+          
+          if (idx === throwIndexIdx) outputCtx.fillStyle = "#ff007f";
+          else if (idx === throwWristIdx) outputCtx.fillStyle = "#ff5252";
+          else if (idx === throwElbowIdx) outputCtx.fillStyle = "#ff9f43";
+          else if (idx === leadKneeIdx) outputCtx.fillStyle = "#ffe600";
+          else if (idx === leadToeIdx) outputCtx.fillStyle = "#00d2ff";
+          else if ([17, 18, 21, 22].includes(idx)) outputCtx.fillStyle = "#a855f7";
+          else outputCtx.fillStyle = "#38bdf8";
+
+          outputCtx.fill();
+          outputCtx.strokeStyle = "#ffffff";
+          outputCtx.lineWidth = 1.5;
+          outputCtx.stroke();
+        }
+      });
+    }
+
+    function updatePlayState() {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      
+      if (videoElement.paused) {
+        btnPlayPause.textContent = "再生 ▶";
+        btnPlayPause.style.background = "linear-gradient(135deg, #ff9f43, #ff5252)";
+      } else {
+        btnPlayPause.textContent = "停止 ⏸";
+        btnPlayPause.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
+        renderLoop();
+      }
+    }
+
+    function renderLoop() {
+      if (!videoElement.paused && !videoElement.ended) {
+        processSingleFrame();
+        updateTimeUI();
+        animationFrameId = requestAnimationFrame(renderLoop);
+      }
+    }
+
+    function updateTimeUI() {
+      if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
+      seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
+      timeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
+    }
+
+    videoElement.addEventListener('play', updatePlayState);
+    videoElement.addEventListener('pause', updatePlayState);
+    videoElement.addEventListener('ended', updatePlayState);
+    videoElement.addEventListener('seeked', () => {
+      if (stepViews[4].classList.contains('active')) {
+        processSingleFrame();
+      }
+    });
+
+    btnPlayPause.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (videoElement.paused) {
+        videoElement.play().catch(err => {
+          if (err.name !== 'AbortError') console.warn("Video Play Interrupted:", err);
+        });
+      } else {
+        videoElement.pause();
+      }
+    });
+
+    seekBar.addEventListener('input', () => {
+      if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
+      videoElement.pause();
+      videoElement.currentTime = (seekBar.value / 100) * videoElement.duration;
+      updateTimeUI();
+    });
+
+    document.getElementById('btn-frame-prev').addEventListener('click', (e) => {
+      e.stopPropagation();
+      videoElement.pause();
+      videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
+      updateTimeUI();
+    });
+
+    document.getElementById('btn-frame-next').addEventListener('click', (e) => {
+      e.stopPropagation();
+      videoElement.pause();
+      videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
+      updateTimeUI();
+    });
+
+    document.getElementById('btn-reset-max').addEventListener('click', () => {
+      records = {
+        maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0, ffKneeFlex: null, releaseKneeFlex: null, maxTrunkTilt: 0,
+        toeAngle: 0, fcToeAngle: null, fcToeLabel: null, maxValgus: 0, ffValgusAngle: null, ffValgusLabel: null, maxTrunkLateral: 0, maxArmSlot: 0, maxInStepCm: 0, maxReleaseLateral: 0
+      };
+      smoothToeDeg = 0;
+      manualToeOffsetDeg = 0;
+      prevLeadToeY = null;
+      leadFootFlatStationaryCount = 0;
+
+      if (selectedAngleMode === 'SIDE') {
+        c1Max.textContent = "最大: -- cm (0%身)";
+        c2Max.textContent = "最大: -- °";
+        c3Max.textContent = "最大: -- °";
+        c4Max.textContent = "最高: -- cm";
+        c5Max.textContent = "FF時: 屈曲 --° (リリース時: 屈曲 --°)";
+        c6Max.textContent = "最大倒れ: -- °";
+      } else {
+        c1Max.textContent = "状態: --";
+        c2Max.textContent = "状態: --";
+        c3Max.textContent = "最大傾き: -- °";
+        c4Max.textContent = "最大挙上: -- °";
+        c5Max.textContent = "最大ズレ: -- cm";
+        c6Max.textContent = "最大横幅: -- cm";
+      }
+    });
+
+    document.getElementById('btn-re-select').addEventListener('click', () => {
+      videoElement.pause();
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      tuneRuler.isActive = false;
+      btnScanNextStep.style.display = 'none';
+      zoomScale = 1.0;
+      zoomPan = { x: 0, y: 0 };
+      smoothToeDeg = 0;
+      manualToeOffsetDeg = 0;
+      prevLeadToeY = null;
+      leadFootFlatStationaryCount = 0;
+      updateZoomBadge();
+      setStep(1);
+    });
+  </script>
+</body>
 </html>
