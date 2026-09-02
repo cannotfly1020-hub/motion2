@@ -957,7 +957,7 @@
   <header>
     <div class="header-bar">
       <!-- 🏠 総合トップメニューへの確実な戻るリンク -->
-      <a href="./index.html" class="btn-nav-home" title="トップメニューへ戻る">🏠 ホーム</a>
+      <a href="./index.html" class="btn-nav-home" id="home-link-btn" title="トップメニューへ戻る">🏠 ホーム</a>
       <h1>💥 打撃AIバイオメカニクス ⚾</h1>
       <div style="width: 52px;"></div>
     </div>
@@ -992,7 +992,7 @@
       </div>
 
       <div class="top-tips-box">
-        💡 <b>きれいに測るコツ:</b> バットを構えてから振り切るまで、頭から足元まで全身が画面に収まる動画を使ってね！
+        💡 <b>きれいに測るコツ:</b> バットを構えてから振り切るまで、頭から足元まで全身が収まる動画を使ってね！
       </div>
 
       <button class="btn-carte-banner" id="btn-open-carte-top">
@@ -1024,7 +1024,7 @@
         <button class="btn btn-scan" id="btn-scan-action">📏 ① AI自動スキャン</button>
         <button class="btn btn-ctrl" id="btn-scan-next">+1コマ ▶</button>
       </div>
-      <button class="btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
+      <button class="btn btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
     </section>
 
     <section id="view-step3" class="view-section">
@@ -1181,6 +1181,12 @@
   <canvas id="buffer-canvas" style="display: none;"></canvas>
 
   <script>
+    // Safari特有のリンクジャンプ保護（確実なルート指定）
+    document.getElementById('home-link-btn').addEventListener('click', function(e) {
+      e.preventDefault();
+      window.location.href = './index.html';
+    });
+
     const videoElement = document.getElementById('hidden-video');
     const bufferCanvas = document.getElementById('buffer-canvas');
     const bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
@@ -1431,7 +1437,6 @@
       }
     }
 
-    // 上部ステップピルのナビゲーション（いつでもクリックで移動可能）
     stepPills[1].addEventListener('click', () => {
       videoElement.pause();
       if (animationFrameId) {
@@ -1548,7 +1553,6 @@
     const inputSide = document.getElementById('video-input-side');
     const inputFront = document.getElementById('video-input-front');
 
-    // 同じ動画を何度でも選択し直せるようにタップ時にvalueをクリア
     inputSide.addEventListener('click', function() { this.value = null; });
     inputFront.addEventListener('click', function() { this.value = null; });
 
@@ -1604,7 +1608,6 @@
       scanCtx.lineTo(centerX, bottomY);
       scanCtx.stroke();
 
-      // Top Handle
       scanCtx.strokeStyle = "#10b981";
       scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
@@ -1625,7 +1628,6 @@
       scanCtx.textAlign = "center";
       scanCtx.fillText("👑 あたま ↕", centerX, topY - 14);
 
-      // Bottom Handle
       scanCtx.strokeStyle = "#f43f5e";
       scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
@@ -1863,14 +1865,12 @@
       processSingleFrame();
     });
 
-    /* 🎯 トップ決定ボタン */
     document.getElementById('btn-manual-top').addEventListener('click', () => {
       records.takebackLeadElbow = currentCalculatedState.leadElbowAngle;
       c9Max.textContent = `トップ時: ${records.takebackLeadElbow}°`;
       showToast(`🎯 トップ時の前ヒジ角度【${records.takebackLeadElbow}°】を記録しました！`);
     });
 
-    /* 💥 インパクト決定ボタン */
     document.getElementById('btn-manual-impact').addEventListener('click', () => {
       records.impactKneeFlex = currentCalculatedState.kneeFlexAngle;
       records.impactShoulderOpen = currentCalculatedState.shoulderOpenDeg;
@@ -1899,7 +1899,6 @@
 
       if (entry.mode === 'SIDE') {
         const m = entry.metrics;
-        // 1. 捻転差 (Xファクター・下半身先行度)
         const twist = m.twist || 0;
         if (twist >= 22 && twist <= 38) {
           praises.push(`🌟 捻転差（下半身先行）が【+${twist}°】で理想的！骨盤先行のキネマティック・シーケンスが完璧に作れており、ヘッドスピードが爆発的に向上します！ (⚡ 飛距離UP)`);
@@ -1911,7 +1910,6 @@
           improvements.push(`【手打ち改善・下半身始動ドリル】 捻転差が【${twist}°（上体先行・手打ち）】になっています。腰が回る前に肩や腕だけで振り出しているため、ステップ足の着地後に骨盤から回す意識を持ちましょう！ (⚡ パワー伝達UP)`);
         }
 
-        // 2. 前足ヒザの壁
         const kFlex = (m.impactKneeFlex !== null && m.impactKneeFlex !== undefined) ? m.impactKneeFlex : 0;
         if (kFlex >= 15 && kFlex <= 32) {
           praises.push(`🔥 インパクトの前足ヒザが【屈曲 ${kFlex}°】でしっかり固定されており、下半身の強固なブレーキ（地面反力）がバットへ伝わっています！ (⚡ パワー伝達UP)`);
@@ -1921,7 +1919,6 @@
           improvements.push(`【前足クッション性改善】 前ヒザが完全に伸びきって（屈曲 ${kFlex}°）突っ張りすぎています。少しゆとりを持って地面を踏みしめましょう！ (🎯 怪我予防)`);
         }
 
-        // 3. テイクバック前ヒジ角度
         const leadElbow = (m.takebackLeadElbow !== null && m.takebackLeadElbow !== undefined) ? m.takebackLeadElbow : null;
         if (leadElbow !== null) {
           if (leadElbow >= 110 && leadElbow <= 135) {
@@ -1933,7 +1930,6 @@
           }
         }
 
-        // 4. インパクト後ろヒジ角度
         const backElbow = (m.impactBackElbow !== null && m.impactBackElbow !== undefined) ? m.impactBackElbow : null;
         if (backElbow !== null) {
           if (backElbow >= 85 && backElbow <= 115) {
@@ -1943,7 +1939,6 @@
           }
         }
 
-        // 5. ステップ幅
         if (m.strideRatio >= 40 && m.strideRatio <= 55) {
           praises.push(`👟 ステップ幅が身長の【${m.strideRatio}%】で、並進運動と回転運動のバランスが黄金比です！ (🎯 タイミング安定)`);
         } else if (m.strideRatio > 0 && m.strideRatio < 38) {
@@ -1952,14 +1947,12 @@
           improvements.push(`【バランス・スタンス調整】 歩幅が広すぎて（${m.strideRatio}%）骨盤の回転がロックされやすいです。少しスタンスを狭めてスムーズに腰を回しましょう！ (🎯 ミート力UP)`);
         }
 
-        // 6. 頭の突っ込み
         if (m.headShift <= 8) {
           praises.push(`🎯 スイング中の頭の突っ込みが【${m.headShift}cm】と少なく、軸足に体重が残った綺麗な回転軸です！ (🎯 変化球見極めUP)`);
         } else {
           improvements.push(`【軸足バランス訓練】 頭がピッチャー側へ【${m.headShift}cm】突っ込んでいます。後ろ足（軸足）の股関節に体重を残したままクルッと回転する練習をしましょう！ (🎯 空振り激減)`);
         }
 
-        // 7. 頭の上下動
         const headY = m.headShiftY || 0;
         if (headY > 0 && headY <= 6) {
           praises.push(`👀 目線の上下動がわずか【${headY}cm】！目線がブレずにボールの軌道を完璧に追従できています！ (🎯 選球眼UP)`);
@@ -1967,23 +1960,19 @@
           improvements.push(`【目線キープ素振り】 頭がスイング中に上下に【${headY}cm】沈み込んでいます。目線が上下にズレるとポップフライや空振りの原因になるため、高さを一定に保ちましょう！ (🎯 空振り激減)`);
         }
       } else {
-        // FRONT MODE
         const m = entry.metrics;
-        // 1. 目線ブレ幅 (横ブレ)
         if (m.headShiftX <= 6) {
           praises.push(`🎯 頭の横ブレがわずか【${m.headShiftX}cm】！目線がピタッと止まっていて素晴らしい動体視力です！ (🎯 選球眼・ミート率UP)`);
         } else {
           improvements.push(`【体幹・軸足バランス訓練】 頭が左右に【${m.headShiftX}cm】揺れています。片足立ちでの連続素振りで体幹を鍛え、目線をブラさない軸を作りましょう！ (🎯 ミート率UP)`);
         }
 
-        // 2. 目線ブレ幅 (上下動)
         if (m.headShiftY <= 6) {
           praises.push(`👀 頭の上下動が【${m.headShiftY}cm】と少なく、ボールの高低差を正確に見極められています！ (🎯 高低球対応UP)`);
         } else {
           improvements.push(`【構えの高さキープ】 スイングで頭が上下に【${m.headShiftY}cm】動いています。構えた高さをキープして回転するドリルで、高低の変化球に強くなりましょう！ (🎯 コース対応UP)`);
         }
 
-        // 3. 前肩の開き
         const sOpen = (m.shoulderOpen !== null && m.shoulderOpen !== undefined) ? m.shoulderOpen : 0;
         if (sOpen <= 18) {
           praises.push(`🛡️ 前肩の開きが【${sOpen}°】としっかり抑えられており、ボールを懐まで引きつける素晴らしい「タメ」ができています！ (⚡ 外角・変化球対応UP)`);
@@ -1991,7 +1980,6 @@
           improvements.push(`【前肩・背中キープ素振り】 前肩が早く開いて（開き ${sOpen}°）胸がピッチャーに向いてしまっています。インパクト直前まで前肩をピッチャーに向け続ける意識で素振りをしましょう！ (🎯 逆方向ヒッティング)`);
         }
 
-        // 4. 前足ヒザの踏ん張り
         const valgus = (m.kneeValgus !== null && m.kneeValgus !== undefined) ? m.kneeValgus : 0;
         if (valgus <= 6) {
           praises.push(`🦵 前足ヒザが外へ割れず【${valgus}°】でしっかり踏ん張れており、地面反力を100%バットへ伝えています！ (⚡ 打球初速UP)`);
@@ -1999,14 +1987,12 @@
           improvements.push(`【内もも・母指球踏ん張り訓練】 インパクトで前ヒザが外へ逃げて（割れ ${valgus}°）パワーが外へ抜けています。前足の内ももと母指球でグッと受け止める練習をしましょう！ (⚡ 飛距離UP)`);
         }
 
-        // 5. ステップのズレ
         if (m.inStep <= 8) {
           praises.push(`🚶 ステップのズレが【${m.inStep}cm】と少なく、ピッチャーに向かって真っ直ぐ踏み込めています！ (🎯 全コース対応)`);
         } else {
           improvements.push(`【ステップライン練習】 踏み出し足が【${m.inStep}cm】ズレています。地面に引いたラインに向かって真っ直ぐ踏み出す素振りで、内角・外角どちらも打てるスタンスを作りましょう！ (🎯 コース見極め)`);
         }
 
-        // 6. 体幹の傾き
         if (m.trunkTilt >= 10 && m.trunkTilt <= 25) {
           praises.push(`📐 上半身の傾斜軸（${m.trunkTilt}°）がスイングプレーンと直交しており、理想的なライナー性の軌道です！ (⚡ 長打力UP)`);
         } else if (m.trunkTilt > 28) {
@@ -2307,7 +2293,6 @@
         carteHistoryList.appendChild(card);
       });
 
-      // イベントリスナーの登録
       carteHistoryList.querySelectorAll('.choice-chip').forEach(chip => {
         chip.addEventListener('click', (e) => {
           const parent = e.currentTarget.parentElement;
@@ -2381,7 +2366,6 @@
       }
     });
 
-    // CSVエクスポート
     document.getElementById('btn-export-csv').addEventListener('click', () => {
       const allRecords = getSavedRecords();
       if (allRecords.length === 0) {
@@ -2553,7 +2537,6 @@
 
         const topWrist = isRightBatter ? R_WRIST : L_WRIST;
 
-        // 前ヒジ・後ろヒジの関節特定
         const leadElbowJoints = isRightBatter 
           ? { s: L_SHOULDER, e: L_ELBOW, w: L_WRIST } 
           : { s: R_SHOULDER, e: R_ELBOW, w: R_WRIST };
@@ -2565,13 +2548,11 @@
           drawBattingSkeleton(landmarks, b.x, b.y, b.w, b.h, isRightBatter);
         }
 
-        // 基準位置（初期位置）の記録
         if (NOSE && initialNoseX === null) {
           initialNoseX = NOSE.x;
           initialNoseY = NOSE.y;
         }
 
-        /* 1. 符号付き捻転差（Xファクター / 下半身先行度） */
         if (frontShoulder && backShoulder && frontHip && backHip) {
           const hipDx = (frontHip.x - backHip.x);
           const hipDz = ((frontHip.z || 0) - (backHip.z || 0));
@@ -2612,7 +2593,6 @@
           }
         }
 
-        /* 2. 前ヒザの壁（屈曲角度） */
         if (frontHip && frontKnee && frontAnkle) {
           const rawKneeAngle = calcJointAngle3D(frontHip, frontKnee, frontAnkle);
           if (Number.isFinite(rawKneeAngle) && rawKneeAngle >= 40 && rawKneeAngle <= 180) {
@@ -2624,7 +2604,6 @@
           }
         }
 
-        /* 3. ステップ幅 (歩幅) */
         if (frontHeel && backHeel) {
           const stridePx = Math.hypot((frontHeel.x - backHeel.x) * b.w, (frontHeel.y - backHeel.y) * b.h);
           const strideCm = Math.round(stridePx / activePxPerCm);
@@ -2641,7 +2620,6 @@
           }
         }
 
-        /* 4. 体幹軸傾斜 (スイング軸) */
         if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
           const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
           const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
@@ -2664,7 +2642,6 @@
           }
         }
 
-        /* 5 & 6. 頭の移動量（前後突っ込み & 上下動） */
         if (NOSE && initialNoseX !== null) {
           const shiftXPx = Math.abs((NOSE.x - initialNoseX) * b.w);
           const shiftYPx = Math.abs((NOSE.y - initialNoseY) * b.h);
@@ -2699,7 +2676,6 @@
           }
         }
 
-        /* 7 & 8. グリップ高さ（トップ高 & インパクト高） */
         if (topWrist && frontHeel) {
           const lowestGroundY = Math.max(frontHeel.y, backHeel ? backHeel.y : frontHeel.y) * b.h;
           const currentHandH = Math.round(Math.max(0, lowestGroundY - topWrist.y * b.h) / activePxPerCm);
@@ -2717,7 +2693,6 @@
           }
         }
 
-        /* 正面モード固有: 前肩の開き(タメ)、前ヒザ内外反、ステップズレ */
         if (selectedAngleMode === 'FRONT') {
           if (frontShoulder && backShoulder) {
             const dx = (frontShoulder.x - backShoulder.x);
@@ -2783,7 +2758,6 @@
           }
         }
 
-        /* 9 & 10. 前ヒジ(テイクバック 110°〜135°) & 後ろヒジ(インパクト 85°〜110°) */
         if (leadElbowJoints.s && leadElbowJoints.e && leadElbowJoints.w) {
           const rawLeadElbowAngle = calcJointAngle3D(leadElbowJoints.s, leadElbowJoints.e, leadElbowJoints.w);
           if (Number.isFinite(rawLeadElbowAngle) && rawLeadElbowAngle >= 35 && rawLeadElbowAngle <= 180) {
@@ -2845,9 +2819,9 @@
           outputCtx.arc(drawX, drawY, radius, 0, Math.PI * 2);
           
           if ([15, 16].includes(idx)) {
-            outputCtx.fillStyle = "#f59e0b"; // グリップ
+            outputCtx.fillStyle = "#f59e0b";
           } else if (idx === frontKneeIdx) {
-            outputCtx.fillStyle = "#ffe600"; // 前足ヒザ
+            outputCtx.fillStyle = "#ffe600";
           } else {
             outputCtx.fillStyle = "#34d399";
           }
@@ -2941,30 +2915,6 @@
       };
       initialNoseX = null;
       initialNoseY = null;
-
-      if (selectedAngleMode === 'SIDE') {
-        c1Max.textContent = "最大タメ: -- °";
-        c2Max.textContent = "インパクト時: -- °";
-        c3Max.textContent = "最大: -- cm (0%身)";
-        c4Max.textContent = "最大: -- °";
-        c5Max.textContent = "最大移動: -- cm";
-        c6Max.textContent = "最大上下: -- cm";
-        c7Max.textContent = "最高: -- cm";
-        c8Max.textContent = "インパクト時: -- cm";
-        c9Max.textContent = "トップ時: -- °";
-        c10Max.textContent = "インパクト時: -- °";
-      } else {
-        c1Max.textContent = "最大横ズレ: -- cm";
-        c2Max.textContent = "最大上下: -- cm";
-        c3Max.textContent = "状態: --";
-        c4Max.textContent = "最大ズレ: -- cm";
-        c5Max.textContent = "最大傾き: -- °";
-        c6Max.textContent = "状態: --";
-        c7Max.textContent = "最高: -- cm";
-        c8Max.textContent = "インパクト時: -- cm";
-        c9Max.textContent = "トップ時: -- °";
-        c10Max.textContent = "インパクト時: -- °";
-      }
     });
 
     document.getElementById('btn-re-select').addEventListener('click', () => {
