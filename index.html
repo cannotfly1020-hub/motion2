@@ -1,1 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0284c7">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>野球AIバイオメカニクス</title>
+  <style>
+    :root {
+      --primary: #0284c7;
+      --pitch-color: #ff5e36;
+      --bat-color: #10b981;
+      --bg: #f0f9ff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --radius: 16px;
+    }
 
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      font-family: "Hiragino Maru Gothic ProN", "Yu Gothic Rounded", "M PLUS Rounded 1c", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 50%, #f8fafc 100%);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 14px calc(14px + env(safe-area-inset-bottom, 0px)) 14px;
+      overflow-x: hidden;
+    }
+
+    header {
+      width: 100%;
+      max-width: 480px;
+      text-align: center;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    .app-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1.5px solid #38bdf8;
+      color: #0284c7;
+      font-size: 0.72rem;
+      font-weight: 900;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      margin-bottom: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: #0369a1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-shadow: 0 1px 0 #ffffff;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: #475569;
+      margin-top: 4px;
+    }
+
+    main {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+    }
+
+    /* ポータルメニューカード */
+    .portal-card {
+      background: #ffffff;
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: 0 4px 0 #cbd5e1;
+      transition: all 0.15s ease;
+      position: relative;
+      overflow: hidden;
+      border: 2.5px solid transparent;
+      touch-action: manipulation;
+    }
+
+    .portal-card:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #cbd5e1;
+    }
+
+    /* 投球カード */
+    .card-pitching {
+      border-color: #ff5e36;
+      background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);
+    }
+    .card-pitching .portal-icon {
+      background: linear-gradient(135deg, #ff9f43, #ff5e36);
+      box-shadow: 0 4px 10px rgba(255, 94, 54, 0.35);
+    }
+    .card-pitching .portal-title {
+      color: #c2410c;
+    }
+    .card-pitching .tag {
+      background: #ffedd5;
+      color: #c2410c;
+      border: 1px solid #fdba74;
+    }
+
+    /* 打撃カード */
+    .card-batting {
+      border-color: #10b981;
+      background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    }
+    .card-batting .portal-icon {
+      background: linear-gradient(135deg, #34d399, #10b981);
+      box-shadow: 0 4px 10px rgba(16, 185, 129, 0.35);
+    }
+    .card-batting .portal-title {
+      color: #047857;
+    }
+    .card-batting .tag {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+
+    .portal-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.3rem;
+      flex-shrink: 0;
+      color: #ffffff;
+    }
+
+    .portal-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .portal-title {
+      font-size: 1.15rem;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .portal-desc {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #64748b;
+      line-height: 1.35;
+    }
+
+    .tags-row {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+
+    .tag {
+      font-size: 0.62rem;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+
+    .arrow-icon {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: #94a3b8;
+    }
+
+    /* ガイド・特徴ボックス */
+    .guide-container {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1.5px solid #bae6fd;
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 2px 6px rgba(14, 165, 233, 0.1);
+    }
+
+    .guide-title {
+      font-size: 0.8rem;
+      font-weight: 900;
+      color: #0369a1;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .guide-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .guide-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .guide-item-title {
+      font-size: 0.68rem;
+      font-weight: 900;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .guide-item-desc {
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: #64748b;
+      line-height: 1.25;
+    }
+
+    footer {
+      margin-top: auto;
+      text-align: center;
+      padding-top: 10px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="app-badge">⚾ ジュニア野球専用 AIモーション解析</div>
+    <h1>⚾ 野球AIバイオメカニクス 🏏</h1>
+    <p class="subtitle">スマホでかんたん！投球・打撃フォームをAIが自動診断</p>
+  </header>
+
+  <main>
+    <!-- 投球解析リンク（index2.html または pitching.html） -->
+    <a href="pitching.html" class="portal-card card-pitching" id="link-pitching">
+      <div class="portal-icon">⚾</div>
+      <div class="portal-info">
+        <div class="portal-title">
+          <span>投球フォーム解析</span>
+          <span class="arrow-icon">▶</span>
+        </div>
+        <p class="portal-desc">歩幅・腕のしなり(肩外旋)・捻転差・前足ヒザの壁・リリース高を計測</p>
+        <div class="tags-row">
+          <span class="tag">⚡ 球速UP</span>
+          <span class="tag">🎯 制球力UP</span>
+          <span class="tag">🛡️ ヒジ肩予防</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- 打撃解析リンク（index3.html または batting.html） -->
+    <a href="batting.html" class="portal-card card-batting" id="link-batting">
+      <div class="portal-icon">🏏</div>
+      <div class="portal-info">
+        <div class="portal-title">
+          <span>打撃フォーム解析</span>
+          <span class="arrow-icon">▶</span>
+        </div>
+        <p class="portal-desc">捻転差(タメ)・前足ヒザの壁・頭の突っ込み/目線ブレ・ステップ幅を計測</p>
+        <div class="tags-row">
+          <span class="tag">⚡ 飛距離UP</span>
+          <span class="tag">🎯 ミート力UP</span>
+          <span class="tag">🌪️ タメを作る</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- 機能特徴・使い方ガイド -->
+    <div class="guide-container">
+      <div class="guide-title">💡 かんたん3ステップで測定</div>
+      <div class="guide-grid">
+        <div class="guide-item">
+          <div class="guide-item-title">① 動画を撮影</div>
+          <div class="guide-item-desc">横向きまたは正面から、全身が写るように撮影します。</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-item-title">② AIが骨格測定</div>
+          <div class="guide-item-desc">ボタンを押すだけでAIが各関節の角度やブレを自動計算！</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-item-title">③ AIコーチ診断</div>
+          <div class="guide-item-desc">良い点を褒めて、おすすめの練習メニューを提案します。</div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-item-title">④ LINEで共有</div>
+          <div class="guide-item-desc">測定結果と選手の振り返りをまとめて監督や親に送れます。</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    ⚾ 完全端末内解析（通信料・外部API不要） | ジュニア野球向け
+  </footer>
+
+  <script>
+    // GitHub上のファイル名が index2.html / index3.html の場合でも自動判別して動くようにフォールバック
+    const linkPitch = document.getElementById('link-pitching');
+    const linkBat = document.getElementById('link-batting');
+
+    // リンク先の存在チェック（ローカルやGitHubのファイル名に合わせて切り替え可能）
+    // デフォルト: pitching.html / batting.html
+    // もし index2.html / index3.html で運用される場合は以下を書き換えるか、ファイル名を pitching.html / batting.html に統一してください。
+  </script>
+</body>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('sw.js').then(function(registration) {
+        console.log('ServiceWorker登録成功:', registration.scope);
+      }).catch(function(err) {
+        console.log('ServiceWorker登録失敗:', err);
+      });
+    });
+  }
+</script>
+</html>
