@@ -1,6 +1,6 @@
 {
-  "name": "投球AIバイオメカニクス",
-  "short_name": "投球AI",
+  "name": "投球.バッティングAIバイオメカニクス",
+  "short_name": "投打AI",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#e0f2fe",
