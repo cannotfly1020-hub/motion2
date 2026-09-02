@@ -2554,7 +2554,12 @@ if (leadHeel && leadToe && pivotHeel) {
  }
 
  // 4. Release Height & 5. Lead Knee (FF & Release 屈曲角度の同時計測)
- const isThrowingPhase = isStepping && throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y);
+ // 手首が肩よりキャッチャー側（前足側）に振り出されているかを判定し、セットやトップでの誤検知を防止
+ const isHandForward = (throwWrist && throwShoulder && leadHeel) ? 
+   (Math.abs(throwWrist.x - leadHeel.x) < Math.abs(throwShoulder.x - leadHeel.x)) : false;
+
+ const isThrowingPhase = isStepping && (currentStrideCm > userHeightCm * 0.45) && 
+   throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y) && isHandForward;
 
  if (leadHip && leadKnee && leadAnkle) {
  const rawKneeAngle = calcJointAngle3D(leadHip, leadKnee, leadAnkle);
@@ -2746,7 +2751,8 @@ let valgusDiff = (shankAngle - thighAngle) * 180.0 / Math.PI;
  }
 
  // 6. Lateral Release Point
- const isFrontThrowingPhase = isStepping && throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y);
+ const isFrontThrowingPhase = isStepping && (currentStrideCm > userHeightCm * 0.45) && 
+   throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y);
  if (isFrontThrowingPhase && L_SHOULDER && R_SHOULDER) {
  const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
  const releaseTarget = (throwIndex && throwIndex.x !== undefined) ? throwIndex : throwWrist;
