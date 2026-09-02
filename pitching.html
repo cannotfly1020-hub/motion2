@@ -1992,6 +1992,8 @@
         text += `・リリース横幅: ${frontRec.metrics.releaseLateral}cm\n\n`;
       }
 
+      text += generatePitchingAICoachAdvice(first) + "\n\n";
+
       text += `👦 【せんしゅのふりかえり】\n`;
       text += `・なげた感覚: ${first.feelGrade || '😆 めっちゃ良かった！'}\n`;
       text += `・カラダの調子: ${first.bodyCondition || '🟢 どこも痛くない！元気！'}\n`;
@@ -2108,6 +2110,11 @@
                 <div style="text-align:center; padding: 10px 0; color:#94a3b8; font-size:0.65rem;">正面動画の測定データなし</div>
               `}
             </div>
+          </div>
+
+          <div class="ai-coach-card">
+            <div class="ai-coach-title">🤖 投球バイオメカニクス AIコーチ診断</div>
+            <div class="ai-coach-text">${aiAdviceHtml}</div>
           </div>
 
           <div class="player-reflection-box">
