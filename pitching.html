@@ -119,7 +119,7 @@
     .step-pill {
       flex: 1;
       text-align: center;
-      padding: 2px 2px;
+      padding: 3px 2px;
       font-size: 0.65rem;
       font-weight: 900;
       border-radius: 9999px;
@@ -128,6 +128,13 @@
       border: 1.5px solid #cbd5e1;
       box-shadow: 0 1px 0 #94a3b8;
       transition: all 0.2s ease;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .step-pill:active {
+      transform: scale(0.96);
+      background: #f1f5f9;
     }
 
     .step-pill.active {
@@ -947,7 +954,7 @@
     <!-- STEP 1: Angle Selection & Video Input -->
     <section id="view-step1" class="view-section active">
       <div class="top-mode-grid">
-        <label class="mode-card mode-card-side" id="label-side-video">
+        <label for="video-input-side" class="mode-card mode-card-side" id="label-side-video">
           <div class="mode-card-icon">⚾</div>
           <div class="mode-card-info">
             <div class="mode-card-title">横向き動画を解析</div>
@@ -956,7 +963,7 @@
           <input type="file" id="video-input-side" accept="video/*" style="display: none;">
         </label>
 
-        <label class="mode-card mode-card-front" id="label-front-video">
+        <label for="video-input-front" class="mode-card mode-card-front" id="label-front-video">
           <div class="mode-card-icon">🎯</div>
           <div class="mode-card-info">
             <div class="mode-card-title">正面・斜め前動画を解析</div>
@@ -1331,6 +1338,34 @@
       }
     }
 
+    // 上部のステップナビゲーション（1.どうが選択 / 2.姿勢スキャン / 3.選手情報）のタップ操作
+    stepPills[1].addEventListener('click', () => {
+      videoElement.pause();
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      setStep(1);
+    });
+
+    stepPills[2].addEventListener('click', () => {
+      if (videoFileUrl) {
+        videoElement.pause();
+        setStep(2);
+        setTimeout(() => {
+          updateScanScreenSize();
+          renderScanFrame();
+        }, 100);
+      }
+    });
+
+    stepPills[3].addEventListener('click', () => {
+      if (videoFileUrl) {
+        videoElement.pause();
+        setStep(3);
+      }
+    });
+
     function generatePitchingAICoachAdvice(entry) {
       let praises = [];
       let improvements = [];
@@ -1465,11 +1500,18 @@
       ensureScanVideoReady();
     }
 
-    document.getElementById('video-input-side').addEventListener('change', function(e) {
+    const inputSide = document.getElementById('video-input-side');
+    const inputFront = document.getElementById('video-input-front');
+
+    // 同じ動画を再度選び直せるようにクリック時に値をクリア
+    inputSide.addEventListener('click', function() { this.value = null; });
+    inputFront.addEventListener('click', function() { this.value = null; });
+
+    inputSide.addEventListener('change', function(e) {
       handleVideoLoad(e.target.files[0], 'SIDE');
     });
 
-    document.getElementById('video-input-front').addEventListener('change', function(e) {
+    inputFront.addEventListener('change', function(e) {
       handleVideoLoad(e.target.files[0], 'FRONT');
     });
 
