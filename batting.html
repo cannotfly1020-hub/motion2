@@ -117,7 +117,7 @@
     .step-pill {
       flex: 1;
       text-align: center;
-      padding: 2px 2px;
+      padding: 3px 2px;
       font-size: 0.65rem;
       font-weight: 900;
       border-radius: 9999px;
@@ -126,6 +126,13 @@
       border: 1.5px solid #cbd5e1;
       box-shadow: 0 1px 0 #94a3b8;
       transition: all 0.2s ease;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .step-pill:active {
+      transform: scale(0.96);
+      background: #f1f5f9;
     }
 
     .step-pill.active {
@@ -271,9 +278,9 @@
       background: linear-gradient(135deg, #f59e0b, #d97706);
       color: #ffffff;
       border: 2px solid #ffffff;
-      padding: 10px 14px;
+      padding: 12px 14px;
       border-radius: 12px;
-      font-size: 0.88rem;
+      font-size: 0.92rem;
       font-weight: 900;
       width: 100%;
       max-width: 480px;
@@ -292,6 +299,7 @@
       box-shadow: 0 1px 0 #b45309;
     }
 
+    /* BUTTONS & WORKSPACE */
     .btn {
       background: linear-gradient(135deg, #10b981, #059669);
       color: #fff;
@@ -674,6 +682,7 @@
       to { transform: rotate(360deg); }
     }
 
+    /* MODAL */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -802,6 +811,7 @@
       color: #ea580c;
     }
 
+    /* 🤖 AI COACH */
     .ai-coach-card {
       background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
       border: 1.5px solid #34d399;
@@ -912,16 +922,62 @@
       box-shadow: 0 1.5px 0 #047835;
       width: 100%;
     }
+
+    /* CUSTOM TOAST / ALERT MODAL */
+    .custom-dialog-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 16px;
+    }
+
+    .custom-dialog-card {
+      background: #ffffff;
+      border-radius: 14px;
+      border: 2px solid #10b981;
+      max-width: 360px;
+      width: 100%;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+      text-align: center;
+    }
+
+    .custom-dialog-title {
+      font-size: 0.92rem;
+      font-weight: 900;
+      color: #065f46;
+    }
+
+    .custom-dialog-body {
+      font-size: 0.76rem;
+      font-weight: 800;
+      color: #334155;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    .custom-dialog-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
   </style>
 </head>
 <body>
 
   <header>
     <div class="header-bar">
-      <!-- 🏠 総合トップへ戻るボタン -->
       <a href="./index.html" class="btn-nav-home" title="トップメニューへ戻る">🏠 ホーム</a>
       <h1>💥 打撃AIバイオメカニクス ⚾</h1>
-      <div style="width: 52px;"></div><!-- バランス保持用の余白 -->
+      <div style="width: 52px;"></div>
     </div>
     <div class="steps-nav">
       <div id="step-nav-1" class="step-pill active">1. どうが選択</div>
@@ -935,7 +991,7 @@
     <!-- STEP 1: Angle Selection -->
     <section id="view-step1" class="view-section active">
       <div class="top-mode-grid">
-        <label class="mode-card mode-card-side" id="label-side-video">
+        <label for="video-input-side" class="mode-card mode-card-side" id="label-side-video">
           <div class="mode-card-icon">🏏</div>
           <div class="mode-card-info">
             <div class="mode-card-title">横向き（側方）動画を解析</div>
@@ -944,7 +1000,7 @@
           <input type="file" id="video-input-side" accept="video/*" style="display: none;">
         </label>
 
-        <label class="mode-card mode-card-front" id="label-front-video">
+        <label for="video-input-front" class="mode-card mode-card-front" id="label-front-video">
           <div class="mode-card-icon">🎯</div>
           <div class="mode-card-info">
             <div class="mode-card-title">正面（投手側）動画を解析</div>
@@ -1031,7 +1087,9 @@
       </div>
     </section>
 
+    <!-- STEP 4: Analysis Workspace -->
     <section id="view-step4" class="view-section">
+      <!-- 6 Metrics Dashboard -->
       <div class="dashboard">
         <div class="card">
           <div class="card-title" id="c1-title">🔄 捻転差 (胸と腰のタメ)</div>
@@ -1065,6 +1123,7 @@
         </div>
       </div>
 
+      <!-- Video Display Canvas -->
       <div class="screen-wrapper" id="main-screen-wrapper">
         <canvas id="output-canvas"></canvas>
         <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
@@ -1076,6 +1135,7 @@
         </div>
       </div>
 
+      <!-- Playback Controls -->
       <div class="controls-container">
         <div class="seek-container">
           <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
@@ -1101,6 +1161,7 @@
     </section>
   </main>
 
+  <!-- カルテモーダル -->
   <div class="modal-overlay" id="carte-modal">
     <div class="modal-card">
       <div class="modal-header">
@@ -1113,6 +1174,17 @@
         <button id="btn-delete-action" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.70rem;">🗑️ 削除</button>
       </div>
       <div class="modal-body" id="carte-history-list"></div>
+    </div>
+  </div>
+
+  <!-- カスタムダイアログ（alert/confirm不使用） -->
+  <div class="custom-dialog-overlay" id="custom-dialog">
+    <div class="custom-dialog-card">
+      <div class="custom-dialog-title" id="dialog-title">お知らせ</div>
+      <div class="custom-dialog-body" id="dialog-message"></div>
+      <div class="custom-dialog-actions" id="dialog-actions">
+        <button class="btn" id="dialog-btn-ok">OK</button>
+      </div>
     </div>
   </div>
 
@@ -1250,6 +1322,44 @@
     const playerSelectFilter = document.getElementById('player-select-filter');
     const btnDeleteAction = document.getElementById('btn-delete-action');
 
+    /* UI Message Dialog */
+    function showAppDialog(title, message, isConfirm = false, onConfirm = null) {
+      const dialog = document.getElementById('custom-dialog');
+      const dTitle = document.getElementById('dialog-title');
+      const dMsg = document.getElementById('dialog-message');
+      const dActions = document.getElementById('dialog-actions');
+
+      dTitle.textContent = title;
+      dMsg.textContent = message;
+      dActions.innerHTML = '';
+
+      if (isConfirm) {
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-secondary';
+        cancelBtn.textContent = 'キャンセル';
+        cancelBtn.onclick = () => { dialog.style.display = 'none'; };
+
+        const okBtn = document.createElement('button');
+        okBtn.className = 'btn btn-danger';
+        okBtn.textContent = '実行する';
+        okBtn.onclick = () => {
+          dialog.style.display = 'none';
+          if (onConfirm) onConfirm();
+        };
+
+        dActions.appendChild(cancelBtn);
+        dActions.appendChild(okBtn);
+      } else {
+        const okBtn = document.createElement('button');
+        okBtn.className = 'btn';
+        okBtn.textContent = 'OK';
+        okBtn.onclick = () => { dialog.style.display = 'none'; };
+        dActions.appendChild(okBtn);
+      }
+
+      dialog.style.display = 'flex';
+    }
+
     function updateCardLabels() {
       const isLeft = (selectedBatSide === 'LEFT');
       if (selectedAngleMode === 'SIDE') {
@@ -1309,61 +1419,32 @@
       }
     }
 
-    function generateBattingAICoachAdvice(entry) {
-      let praises = [];
-      let improvements = [];
-
-      if (entry.mode === 'SIDE') {
-        const m = entry.metrics;
-        if (m.twist >= 28) {
-          praises.push(`🌟 捻転差が【${m.twist}°】とバッチリ！体幹のタメが使えていてヘッドスピードが爆発的に上がります！ (⚡ 飛距離UP)`);
-        } else if (m.twist > 0) {
-          improvements.push(`【ストレッチ・体幹のひねり】 捻転差が【${m.twist}°】でした。骨盤を残して胸を回すタオルひねりや股関節ストレッチでタメを作ると、強い打球が打てるようになります！ (⚡ 打球初速UP)`);
-        }
-
-        const kFlex = (m.impactKneeFlex !== null && m.impactKneeFlex !== undefined) ? m.impactKneeFlex : 0;
-        if (kFlex >= 15 && kFlex <= 45) {
-          praises.push(`🔥 インパクトの前足ヒザが【屈曲 ${kFlex}°】でしっかり踏ん張れており、強い「壁」ができています！ (⚡ パワー伝達UP)`);
-        } else if (kFlex > 50) {
-          improvements.push(`【ジャンプトレーニング・前足ストップ】 インパクトでヒザが曲がりすぎて力が逃げています。片足ジャンプ着地でヒザをピタッと止める練習をして、強い壁を作りましょう！ (⚡ 飛距離UP)`);
-        }
-
-        if (m.strideRatio >= 40 && m.strideRatio <= 58) {
-          praises.push(`👟 ステップ幅が身長の【${m.strideRatio}%】で理想的なバランスです！ (🎯 タイミング安定)`);
-        } else if (m.strideRatio > 0 && m.strideRatio < 38) {
-          improvements.push(`【下半身ステップ訓練】 ステップがやや狭い（${m.strideRatio}%）ため、少し前足を大きく力強く踏み出して下半身の体重移動を使ってみましょう！ (⚡ 飛距離UP)`);
-        } else if (m.strideRatio > 60) {
-          improvements.push(`【バランス訓練】 歩幅が広すぎて（${m.strideRatio}%）回転が止まりやすいです。少しスタンスを狭めてスムーズに腰を回す素振りをしましょう！ (🎯 ミート力UP)`);
-        }
-
-        if (m.headShift <= 12) {
-          praises.push(`🎯 スイング中の頭の突っ込みが【${m.headShift}cm】と少なく、軸が安定しています！ (🎯 ミート率UP)`);
-        } else {
-          improvements.push(`【軸足バランス訓練】 頭がピッチャー側へ【${m.headShift}cm】突っ込んでいます。後ろ足（軸足）に体重を残したままクルッと回転する練習で、ボールがグンと見やすくなります！ (🎯 変化球対応UP)`);
-        }
-      } else {
-        const m = entry.metrics;
-        if (m.headShiftX <= 8) {
-          praises.push(`🎯 頭の横ブレがわずか【${m.headShiftX}cm】！目線がピタッと止まっていて素晴らしい動体視力です！ (🎯 空振り激減)`);
-        } else {
-          improvements.push(`【体幹・バランス訓練】 頭が横に【${m.headShiftX}cm】揺れています。片足立ちでの連続素振りで体幹を鍛え、目線をブラさない軸を作りましょう！ (🎯 ミート率UP)`);
-        }
-
-        if (m.toeAngle <= 15) {
-          praises.push(`👟 前足つま先の開きが【${m.toeAngle}°】と抑えられており、体の開きが抑えられています！ (⚡ 懐の深さUP)`);
-        } else {
-          improvements.push(`【ステップ方向ドリル】 前足のつま先が外へ開き気味（${m.toeAngle}°）です。つま先をややピッチャーに対して真っ直ぐ踏み出す意識で、外の球にも強くなりましょう！ (🎯 逆方向ヒッティング)`);
-        }
+    stepPills[1].addEventListener('click', () => {
+      videoElement.pause();
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
       }
+      setStep(1);
+    });
 
-      if (praises.length === 0) praises.push("🌟 一生懸命にフルスイングできています！継続してフォームを磨いていこう！");
-      if (improvements.length === 0) improvements.push("💡 現在のフォームバランスはとても良好です！この感覚を維持して反復練習を続けましょう！");
+    stepPills[2].addEventListener('click', () => {
+      if (videoFileUrl) {
+        videoElement.pause();
+        setStep(2);
+        setTimeout(() => {
+          updateScanScreenSize();
+          renderScanFrame();
+        }, 100);
+      }
+    });
 
-      let text = "【🤖 打撃AIコーチ診断レポート】\n";
-      text += "🌟 ナイスポイント:\n" + praises.map(p => "・" + p).join("\n") + "\n\n";
-      text += "💪 おすすめトレーニングメニュー:\n" + improvements.map(i => "・" + i).join("\n");
-      return text;
-    }
+    stepPills[3].addEventListener('click', () => {
+      if (videoFileUrl) {
+        videoElement.pause();
+        setStep(3);
+      }
+    });
 
     function initMediaPipe() {
       if (pose) return Promise.resolve();
@@ -1433,11 +1514,17 @@
       ensureScanVideoReady();
     }
 
-    document.getElementById('video-input-side').addEventListener('change', function(e) {
+    const inputSide = document.getElementById('video-input-side');
+    const inputFront = document.getElementById('video-input-front');
+
+    inputSide.addEventListener('click', function() { this.value = null; });
+    inputFront.addEventListener('click', function() { this.value = null; });
+
+    inputSide.addEventListener('change', function(e) {
       handleVideoLoad(e.target.files[0], 'SIDE');
     });
 
-    document.getElementById('video-input-front').addEventListener('change', function(e) {
+    inputFront.addEventListener('change', function(e) {
       handleVideoLoad(e.target.files[0], 'FRONT');
     });
 
@@ -1496,6 +1583,7 @@
       scanCtx.lineTo(centerX, bottomY);
       scanCtx.stroke();
 
+      // Top Handle
       scanCtx.strokeStyle = "#10b981";
       scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
@@ -1516,6 +1604,7 @@
       scanCtx.textAlign = "center";
       scanCtx.fillText("👑 あたま ↕", centerX, topY - 14);
 
+      // Bottom Handle
       scanCtx.strokeStyle = "#f43f5e";
       scanCtx.lineWidth = 3.5;
       scanCtx.beginPath();
@@ -1764,6 +1853,73 @@
       }
     });
 
+    function generateBattingAICoachAdvice(entry) {
+      let praises = [];
+      let improvements = [];
+
+      if (entry.mode === 'SIDE') {
+        const m = entry.metrics;
+        // 1. 捻転差 (タメ)
+        if (m.twist >= 28) {
+          praises.push(`🌟 捻転差が【${m.twist}°】とバッチリ！体幹のタメが使えていてヘッドスピードが爆発的に上がります！ (⚡ 飛距離UP)`);
+        } else if (m.twist > 0) {
+          improvements.push(`【ストレッチ・体幹のひねり】 捻転差が【${m.twist}°】でした。骨盤を残して胸を回すタオルひねりや股関節ストレッチでタメを作ると、強い打球が打てるようになります！ (⚡ 打球初速UP)`);
+        }
+
+        // 2. 前足ヒザの壁
+        const kFlex = (m.impactKneeFlex !== null && m.impactKneeFlex !== undefined) ? m.impactKneeFlex : 0;
+        if (kFlex >= 15 && kFlex <= 45) {
+          praises.push(`🔥 インパクトの前足ヒザが【屈曲 ${kFlex}°】でしっかり踏ん張れており、強い「壁」ができています！ (⚡ パワー伝達UP)`);
+        } else if (kFlex > 50) {
+          improvements.push(`【ジャンプトレーニング・前足ストップ】 インパクトでヒザが曲がりすぎて力が逃げています。片足ジャンプ着地でヒザをピタッと止める練習をして、強い壁を作りましょう！ (⚡ 飛距離UP)`);
+        }
+
+        // 3. ステップ幅
+        if (m.strideRatio >= 40 && m.strideRatio <= 58) {
+          praises.push(`👟 ステップ幅が身長の【${m.strideRatio}%】で理想的なバランスです！ (🎯 タイミング安定)`);
+        } else if (m.strideRatio > 0 && m.strideRatio < 38) {
+          improvements.push(`【下半身ステップ訓練】 ステップがやや狭い（${m.strideRatio}%）ため、少し前足を大きく力強く踏み出して下半身の体重移動を使ってみましょう！ (⚡ 飛距離UP)`);
+        } else if (m.strideRatio > 60) {
+          improvements.push(`【バランス訓練】 歩幅が広すぎて（${m.strideRatio}%）回転が止まりやすいです。少しスタンスを狭めてスムーズに腰を回す素振りをしましょう！ (🎯 ミート力UP)`);
+        }
+
+        // 4. 頭の突っ込み
+        if (m.headShift <= 12) {
+          praises.push(`🎯 スイング中の頭の突っ込みが【${m.headShift}cm】と少なく、軸が安定しています！ (🎯 ミート率UP)`);
+        } else {
+          improvements.push(`【軸足バランス訓練】 頭がピッチャー側へ【${m.headShift}cm】突っ込んでいます。後ろ足（軸足）に体重を残したままクルッと回転する練習で、ボールがグンと見やすくなります！ (🎯 変化球対応UP)`);
+        }
+      } else {
+        // FRONT MODE
+        const m = entry.metrics;
+        // 1. 目線ブレ幅
+        if (m.headShiftX <= 8) {
+          praises.push(`🎯 頭の横ブレがわずか【${m.headShiftX}cm】！目線がピタッと止まっていて素晴らしい動体視力です！ (🎯 空振り激減)`);
+        } else {
+          improvements.push(`【体幹・バランス訓練】 頭が横に【${m.headShiftX}cm】揺れています。片足立ちでの連続素振りで体幹を鍛え、目線をブラさない軸を作りましょう！ (🎯 ミート率UP)`);
+        }
+
+        // 2. つま先の開き
+        if (m.toeAngle <= 15) {
+          praises.push(`👟 前足つま先の開きが【${m.toeAngle}°】と抑えられており、体の開きが抑えられています！ (⚡ 懐の深さUP)`);
+        } else {
+          improvements.push(`【ステップ方向ドリル】 前足のつま先が外へ開き気味（${m.toeAngle}°）です。つま先をややピッチャーに対して真っ直ぐ踏み出す意識で、外の球にも強くなりましょう！ (🎯 逆方向ヒッティング)`);
+        }
+      }
+
+      if (praises.length === 0) {
+        praises.push("🌟 一生懸命にフルスイングできています！継続してフォームを磨いていこう！");
+      }
+      if (improvements.length === 0) {
+        improvements.push("💡 現在のフォームバランスはとても良好です！この感覚を維持して反復練習を続けましょう！");
+      }
+
+      let text = "【🤖 AIコーチ診断レポート】\n";
+      text += "🌟 ナイスポイント:\n" + praises.map(p => "・" + p).join("\n") + "\n\n";
+      text += "💪 おすすめトレーニングメニュー:\n" + improvements.map(i => "・" + i).join("\n");
+      return text;
+    }
+
     const STORAGE_KEY = 'batting_ai_records_v1';
 
     function getSavedRecords() {
@@ -1813,9 +1969,9 @@
       allRecords.unshift(newEntry);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
-        alert(`✅ ${playerName}君の打撃データをカルテに保存しました！`);
+        showAppDialog("保存完了", `✅ ${playerName}君の打撃データをカルテに保存しました！`);
       } catch (e) {
-        alert("⚠️ 保存容量がいっぱいです");
+        showAppDialog("エラー", "⚠️ 保存容量がいっぱいです");
       }
     }
 
@@ -1881,8 +2037,13 @@
           if (err.name !== 'AbortError') console.log('Share error:', err);
         });
       } else {
+        const dummyInput = document.createElement('textarea');
+        dummyInput.value = text;
+        document.body.appendChild(dummyInput);
+        dummyInput.select();
         document.execCommand('copy');
-        alert("📋 レポート文をクリップボードにコピーしました！LINE等に貼り付けて監督に送れます。\n\n" + text);
+        document.body.removeChild(dummyInput);
+        showAppDialog("コピー完了", "📋 レポート文をクリップボードにコピーしました！LINE等に貼り付けて監督に送れます。");
       }
     }
 
@@ -1993,7 +2154,7 @@
             <div class="chip-group" data-type="feel" data-group="${key}">
               <div class="choice-chip ${curFeel.includes('芯') ? 'active' : ''}" data-val="😆 めっちゃ芯で捉えた！">😆 芯で捉えた</div>
               <div class="choice-chip ${curFeel.includes('ふつう') ? 'active' : ''}" data-val="😊 ふつう・いつも通り">😊 いつも通り</div>
-              <div class="choice-chip ${curFeel.includes('詰まった') ? 'active' : ''}" data-val="😣 詰まった / 泳がされた">😣 詰まった</div>
+              <div class="choice-chip ${curFeel.includes('詰まった') || curFeel.includes('いまいち') ? 'active' : ''}" data-val="😣 詰まった / 泳がされた">😣 詰まった</div>
             </div>
 
             <div class="reflection-sec-title">💪 カラダの調子・違和感</div>
@@ -2059,12 +2220,12 @@
       carteHistoryList.querySelectorAll('.btn-item-delete').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const groupKey = e.currentTarget.getAttribute('data-group');
-          if (confirm("この日の測定カルテを削除しますか？")) {
+          showAppDialog("カルテ削除", "この日の測定カルテを削除しますか？", true, () => {
             let allRecords = getSavedRecords();
             allRecords = allRecords.filter(r => `${r.playerName}_${r.date}` !== groupKey);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
             renderCarteList(false);
-          }
+          });
         });
       });
     }
@@ -2077,23 +2238,23 @@
       if (allRecords.length === 0) return;
 
       if (selectedFilter === 'ALL') {
-        if (confirm("⚠️ 【注意】すべての選手の打撃カルテを完全に初期化しますか？")) {
+        showAppDialog("警告", "すべての選手の打撃カルテを完全に初期化しますか？この操作は元に戻せません。", true, () => {
           localStorage.removeItem(STORAGE_KEY);
           renderCarteList(false);
-        }
+        });
       } else {
-        if (confirm(`👤 ${selectedFilter} 選手の測定データを全削除しますか？`)) {
+        showAppDialog("選手データ削除", `👤 ${selectedFilter} 選手の測定データを全削除しますか？`, true, () => {
           allRecords = allRecords.filter(r => r.playerName !== selectedFilter);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
           renderCarteList(false);
-        }
+        });
       }
     });
 
     document.getElementById('btn-export-csv').addEventListener('click', () => {
       const allRecords = getSavedRecords();
       if (allRecords.length === 0) {
-        alert("保存されたデータがありません");
+        showAppDialog("確認", "保存されたデータがありません");
         return;
       }
 
@@ -2232,10 +2393,6 @@
         const NOSE = landmarks[0];
         const L_SHOULDER = landmarks[11];
         const R_SHOULDER = landmarks[12];
-        const L_ELBOW = landmarks[13];
-        const R_ELBOW = landmarks[14];
-        const L_WRIST = landmarks[15];
-        const R_WRIST = landmarks[16];
         const L_HIP = landmarks[23];
         const R_HIP = landmarks[24];
         const L_KNEE = landmarks[25];
@@ -2246,6 +2403,8 @@
         const R_HEEL = landmarks[30];
         const L_FOOT_INDEX = landmarks[31];
         const R_FOOT_INDEX = landmarks[32];
+        const L_WRIST = landmarks[15];
+        const R_WRIST = landmarks[16];
 
         const normalizedStatureHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.1 ? (tuneRuler.bottomYNorm - tuneRuler.topYNorm) : 0.75;
         const activePxPerCm = (normalizedStatureHeight * b.h) / userHeightCm;
@@ -2357,7 +2516,7 @@
           }
         }
 
-        // 6. トップ手の高さ / 正面項目
+        // 6. トップ手高 / 正面項目
         if (selectedAngleMode === 'SIDE') {
           if (topWrist && frontHeel) {
             const lowestGroundY = Math.max(frontHeel.y, backHeel ? backHeel.y : frontHeel.y) * b.h;
@@ -2434,9 +2593,13 @@
 
           outputCtx.arc(drawX, drawY, radius, 0, Math.PI * 2);
           
-          if ([15, 16].includes(idx)) outputCtx.fillStyle = "#f59e0b";
-          else if (idx === frontKneeIdx) outputCtx.fillStyle = "#ffe600";
-          else outputCtx.fillStyle = "#34d399";
+          if ([15, 16].includes(idx)) {
+            outputCtx.fillStyle = "#f59e0b";
+          } else if (idx === frontKneeIdx) {
+            outputCtx.fillStyle = "#ffe600";
+          } else {
+            outputCtx.fillStyle = "#34d399";
+          }
 
           outputCtx.fill();
           outputCtx.strokeStyle = "#ffffff";
