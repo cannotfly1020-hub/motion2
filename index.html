@@ -642,7 +642,7 @@
  to { transform: rotate(360deg); }
  }
 
- /* カルテモーダル */
+ /* カルテモーダル（統合1枚化対応） */
  .modal-overlay {
  position: fixed;
  inset: 0;
@@ -775,6 +775,48 @@
 
  .metric-row-item b {
  color: #ea580c;
+ }
+
+ /* 🤖 AIコーチ診断レポートエリア */
+ .ai-coach-report-box {
+ background: linear-gradient(135deg, #fefce8 0%, #fffbeb 100%);
+ border: 1.5px solid #facc15;
+ border-radius: 8px;
+ padding: 6px 8px;
+ display: flex;
+ flex-direction: column;
+ gap: 4px;
+ font-size: 0.68rem;
+ line-height: 1.35;
+ }
+
+ .ai-coach-title {
+ font-size: 0.74rem;
+ font-weight: 900;
+ color: #854d0e;
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ border-bottom: 1px dashed #fde047;
+ padding-bottom: 2px;
+ }
+
+ .ai-praise-block {
+ background: #ffffff;
+ border: 1px solid #fef08a;
+ border-radius: 6px;
+ padding: 4px 6px;
+ color: #15803d;
+ font-weight: 800;
+ }
+
+ .ai-training-block {
+ background: #ffffff;
+ border: 1px solid #bfdbfe;
+ border-radius: 6px;
+ padding: 4px 6px;
+ color: #1e40af;
+ font-weight: 800;
  }
 
  /* 👦 選手ふりかえり・レポートエリア */
@@ -938,7 +980,7 @@
  <button class="btn btn-scan" id="btn-scan-action">📏 ① AI自動スキャン</button>
  <button class="btn btn-ctrl" id="btn-scan-next">+1コマ ▶</button>
  </div>
- <button class="btn btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
+ <button class="btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
  </section>
 
  <!-- STEP 3: Arm & Stature Input -->
@@ -1349,7 +1391,7 @@
  }
  videoFileUrl = URL.createObjectURL(file);
  
- videoElement.src = videoFileUrl;
+videoElement.src = videoFileUrl;
  videoElement.load();
 
  updateCardLabels();
@@ -1371,7 +1413,7 @@
  videoElement.playsInline = true;
  videoElement.currentTime = 0.001;
  
- videoElement.onloadeddata = () => {
+videoElement.onloadeddata = () => {
  updateScanScreenSize();
  renderScanFrame();
  };
@@ -1484,7 +1526,7 @@
  const pt = getCanvasPoint(e, scanCanvas);
  const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
  
- const topY = b.y + tuneRuler.topYNorm * b.h;
+const topY = b.y + tuneRuler.topYNorm * b.h;
  const bottomY = b.y + tuneRuler.bottomYNorm * b.h;
  const centerX = b.x + tuneRuler.centerXNorm * b.w;
  const tol = 30;
@@ -1721,7 +1763,7 @@
  records.ffValgusAngle = currentCalculatedState.kneeDevAngle;
  records.ffValgusLabel = `べた足時: ${currentCalculatedState.kneeDevAngle}° (${currentCalculatedState.kneeStateLabel})`;
  
- c1Max.textContent = records.fcToeLabel;
+c1Max.textContent = records.fcToeLabel;
  c2Max.textContent = records.ffValgusLabel;
  } else {
  records.ffKneeFlex = currentCalculatedState.kneeFlexAngle;
@@ -1729,6 +1771,83 @@
  c5Max.textContent = `FF時: 屈曲 ${records.ffKneeFlex}° (リリース時: ${brText})`;
  }
  });
+
+ /* ========================================================
+   端末内AIコーチ診断エンジン（ルールベース・外部通信不要）
+ ======================================================== */
+ function generateAICoachAdvice(sideRec, frontRec) {
+   let praises = [];
+   let trainings = [];
+
+   // 横向きデータの評価
+   if (sideRec && sideRec.metrics) {
+     const m = sideRec.metrics;
+
+     // 1. 歩幅 (スピードUP)
+     if (m.strideRatio >= 75 && m.strideRatio <= 88) {
+       praises.push(`【スピードUP⚡】歩幅が身長比 ${m.strideRatio}% とハナマル！下半身の体重移動がしっかり使えて球速アップにつながっています！`);
+     } else if (m.strideRatio < 75) {
+       trainings.push(`【ジャンプトレーニング🦘】歩幅（${m.strideRatio}%）を広げるため、軸足で地面を強く押す色んなジャンプや下半身の強化運動をしよう！（下半身でスピードUP⚡）`);
+     }
+
+     // 2. 肩外旋・しなり (球速＆キレUP)
+     if (m.mer >= 155) {
+       praises.push(`【球速＆キレUP⚡】腕のしなり（肩外旋 ${m.mer}°）がムチのように柔らかく、ボールにスピンとキレを与える素晴らしいしなりです！`);
+     } else if (m.mer < 145) {
+       trainings.push(`【ストレッチ🧘】腕のしなり（${m.mer}°）を高めるため、肩甲骨・胸・肩まわりの色んなストレッチを取り入れよう！（腕がしなって球速UP⚡＆ヒジ保護🛡️）`);
+     }
+
+     // 3. 捻転差 (回転スピードUP)
+     if (m.twist >= 25 && m.twist <= 45) {
+       praises.push(`【回転スピードUP⚡】骨盤と胸の捻転差（${m.twist}°）がしっかり作れており、上半身のキレの良い回転力が出せています！`);
+     } else if (m.twist < 25) {
+       trainings.push(`【バランス・体幹訓練🔄】下半身を残して胸だけをひねる体幹トレーニングやツイスト運動を試してみよう！（体の開きを抑えて球速UP⚡）`);
+     }
+
+     // 4. 前足ヒザの踏ん張り (制球＆ボールの伸びUP)
+     if (m.ffKneeFlex !== null && m.releaseKneeFlex !== null) {
+       if (m.ffKneeFlex <= 45 && m.releaseKneeFlex <= 40) {
+         praises.push(`【コントロールUP🎯】着地からリリースにかけて前足ヒザでガシッと踏ん張れており、リリース位置が安定して制球力◎です！`);
+       } else if (m.releaseKneeFlex > 50) {
+         trainings.push(`【バランス訓練🦵】前足のヒザが前に流れないよう、片足立ちバランスや下半身の踏ん張り運動をしよう！（軸が安定してコントロールUP🎯）`);
+       }
+     }
+   }
+
+   // 正面データの評価
+   if (frontRec && frontRec.metrics) {
+     const m = frontRec.metrics;
+
+     // 1. つま先向き (コントロールUP)
+     if (m.toeAngle <= 10) {
+       praises.push(`【コントロールUP🎯】着地した前足のつま先がキャッチャーへまっすぐ向いており、狙ったコースへズバッと投げられる足運びです！`);
+     } else if (m.toeAngle > 10) {
+       trainings.push(`【バランス・ステップ練習🎯】つま先が外に開かないよう、ラインにまっすぐ踏み込む足運びやバランス訓練をしよう！（シュート回転を防いでコントロールUP🎯）`);
+     }
+
+     // 2. ヒザの内外反 (ケガ予防＆制球力UP)
+     if (m.valgus <= 6) {
+       praises.push(`【ケガ予防＆制球安定🛡️】着地したヒザの横ブレがなくドッシリ安定！ヒジ・肩への負担が少なくストライクゾーンも安定します！`);
+     } else if (m.valgus > 6) {
+       trainings.push(`【バランス訓練🦵】着地でヒザが内側に入らないよう、片足ピタッと着地訓練や股関節のストレッチをしよう！（ヒジ・肩のケガ予防🛡️＆制球UP🎯）`);
+     }
+   }
+
+   // デフォルト補完
+   if (praises.length === 0) {
+     praises.push(`【総合バランス🌟】全身を大きく使ってまっすぐターゲットに向かって投げられています！`);
+   }
+   if (trainings.length === 0) {
+     trainings.push(`【コンディショニング🌟】今の素晴らしいフォームを保つために、投球後のストレッチや全身のバランス運動を継続しよう！`);
+   }
+
+   return {
+     praise: praises.join("<br>"),
+     training: trainings.join("<br>"),
+     praiseText: praises.join("\n"),
+     trainingText: trainings.join("\n")
+   };
+ }
 
  /* ========================================================
  カルテ（データ保存・履歴管理・削除）システム
@@ -1816,7 +1935,7 @@
  }
  }
 
- /* LINE・メール・メッセージ送信機能（統合データ対応） */
+ /* LINE・メール・メッセージ送信機能（AIコーチ診断付き統合データ対応） */
  function shareRecordToLine(groupKey) {
  const allRecords = getSavedRecords();
  const groupRecords = allRecords.filter(r => `${r.playerName}_${r.date}` === groupKey);
@@ -1825,6 +1944,8 @@
  const first = groupRecords[0];
  const sideRec = groupRecords.find(r => r.mode === 'SIDE');
  const frontRec = groupRecords.find(r => r.mode === 'FRONT');
+
+ const coachAdvice = generateAICoachAdvice(sideRec, frontRec);
 
  let text = `⚾ 【投球バイオメカニクス 選手レポート】 ⚾\n`;
  text += `👤 選手名: ${first.playerName} 選手 (${first.height}cm / ${first.throwArm === 'RIGHT' ? '右投げ' : '左投げ'})\n`;
@@ -1850,6 +1971,10 @@
  text += `・リリース横幅: ${frontRec.metrics.releaseLateral}cm\n\n`;
  }
 
+ text += `🤖 【AIコーチ診断＆アドバイス】\n`;
+ text += `🌟 ナイスポイント（長所）:\n${coachAdvice.praiseText}\n\n`;
+ text += `💪 おすすめトレーニング（伸びしろ）:\n${coachAdvice.trainingText}\n\n`;
+
  text += `👦 【せんしゅのふりかえり】\n`;
  text += `・なげた感覚: ${first.feelGrade || '😆 めっちゃ良かった！'}\n`;
  text += `・カラダの調子: ${first.bodyCondition || '🟢 どこも痛くない！元気！'}\n`;
@@ -1866,7 +1991,7 @@
  });
  } else {
  navigator.clipboard.writeText(text).then(() => {
- alert("📋 レポート文をクリップボードにコピーしました！LINEやメールに貼り付けて監督に送れます。");
+ alert("📋 レポート文をクリップボードにコピーしました！LINEやメールに貼り付けて監督・コーチに送れます。");
  }).catch(() => {
  alert(text);
  });
@@ -1932,6 +2057,8 @@
  const curFeel = first.feelGrade || "😆 めっちゃ良かった！";
  const curBody = first.bodyCondition || "🟢 どこも痛くない！元気！";
 
+ const coachAdvice = generateAICoachAdvice(sideRec, frontRec);
+
  const card = document.createElement('div');
  card.className = 'history-card';
 
@@ -1981,6 +2108,22 @@
  <div style="text-align:center; padding: 10px 0; color:#94a3b8; font-size:0.65rem;">正面動画の測定データなし</div>
  `}
  </div>
+ </div>
+
+ <!-- 🤖 AIコーチ診断レポートエリア -->
+ <div class="ai-coach-report-box">
+   <div class="ai-coach-title">
+     <span>🤖 AIコーチ診断レポート</span>
+     <span style="font-size: 0.58rem; color: #a16207;">スピード・制球・ケガ予防判定</span>
+   </div>
+   <div class="ai-praise-block">
+     <div style="font-size: 0.62rem; color: #166534; font-weight: 900; margin-bottom: 2px;">🌟 ナイスポイント（長所）</div>
+     <div>${coachAdvice.praise}</div>
+   </div>
+   <div class="ai-training-block">
+     <div style="font-size: 0.62rem; color: #1e40af; font-weight: 900; margin-bottom: 2px;">💪 おすすめトレーニング（伸びしろ）</div>
+     <div>${coachAdvice.training}</div>
+   </div>
  </div>
 
  <!-- 👦 選手ふりかえり＆監督への送信エリア -->
@@ -2245,7 +2388,7 @@
  const L_HEEL = landmarks[29] || landmarks[27];
  const R_HEEL = landmarks[30] || landmarks[28];
  
- if (NOSE && L_HEEL && R_HEEL) {
+if (NOSE && L_HEEL && R_HEEL) {
  tuneRuler.isActive = true;
  tuneRuler.topYNorm = Math.max(0.02, NOSE.y - 0.08);
  tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
@@ -2339,7 +2482,7 @@
  let isStepping = false;
  let isKinematicFF = false;
  
- if (leadHeel && leadToe && pivotHeel) {
+if (leadHeel && leadToe && pivotHeel) {
  const currentStridePx = Math.hypot((leadHeel.x - pivotHeel.x) * b.w, (leadHeel.y - pivotHeel.y) * b.h);
  currentStrideCm = currentStridePx / activePxPerCm;
  isStepping = currentStrideCm > (userHeightCm * 0.35);
@@ -2478,12 +2621,12 @@
  const deltaX = (leadToe.x - leadHeel.x) * b.w;
  const deltaY = Math.max(10, (leadToe.y - leadHeel.y) * b.h);
  
- let angleDeg = (Math.atan2(deltaX, deltaY) * 180.0 / Math.PI) + manualToeOffsetDeg;
+let angleDeg = (Math.atan2(deltaX, deltaY) * 180.0 / Math.PI) + manualToeOffsetDeg;
  let signedToeDev = isRightHanded ? angleDeg : -angleDeg;
  
- smoothToeDeg = smoothToeDeg === 0 ? signedToeDev : (smoothToeDeg * 0.7 + signedToeDev * 0.3);
+smoothToeDeg = smoothToeDeg === 0 ? signedToeDev : (smoothToeDeg * 0.7 + signedToeDev * 0.3);
  
- const displayAngle = Math.round(Math.abs(smoothToeDeg));
+const displayAngle = Math.round(Math.abs(smoothToeDeg));
  let stateLabel = "◎ ストレート (0〜10°)";
 
  if (smoothToeDeg > 20) {
@@ -2519,7 +2662,7 @@
  const thighAngle = Math.atan2(leadKnee.y - leadHip.y, leadKnee.x - leadHip.x);
  const shankAngle = Math.atan2(leadAnkle.y - leadKnee.y, leadAnkle.x - leadKnee.x);
  
- let valgusDiff = (shankAngle - thighAngle) * 180.0 / Math.PI;
+let valgusDiff = (shankAngle - thighAngle) * 180.0 / Math.PI;
  if (valgusDiff > 180) valgusDiff -= 360;
  if (valgusDiff < -180) valgusDiff += 360;
 
@@ -2649,11 +2792,11 @@
 
  const keyJoints = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
  
- const throwWristIdx = isRightHanded ? 16 : 15;
+const throwWristIdx = isRightHanded ? 16 : 15;
  const throwElbowIdx = isRightHanded ? 14 : 13;
  const throwIndexIdx = isRightHanded ? 20 : 19;
  
- const leadKneeIdx = isRightHanded ? 25 : 26;
+const leadKneeIdx = isRightHanded ? 25 : 26;
  const leadToeIdx = isRightHanded ? 31 : 32;
 
  keyJoints.forEach(idx => {
@@ -2681,7 +2824,7 @@
 
  outputCtx.arc(drawX, drawY, radius, 0, Math.PI * 2);
  
- if (idx === throwIndexIdx) {
+if (idx === throwIndexIdx) {
  outputCtx.fillStyle = "#ff007f";
  } else if (idx === throwWristIdx) {
  outputCtx.fillStyle = "#ff5252";
@@ -2712,7 +2855,7 @@
  animationFrameId = null;
  }
  
- if (videoElement.paused) {
+if (videoElement.paused) {
  btnPlayPause.textContent = "再生 ▶";
  btnPlayPause.style.background = "linear-gradient(135deg, #ff9f43, #ff5252)";
  } else {
