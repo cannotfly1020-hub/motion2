@@ -2066,6 +2066,8 @@
         const card = document.createElement('div');
         card.className = 'history-card';
 
+        const aiAdviceHtml = generatePitchingAICoachAdvice(first).replace(/\n/g, '<br>');
+
         card.innerHTML = `
           <div class="history-card-head">
             <span>👤 ${first.playerName} (${first.height}cm・${first.throwArm === 'RIGHT' ? '右' : '左'})</span>
