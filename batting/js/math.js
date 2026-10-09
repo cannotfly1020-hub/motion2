@@ -210,11 +210,11 @@ function applyBattingBiomechanics(landmarks, b) {
       currentCalculatedState.twistStatusLabel = twistLabel;
 
       if (selectedAngleMode === 'SIDE') {
-        c1Val.textContent = `${roundedTwist >= 0 ? '+' : ''}${roundedTwist} °`;
+        c1Val.textContent = `${roundedTwist >= 0 ? '+' : ''}${roundedTwist}°`;
         if (roundedTwist > records.maxTwistSigned && roundedTwist >= 5) {
           records.maxTwistSigned = roundedTwist;
           records.twistStatusLabel = twistLabel;
-          c1Max.textContent = `最大タメ: +${roundedTwist}° (${twistLabel})`;
+          paintHero(c1Max, 'TOP 捻転差', `+${roundedTwist}°`, true);
         }
       }
     }
@@ -226,7 +226,7 @@ function applyBattingBiomechanics(landmarks, b) {
       const flexAngle = Math.max(0, Math.round(180 - rawKneeAngle));
       currentCalculatedState.kneeFlexAngle = flexAngle;
       if (selectedAngleMode === 'SIDE') {
-        c2Val.textContent = `屈曲 ${flexAngle} °`;
+        c2Val.textContent = `屈曲 ${flexAngle}°`;
       }
     }
   }
@@ -241,7 +241,7 @@ function applyBattingBiomechanics(landmarks, b) {
         c3Val.textContent = `${strideCm} cm`;
         if (strideCm > records.maxStride) {
           records.maxStride = strideCm;
-          c3Max.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
+          paintHero(c3Max, 'MAX ステップ', `${strideCm}cm (${strideRatio}%)`, true);
         }
       }
     }
@@ -254,16 +254,16 @@ function applyBattingBiomechanics(landmarks, b) {
     if (Number.isFinite(tiltDeg) && tiltDeg <= 55) {
       currentCalculatedState.trunkTiltDeg = tiltDeg;
       if (selectedAngleMode === 'SIDE') {
-        c4Val.textContent = `${tiltDeg} °`;
+        c4Val.textContent = `${tiltDeg}°`;
         if (tiltDeg > records.maxTrunkTilt) {
           records.maxTrunkTilt = tiltDeg;
-          c4Max.textContent = `最大: ${tiltDeg} °`;
+          paintHero(c4Max, 'MAX 体幹', `${tiltDeg}°`, true);
         }
       } else {
-        c5Val.textContent = `${tiltDeg} °`;
+        c5Val.textContent = `${tiltDeg}°`;
         if (tiltDeg > records.maxTrunkTilt) {
           records.maxTrunkTilt = tiltDeg;
-          c5Max.textContent = `最大傾き: ${tiltDeg} °`;
+          paintHero(c5Max, 'MAX 側屈', `${tiltDeg}°`, true);
         }
       }
     }
@@ -282,23 +282,23 @@ function applyBattingBiomechanics(landmarks, b) {
       c5Val.textContent = `${shiftXCm} cm`;
       if (shiftXCm > records.maxHeadShift && shiftXCm <= 60) {
         records.maxHeadShift = shiftXCm;
-        c5Max.textContent = `最大移動: ${shiftXCm} cm`;
+        paintHero(c5Max, 'MAX 頭前後', `${shiftXCm} cm`, true);
       }
       c6Val.textContent = `${shiftYCm} cm`;
       if (shiftYCm > records.maxHeadShiftY && shiftYCm <= 50) {
         records.maxHeadShiftY = shiftYCm;
-        c6Max.textContent = `最大上下: ${shiftYCm} cm`;
+        paintHero(c6Max, 'MAX 頭上下', `${shiftYCm} cm`, true);
       }
     } else {
       c1Val.textContent = `${shiftXCm} cm`;
       c2Val.textContent = `${shiftYCm} cm`;
       if (shiftXCm > records.maxHeadShift && shiftXCm <= 50) {
         records.maxHeadShift = shiftXCm;
-        c1Max.textContent = `最大横ズレ: ${shiftXCm} cm`;
+        paintHero(c1Max, 'MAX 頭横', `${shiftXCm} cm`, true);
       }
       if (shiftYCm > records.maxHeadShiftY && shiftYCm <= 50) {
         records.maxHeadShiftY = shiftYCm;
-        c2Max.textContent = `最大上下: ${shiftYCm} cm`;
+        paintHero(c2Max, 'MAX 頭上下', `${shiftYCm} cm`, true);
       }
     }
   }
@@ -308,15 +308,13 @@ function applyBattingBiomechanics(landmarks, b) {
     const currentHandH = Math.round(Math.max(0, lowestGroundY - topWrist.y * b.h) / activePxPerCm);
     if (Number.isFinite(currentHandH) && currentHandH >= 30 && currentHandH <= Math.round(userHeightCm * 1.4)) {
       currentCalculatedState.impactHandHeightCm = currentHandH;
+      c7Val.textContent = `${currentHandH} cm`;
+      c8Val.textContent = `${currentHandH} cm`;
       if (currentHandH > records.maxTopHandH) {
         records.maxTopHandH = currentHandH;
         currentCalculatedState.topHandHeightCm = currentHandH;
-        c7Val.textContent = `${currentHandH} cm`;
-        c7Max.textContent = `最高: ${currentHandH} cm`;
-      } else {
-        c7Val.textContent = `${records.maxTopHandH || currentHandH} cm`;
+        paintHero(c7Max, 'TOP グリップ', `${currentHandH} cm`, true);
       }
-      c8Val.textContent = `${currentHandH} cm`;
     }
   }
 
@@ -339,10 +337,7 @@ function applyBattingBiomechanics(landmarks, b) {
       currentCalculatedState.shoulderOpenDeg = rawOpenAngle;
       currentCalculatedState.shoulderOpenLabel = sLabel;
 
-      c3Val.textContent = `${rawOpenAngle} °`;
-      if (!records.impactShoulderOpenLabel) {
-        c3Max.textContent = `状態: ${sLabel}`;
-      }
+      c3Val.textContent = `${rawOpenAngle}°`;
     }
 
     if (frontHeel && backHeel) {
@@ -356,7 +351,7 @@ function applyBattingBiomechanics(landmarks, b) {
       if (inStepCm > records.maxInStepCm && inStepCm <= 45) {
         records.maxInStepCm = inStepCm;
         records.inStepDir = dirLabel;
-        c4Max.textContent = `最大ズレ: ${inStepCm} cm (${dirLabel})`;
+        paintHero(c4Max, 'MAX 踏出', `${inStepCm}cm ${dirLabel}`, true);
       }
     }
 
@@ -378,10 +373,7 @@ function applyBattingBiomechanics(landmarks, b) {
 
       currentCalculatedState.kneeValgusAngle = absDev;
       currentCalculatedState.kneeValgusLabel = valgusStatus;
-      c6Val.textContent = `${absDev} °`;
-      if (!records.impactKneeValgusLabel) {
-        c6Max.textContent = `状態: ${valgusStatus}`;
-      }
+      c6Val.textContent = `${absDev}°`;
     }
   }
 
@@ -390,7 +382,7 @@ function applyBattingBiomechanics(landmarks, b) {
     if (Number.isFinite(rawLeadElbowAngle) && rawLeadElbowAngle >= 35 && rawLeadElbowAngle <= 180) {
       const leadDeg = Math.round(rawLeadElbowAngle);
       currentCalculatedState.leadElbowAngle = leadDeg;
-      c9Val.textContent = `${leadDeg} °`;
+      c9Val.textContent = `${leadDeg}°`;
     }
   }
 
@@ -399,7 +391,7 @@ function applyBattingBiomechanics(landmarks, b) {
     if (Number.isFinite(rawBackElbowAngle) && rawBackElbowAngle >= 35 && rawBackElbowAngle <= 180) {
       const backDeg = Math.round(rawBackElbowAngle);
       currentCalculatedState.backElbowAngle = backDeg;
-      c10Val.textContent = `${backDeg} °`;
+      c10Val.textContent = `${backDeg}°`;
     }
   }
 }

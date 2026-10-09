@@ -209,7 +209,7 @@ function applyPitchingBiomechanics(landmarks, b) {
         c1Val.textContent = `${strideCm} cm`;
         if (strideCm > records.maxStride) {
           records.maxStride = strideCm;
-          c1Max.textContent = `最大: ${strideCm} cm (${strideRatio}%身)`;
+          paintHero(c1Max, 'MAX ステップ', `${strideCm}cm (${strideRatio}%)`, true);
         }
       }
     }
@@ -218,10 +218,10 @@ function applyPitchingBiomechanics(landmarks, b) {
       const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist);
       if (Number.isFinite(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
         const roundedMER = Math.round(trueMerDeg);
-        c2Val.textContent = `${roundedMER} °`;
+        c2Val.textContent = `${roundedMER}°`;
         if (roundedMER > records.maxMER && roundedMER <= 190) {
           records.maxMER = roundedMER;
-          c2Max.textContent = `最大: ${roundedMER} °`;
+          paintHero(c2Max, 'MER 肩外旋', `${roundedMER}°`, true);
         }
       }
     }
@@ -234,10 +234,10 @@ function applyPitchingBiomechanics(landmarks, b) {
         if (diff > 180) diff = 360 - diff;
         const roundedTwist = Math.round(diff);
         if (roundedTwist <= 65) {
-          c3Val.textContent = `${roundedTwist} °`;
+          c3Val.textContent = `${roundedTwist}°`;
           if (roundedTwist > records.maxTwist && roundedTwist >= 5) {
             records.maxTwist = roundedTwist;
-            c3Max.textContent = `最大: ${roundedTwist} °`;
+            paintHero(c3Max, 'MAX 捻転差', `${roundedTwist}°`, true);
           }
         }
       }
@@ -255,7 +255,7 @@ function applyPitchingBiomechanics(landmarks, b) {
       if (Number.isFinite(rawKneeAngle) && rawKneeAngle >= 40 && rawKneeAngle <= 180) {
         const flexAngle = Math.max(0, Math.round(180 - rawKneeAngle));
         currentCalculatedState.kneeFlexAngle = flexAngle;
-        c5Val.textContent = `屈曲 ${flexAngle} °`;
+        c5Val.textContent = `屈曲 ${flexAngle}°`;
 
         if (isKinematicFF && records.ffKneeFlex === null) {
           records.ffKneeFlex = flexAngle;
@@ -274,15 +274,13 @@ function applyPitchingBiomechanics(landmarks, b) {
               if (releaseHeightCm > records.maxRelease) {
                 records.maxRelease = releaseHeightCm;
                 records.releaseKneeFlex = flexAngle;
-                c4Max.textContent = `最高: ${releaseHeightCm} cm`;
+                paintHero(c4Max, 'RELEASE 高さ', `${releaseHeightCm} cm`, true);
               }
             }
           }
         }
 
-        const ffText = records.ffKneeFlex !== null ? `屈曲 ${records.ffKneeFlex}°` : '屈曲 --°';
-        const brText = records.releaseKneeFlex !== null ? `屈曲 ${records.releaseKneeFlex}°` : '屈曲 --°';
-        c5Max.textContent = `FF時: ${ffText} (リリース時: ${brText})`;
+        paintSideKneeHero();
       }
     }
 
@@ -291,10 +289,10 @@ function applyPitchingBiomechanics(landmarks, b) {
       const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
       const trunkDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
       if (Number.isFinite(trunkDeg) && trunkDeg <= 60) {
-        c6Val.textContent = `${trunkDeg} °`;
+        c6Val.textContent = `${trunkDeg}°`;
         if (trunkDeg > records.maxTrunkTilt) {
           records.maxTrunkTilt = trunkDeg;
-          c6Max.textContent = `最大前傾: ${trunkDeg} °`;
+          paintHero(c6Max, 'MAX 体幹前傾', `${trunkDeg}°`, true);
         }
       }
     }
@@ -303,8 +301,7 @@ function applyPitchingBiomechanics(landmarks, b) {
     if (leadHeel && leadToe && leadAnkle) {
       if (!isStepping) {
         smoothToeDeg = 0;
-        c1Val.textContent = `0 °`;
-        if (!records.fcToeLabel) c1Max.textContent = `構え位置`;
+        c1Val.textContent = `0°`;
       } else {
         const deltaX = (leadToe.x - leadHeel.x) * b.w;
         const deltaY = Math.max(10, (leadToe.y - leadHeel.y) * b.h);
@@ -321,13 +318,15 @@ function applyPitchingBiomechanics(landmarks, b) {
 
         currentCalculatedState.displayToeAngle = displayAngle;
         currentCalculatedState.toeStateLabel = stateLabel;
-        c1Val.textContent = `${displayAngle} °`;
+        c1Val.textContent = `${displayAngle}°`;
 
         if (isKinematicFF && records.fcToeAngle === null) {
           records.fcToeAngle = displayAngle;
           records.fcToeLabel = `べた足時: ${displayAngle}° (${stateLabel})`;
         }
-        c1Max.textContent = records.fcToeLabel || stateLabel;
+        if (records.fcToeAngle !== null) {
+          paintHero(c1Max, 'SFC つま先', `${records.fcToeAngle}°`, true);
+        }
       }
     }
 
@@ -346,13 +345,15 @@ function applyPitchingBiomechanics(landmarks, b) {
 
       currentCalculatedState.kneeDevAngle = absDev;
       currentCalculatedState.kneeStateLabel = valgusStatus;
-      c2Val.textContent = `${absDev} °`;
+      c2Val.textContent = `${absDev}°`;
 
       if (isKinematicFF && records.ffValgusAngle === null) {
         records.ffValgusAngle = absDev;
         records.ffValgusLabel = `べた足時: ${absDev}° (${valgusStatus})`;
       }
-      c2Max.textContent = records.ffValgusLabel || valgusStatus;
+      if (records.ffValgusAngle !== null) {
+        paintHero(c2Max, 'SFC 膝角度', `${records.ffValgusAngle}°`, true);
+      }
       if (absDev > records.maxValgus && isStepping) records.maxValgus = absDev;
     }
 
@@ -361,10 +362,10 @@ function applyPitchingBiomechanics(landmarks, b) {
       const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
       const lateralDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
       if (Number.isFinite(lateralDeg) && lateralDeg <= 45) {
-        c3Val.textContent = `${lateralDeg} °`;
+        c3Val.textContent = `${lateralDeg}°`;
         if (lateralDeg > records.maxTrunkLateral) {
           records.maxTrunkLateral = lateralDeg;
-          c3Max.textContent = `最大傾き: ${lateralDeg} °`;
+          paintHero(c3Max, 'MAX 側屈', `${lateralDeg}°`, true);
         }
       }
     }
@@ -374,10 +375,10 @@ function applyPitchingBiomechanics(landmarks, b) {
       const armSlotAngle = calcJointAngle3D(throwWrist, throwShoulder, otherShoulder);
       if (Number.isFinite(armSlotAngle) && armSlotAngle >= 30 && armSlotAngle <= 180) {
         const roundedSlot = Math.round(armSlotAngle);
-        c4Val.textContent = `${roundedSlot} °`;
+        c4Val.textContent = `${roundedSlot}°`;
         if (roundedSlot > records.maxArmSlot) {
           records.maxArmSlot = roundedSlot;
-          c4Max.textContent = `最大挙上: ${roundedSlot} °`;
+          paintHero(c4Max, 'MAX 挙上', `${roundedSlot}°`, true);
         }
       }
     }
@@ -385,7 +386,6 @@ function applyPitchingBiomechanics(landmarks, b) {
     if (leadHeel && pivotHeel) {
       if (!isStepping) {
         c5Val.textContent = `0 cm`;
-        c5Max.textContent = `構え位置`;
       } else {
         const lateralOffsetPx = Math.abs((leadHeel.x - pivotHeel.x) * b.w);
         const lateralOffsetCm = Math.round(lateralOffsetPx / activePxPerCm);
@@ -395,7 +395,7 @@ function applyPitchingBiomechanics(landmarks, b) {
           c5Val.textContent = `${lateralOffsetCm} cm`;
           if (lateralOffsetCm > records.maxInStepCm) {
             records.maxInStepCm = lateralOffsetCm;
-            c5Max.textContent = `${dirText}: ${lateralOffsetCm} cm`;
+            paintHero(c5Max, 'MAX 踏出', `${lateralOffsetCm}cm ${dirText}`, true);
           }
         }
       }
@@ -412,7 +412,7 @@ function applyPitchingBiomechanics(landmarks, b) {
           c6Val.textContent = `${lateralReleaseCm} cm`;
           if (lateralReleaseCm > records.maxReleaseLateral) {
             records.maxReleaseLateral = lateralReleaseCm;
-            c6Max.textContent = `最大横幅: ${lateralReleaseCm} cm`;
+            paintHero(c6Max, 'RELEASE 横幅', `${lateralReleaseCm} cm`, true);
           }
         }
       }

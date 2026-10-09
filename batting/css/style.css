@@ -511,7 +511,7 @@ canvas {
   background: #ffffff;
   border: 1.5px solid #a7f3d0;
   border-radius: 8px;
-  padding: 2px 5px;
+  padding: 4px 5px 3px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -530,25 +530,59 @@ canvas {
   line-height: 1.1;
 }
 
-.card-val {
-  font-size: 0.95rem;
-  font-weight: 900;
-  color: #ea580c;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.0;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+.card-max {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  margin-top: 1px;
+  padding: 1px 2px 2px;
+  border-radius: 6px;
+  background: #f8fafc;
+  line-height: 1;
 }
 
-.card-max {
-  font-size: 0.55rem;
-  color: #059669;
-  font-weight: 800;
+.phase-tag {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #64748b;
+  line-height: 1.15;
+}
+
+.phase-num {
+  font-size: 1.7rem;
+  font-weight: 900;
+  color: #cbd5e1;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  background: #f0fdf4;
-  border-radius: 3px;
-  padding: 0.5px 2px;
-  line-height: 1.1;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.card-max.is-locked {
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  box-shadow: 0 0 0 1.5px #fdba74, 0 0 12px rgba(251, 146, 60, 0.55);
+}
+
+.card-max.is-locked .phase-tag {
+  color: #c2410c;
+}
+
+.card-max.is-locked .phase-num {
+  color: #ea580c;
+  text-shadow: 0 0 10px rgba(249, 115, 22, 0.9), 0 0 2px rgba(255, 237, 213, 1);
+}
+
+.card-val {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.card-val::before {
+  content: "現在: ";
 }
 
 .controls-container {

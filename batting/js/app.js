@@ -179,6 +179,38 @@ function showToast(text, duration = 2500) {
   }, duration);
 }
 
+function paintHero(el, tag, value, locked) {
+  const safeTag = String(tag).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const safeVal = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  el.innerHTML = '<span class="phase-tag">' + safeTag + '</span><span class="phase-num">' + safeVal + '</span>';
+  el.classList.toggle('is-locked', !!locked);
+}
+
+function showWaitingHeroes() {
+  if (selectedAngleMode === 'SIDE') {
+    paintHero(c1Max, 'TOP 捻転差', '--', false);
+    paintHero(c2Max, 'IMPACT 前ヒザ', '--', false);
+    paintHero(c3Max, 'MAX ステップ', '--', false);
+    paintHero(c4Max, 'MAX 体幹', '--', false);
+    paintHero(c5Max, 'MAX 頭前後', '--', false);
+    paintHero(c6Max, 'MAX 頭上下', '--', false);
+  } else {
+    paintHero(c1Max, 'MAX 頭横', '--', false);
+    paintHero(c2Max, 'MAX 頭上下', '--', false);
+    paintHero(c3Max, 'IMPACT 前肩', '--', false);
+    paintHero(c4Max, 'MAX 踏出', '--', false);
+    paintHero(c5Max, 'MAX 側屈', '--', false);
+    paintHero(c6Max, 'IMPACT 前ヒザ', '--', false);
+  }
+  paintHero(c7Max, 'TOP グリップ', '--', false);
+  paintHero(c8Max, 'IMPACT グリップ', '--', false);
+  paintHero(c9Max, 'TOP 前ヒジ', '--', false);
+  paintHero(c10Max, 'IMPACT 後ヒジ', '--', false);
+  [c1Val, c2Val, c3Val, c4Val, c5Val, c6Val, c7Val, c8Val, c9Val, c10Val].forEach((el) => {
+    el.textContent = '--';
+  });
+}
+
 function updateCardLabels() {
   const isLeft = (selectedBatSide === 'LEFT');
   if (selectedAngleMode === 'SIDE') {
@@ -195,11 +227,6 @@ function updateCardLabels() {
     c8Title.textContent = "💥 インパクトグリップ高";
     c9Title.textContent = isLeft ? "💪 テイクバック前ヒジ (右肘)" : "💪 テイクバック前ヒジ (左肘)";
     c10Title.textContent = isLeft ? "💥 インパクト後ヒジ (左肘)" : "💥 インパクト後ヒジ (右肘)";
-
-    c1Val.textContent = "-- °";
-    c1Max.textContent = "最大タメ: -- °";
-    c3Val.textContent = "-- cm";
-    c3Max.textContent = "最大: -- cm (0%身)";
   } else {
     angleModeBadge.textContent = "正面（投手側）解析 🎯";
     angleModeBadge.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
@@ -214,12 +241,8 @@ function updateCardLabels() {
     c8Title.textContent = "💥 インパクトグリップ高";
     c9Title.textContent = isLeft ? "💪 テイクバック前ヒジ (右肘)" : "💪 テイクバック前ヒジ (左肘)";
     c10Title.textContent = isLeft ? "💥 インパクト後ヒジ (左肘)" : "💥 インパクト後ヒジ (右肘)";
-
-    c1Val.textContent = "-- cm";
-    c1Max.textContent = "最大横ズレ: -- cm";
-    c3Val.textContent = "-- °";
-    c3Max.textContent = "状態: --";
   }
+  showWaitingHeroes();
 }
 
 btnBatRight.addEventListener('click', () => {
@@ -550,7 +573,7 @@ document.getElementById('btn-zoom-reset').addEventListener('click', () => {
 
 document.getElementById('btn-manual-top').addEventListener('click', () => {
   records.takebackLeadElbow = currentCalculatedState.leadElbowAngle;
-  c9Max.textContent = `トップ時: ${records.takebackLeadElbow}°`;
+  paintHero(c9Max, 'TOP 前ヒジ', `${records.takebackLeadElbow}°`, true);
   showToast(`🎯 トップ時の前ヒジ角度【${records.takebackLeadElbow}°】を記録しました！`);
 });
 
@@ -564,14 +587,14 @@ document.getElementById('btn-manual-impact').addEventListener('click', () => {
   records.impactKneeValgusLabel = currentCalculatedState.kneeValgusLabel;
 
   if (selectedAngleMode === 'SIDE') {
-    c2Max.textContent = `インパクト時: 屈曲 ${records.impactKneeFlex}° (壁)`;
-    c8Max.textContent = `インパクト時: ${records.impactHandH} cm`;
-    c10Max.textContent = `インパクト時: ${records.impactBackElbow}°`;
+    paintHero(c2Max, 'IMPACT 前ヒザ', `${records.impactKneeFlex}°`, true);
+    paintHero(c8Max, 'IMPACT グリップ', `${records.impactHandH} cm`, true);
+    paintHero(c10Max, 'IMPACT 後ヒジ', `${records.impactBackElbow}°`, true);
   } else {
-    c3Max.textContent = `インパクト時: ${records.impactShoulderOpen}° (${records.impactShoulderOpenLabel})`;
-    c6Max.textContent = `インパクト時: ${records.impactKneeValgus}° (${records.impactKneeValgusLabel})`;
-    c8Max.textContent = `インパクト時: ${records.impactHandH} cm`;
-    c10Max.textContent = `インパクト時: ${records.impactBackElbow}°`;
+    paintHero(c3Max, 'IMPACT 前肩', `${records.impactShoulderOpen}°`, true);
+    paintHero(c6Max, 'IMPACT 前ヒザ', `${records.impactKneeValgus}°`, true);
+    paintHero(c8Max, 'IMPACT グリップ', `${records.impactHandH} cm`, true);
+    paintHero(c10Max, 'IMPACT 後ヒジ', `${records.impactBackElbow}°`, true);
   }
   showToast("💥 インパクト瞬間の各数値を記録しました！");
 });
@@ -1051,6 +1074,7 @@ document.getElementById('btn-reset-max').addEventListener('click', () => {
   };
   initialNoseX = null;
   initialNoseY = null;
+  showWaitingHeroes();
 });
 
 document.getElementById('btn-re-select').addEventListener('click', () => {

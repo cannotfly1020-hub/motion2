@@ -150,6 +150,41 @@ const carteHistoryList = document.getElementById('carte-history-list');
 const playerSelectFilter = document.getElementById('player-select-filter');
 const btnDeleteAction = document.getElementById('btn-delete-action');
 
+function paintHero(el, tag, value, locked) {
+  const safeTag = String(tag).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const safeVal = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  el.innerHTML = '<span class="phase-tag">' + safeTag + '</span><span class="phase-num">' + safeVal + '</span>';
+  el.classList.toggle('is-locked', !!locked);
+}
+
+function paintSideKneeHero() {
+  const sfc = records.ffKneeFlex !== null ? `${records.ffKneeFlex}°` : '--';
+  const rel = records.releaseKneeFlex !== null ? `${records.releaseKneeFlex}°` : '--';
+  const locked = records.ffKneeFlex !== null || records.releaseKneeFlex !== null;
+  paintHero(c5Max, 'SFC/REL 前ヒザ', `${sfc} / ${rel}`, locked);
+}
+
+function showWaitingHeroes() {
+  [c1Val, c2Val, c3Val, c4Val, c5Val, c6Val].forEach((el) => {
+    el.textContent = '--';
+  });
+  if (selectedAngleMode === 'SIDE') {
+    paintHero(c1Max, 'MAX ステップ', '--', false);
+    paintHero(c2Max, 'MER 肩外旋', '--', false);
+    paintHero(c3Max, 'MAX 捻転差', '--', false);
+    paintHero(c4Max, 'RELEASE 高さ', '--', false);
+    paintHero(c5Max, 'SFC/REL 前ヒザ', '-- / --', false);
+    paintHero(c6Max, 'MAX 体幹前傾', '--', false);
+  } else {
+    paintHero(c1Max, 'SFC つま先', '--', false);
+    paintHero(c2Max, 'SFC 膝角度', '--', false);
+    paintHero(c3Max, 'MAX 側屈', '--', false);
+    paintHero(c4Max, 'MAX 挙上', '--', false);
+    paintHero(c5Max, 'MAX 踏出', '--', false);
+    paintHero(c6Max, 'RELEASE 横幅', '--', false);
+  }
+}
+
 function updateCardLabels() {
   const isLeft = (selectedThrowArm === 'LEFT');
   if (selectedAngleMode === 'SIDE') {
@@ -173,6 +208,7 @@ function updateCardLabels() {
     c5Title.textContent = "🚶 踏み出しのズレ (イン/アウト)";
     c6Title.textContent = "⚾ リリース左右位置 (打点)";
   }
+  showWaitingHeroes();
 }
 
 btnArmRight.addEventListener('click', () => {
@@ -527,12 +563,11 @@ document.getElementById('btn-manual-fc').addEventListener('click', () => {
     records.ffValgusAngle = currentCalculatedState.kneeDevAngle;
     records.ffValgusLabel = `べた足時: ${currentCalculatedState.kneeDevAngle}° (${currentCalculatedState.kneeStateLabel})`;
     
-    c1Max.textContent = records.fcToeLabel;
-    c2Max.textContent = records.ffValgusLabel;
+    paintHero(c1Max, 'SFC つま先', `${records.fcToeAngle}°`, true);
+    paintHero(c2Max, 'SFC 膝角度', `${records.ffValgusAngle}°`, true);
   } else {
     records.ffKneeFlex = currentCalculatedState.kneeFlexAngle;
-    const brText = records.releaseKneeFlex !== null ? `屈曲 ${records.releaseKneeFlex}°` : '屈曲 --°';
-    c5Max.textContent = `FF時: 屈曲 ${records.ffKneeFlex}° (リリース時: ${brText})`;
+    paintSideKneeHero();
   }
 });
 
@@ -998,21 +1033,7 @@ document.getElementById('btn-reset-max').addEventListener('click', () => {
   prevLeadToeY = null;
   leadFootFlatStationaryCount = 0;
 
-  if (selectedAngleMode === 'SIDE') {
-    c1Max.textContent = "最大: -- cm (0%身)";
-    c2Max.textContent = "最大: -- °";
-    c3Max.textContent = "最大: -- °";
-    c4Max.textContent = "最高: -- cm";
-    c5Max.textContent = "FF時: 屈曲 --° (リリース時: 屈曲 --°)";
-    c6Max.textContent = "最大倒れ: -- °";
-  } else {
-    c1Max.textContent = "状態: --";
-    c2Max.textContent = "状態: --";
-    c3Max.textContent = "最大傾き: -- °";
-    c4Max.textContent = "最大挙上: -- °";
-    c5Max.textContent = "最大ズレ: -- cm";
-    c6Max.textContent = "最大横幅: -- cm";
-  }
+  showWaitingHeroes();
 });
 
 document.getElementById('btn-re-select').addEventListener('click', () => {
