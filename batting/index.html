@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <link rel="manifest" href="../manifest.json">
+  <meta name="theme-color" content="#10b981">
+  <link rel="apple-touch-icon" href="../icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>打撃AIバイオメカニクス</title>
+
+  <!-- MediaPipe CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header>
+    <div class="header-bar">
+      <a href="../index.html" class="btn-nav-home" id="home-link-btn" title="ホームへ戻る">← ホームへ戻る</a>
+      <h1>💥 打撃AIバイオメカニクス ⚾</h1>
+      <span class="btn-nav-home header-balance" aria-hidden="true">← ホームへ戻る</span>
+    </div>
+    <div class="steps-nav">
+      <div id="step-nav-1" class="step-pill active">1. どうが選択</div>
+      <div id="step-nav-2" class="step-pill">2. 姿勢スキャン</div>
+      <div id="step-nav-3" class="step-pill">3. 選手情報</div>
+    </div>
+  </header>
+
+  <main class="app-container">
+
+    <section id="view-step1" class="view-section active">
+      <div class="top-mode-grid">
+        <label for="video-input-side" class="mode-card mode-card-side" id="label-side-video">
+          <div class="mode-card-icon">🏏</div>
+          <div class="mode-card-info">
+            <div class="mode-card-title">横向き（側方）動画を解析</div>
+            <div class="mode-card-desc">捻転差（タメ）・前足ヒザの壁・ステップ幅・肘角度</div>
+          </div>
+          <input type="file" id="video-input-side" accept="video/*" style="display: none;">
+        </label>
+
+        <label for="video-input-front" class="mode-card mode-card-front" id="label-front-video">
+          <div class="mode-card-icon">🎯</div>
+          <div class="mode-card-info">
+            <div class="mode-card-title">正面（投手側）動画を解析</div>
+            <div class="mode-card-desc">目線ブレ（頭部動揺）・前肩の開き（タメ）・前ヒザの踏ん張り</div>
+          </div>
+          <input type="file" id="video-input-front" accept="video/*" style="display: none;">
+        </label>
+      </div>
+
+      <div class="top-tips-box">
+        💡 <b>きれいに測るコツ:</b> バットを構えてから振り切るまで、頭から足元まで全身が収まる動画を使ってね！
+      </div>
+
+      <button class="btn-carte-banner" id="btn-open-carte-top">
+        <span>🏆</span>
+        <span>保存した選手カルテ・測定履歴を見る</span>
+      </button>
+    </section>
+
+    <section id="view-step2" class="view-section">
+      <div class="guidance-box" id="scan-guide-text">
+        🧍 <b>まっすぐ立っている瞬間</b>でバーを止めて「① AI自動スキャン」を押してね！
+      </div>
+
+      <div class="screen-wrapper" id="scan-screen-wrapper">
+        <canvas id="scan-canvas"></canvas>
+        <div class="loading-overlay" id="scan-loading" style="display: none;">
+          <div class="spinner"></div>
+          <div style="font-size: 0.75rem; color: #059669; font-weight: 900;">🚀 AIがからだを探しているよ...</div>
+        </div>
+      </div>
+
+      <div class="seek-container">
+        <input type="range" id="scan-seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
+        <span class="time-disp" id="scan-time-disp">0.00 / 0.00</span>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-ctrl" id="btn-scan-prev">◀ -1コマ</button>
+        <button class="btn btn-scan" id="btn-scan-action">📏 ① AI自動スキャン</button>
+        <button class="btn btn-ctrl" id="btn-scan-next">+1コマ ▶</button>
+      </div>
+      <button class="btn btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
+    </section>
+
+    <section id="view-step3" class="view-section">
+      <div class="guidance-box">
+        🔥 <b>せんしゅの名前・打席・身長を入れてね！</b>
+      </div>
+      
+      <div class="input-group" style="padding: 2px 0; gap: 4px;">
+        <div style="width: 100%;">
+          <label for="player-name-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.8rem; color: #065f46;">
+            選手名（なまえ）
+          </label>
+          <input type="text" id="player-name-input" class="input-field" value="バッター1" placeholder="なまえを入力">
+        </div>
+
+        <div style="width: 100%;">
+          <label style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; color: #065f46; font-size: 0.8rem;">
+            打席（バッターボックス）
+          </label>
+          <div class="toggle-group">
+            <button type="button" class="toggle-btn active" id="btn-bat-right">右打ち 🏏</button>
+            <button type="button" class="toggle-btn" id="btn-bat-left">左打ち 🏏</button>
+          </div>
+        </div>
+
+        <div style="width: 100%;">
+          <label for="height-input" style="display: block; margin-bottom: 2px; text-align: center; font-weight: 900; font-size: 0.8rem; color: #065f46;">
+            身長 (cm)
+          </label>
+          <input type="number" id="height-input" class="input-field" value="140" min="80" max="220" step="1">
+        </div>
+      </div>
+
+      <div class="btn-group" style="margin-top: 2px;">
+        <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 やり直す</button>
+        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669);">
+          🚀 解析スタート！
+        </button>
+      </div>
+    </section>
+
+    <section id="view-step4" class="view-section">
+      <!-- 10 Metrics Dashboard -->
+      <div class="dashboard">
+        <div class="card">
+          <div class="card-title" id="c1-title">🔄 捻転差 (下半身先行度)</div>
+          <div class="card-val" id="c1-val">-- °</div>
+          <div class="card-max" id="c1-max">最大タメ: -- °</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c2-title">🦵 前ヒザの壁 (固定角度)</div>
+          <div class="card-val" id="c2-val">-- °</div>
+          <div class="card-max" id="c2-max">インパクト時: -- °</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c3-title">🚶 ステップ幅 (歩幅)</div>
+          <div class="card-val" id="c3-val">-- cm</div>
+          <div class="card-max" id="c3-max">最大: -- cm (0%身)</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c4-title">📐 体幹軸傾斜 (スイング軸)</div>
+          <div class="card-val" id="c4-val">-- °</div>
+          <div class="card-max" id="c4-max">最大: -- °</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c5-title">👀 頭の前後移動 (突っ込み)</div>
+          <div class="card-val" id="c5-val">-- cm</div>
+          <div class="card-max" id="c5-max">最大移動: -- cm</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c6-title">👀 頭の上下動 (沈み込み)</div>
+          <div class="card-val" id="c6-val">-- cm</div>
+          <div class="card-max" id="c6-max">最大上下: -- cm</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c7-title">✊ グリップトップ高</div>
+          <div class="card-val" id="c7-val">-- cm</div>
+          <div class="card-max" id="c7-max">最高: -- cm</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c8-title">💥 インパクトグリップ高</div>
+          <div class="card-val" id="c8-val">-- cm</div>
+          <div class="card-max" id="c8-max">インパクト時: -- cm</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c9-title">💪 テイクバック前ヒジ</div>
+          <div class="card-val" id="c9-val">-- °</div>
+          <div class="card-max" id="c9-max">トップ時: -- °</div>
+        </div>
+        <div class="card">
+          <div class="card-title" id="c10-title">💥 インパクト後ヒジ</div>
+          <div class="card-val" id="c10-val">-- °</div>
+          <div class="card-max" id="c10-max">インパクト時: -- °</div>
+        </div>
+      </div>
+
+      <!-- Video Display Canvas -->
+      <div class="screen-wrapper" id="main-screen-wrapper">
+        <canvas id="output-canvas"></canvas>
+        <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
+        <div class="angle-mode-badge" id="angle-mode-badge">横向き解析 🏏</div>
+        <div class="player-tag-badge" id="player-tag-badge">👤 バッター1 (140cm)</div>
+        <div class="loading-overlay" id="ai-loading" style="display: none;">
+          <div class="spinner"></div>
+          <div style="font-size: 0.75rem; color: #059669; font-weight: 900;">⚡ AI同期中...</div>
+        </div>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="controls-container">
+        <div class="seek-container">
+          <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
+          <span class="time-disp" id="time-disp">0.00 / 0.00</span>
+        </div>
+        <div class="playback-rows">
+          <div class="btn-row">
+            <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
+            <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-color: #fff; box-shadow: 0 1.5px 0 #047857; flex: 1.1;">再生 ▶</button>
+            <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
+            <button class="btn-ctrl" id="btn-manual-top" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; border-color: #fff; box-shadow: 0 1.5px 0 #0369a1; flex: 1.1;">🎯 トップ決定</button>
+            <button class="btn-ctrl btn-impact-trigger" id="btn-manual-impact" style="flex: 1.2;">💥 インパクト決定</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn-ctrl btn-save-trigger" id="btn-save-record">💾 保存</button>
+            <button class="btn-ctrl" id="btn-open-carte">📋 カルテ</button>
+            <button class="btn-ctrl" id="btn-toggle-skeleton">🦴 骨格</button>
+            <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム</button>
+            <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
+            <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 選択</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="carte-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span>📋 打撃カルテ（バイオメカニクス統合レポート）</span>
+        <button id="btn-close-carte" style="background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; font-weight: 900;">✕</button>
+      </div>
+      <div style="padding: 6px 8px; background: #ecfdf5; display: flex; gap: 4px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+        <select id="player-select-filter" style="padding: 4px 6px; border-radius: 8px; border: 1.5px solid #34d399; font-weight: 900; font-size: 0.75rem; flex: 1; min-width: 140px;"></select>
+        <button id="btn-export-csv" class="btn" style="padding: 4px 8px; font-size: 0.70rem;">📥 CSV出力</button>
+        <button id="btn-delete-action" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.70rem;">🗑️ 削除</button>
+      </div>
+      <div class="modal-body" id="carte-history-list"></div>
+    </div>
+  </div>
+
+  <div id="toast-box" class="toast-msg"></div>
+
+  <video id="hidden-video" playsinline webkit-playsinline preload="auto" muted></video>
+  <canvas id="buffer-canvas" style="display: none;"></canvas>
+
+  <script src="js/math.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/mediapipe.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

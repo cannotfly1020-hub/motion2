@@ -1,7 +1,20 @@
-const CACHE_NAME = 'pitching-ai-v3';
-const urlsToCache = [
+const CACHE_NAME = 'baseball-ai-v4';
+const STATIC_ASSETS = [
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './icon-192.png',
+  './batting/index.html',
+  './batting/css/style.css',
+  './batting/js/math.js',
+  './batting/js/mediapipe.js',
+  './batting/js/render.js',
+  './batting/js/app.js',
+  './pitching/index.html',
+  './pitching/css/style.css',
+  './pitching/js/math.js',
+  './pitching/js/mediapipe.js',
+  './pitching/js/render.js',
+  './pitching/js/app.js'
 ];
 
 // インストール時に即座に古いキャッシュをスキップして進む
@@ -9,7 +22,7 @@ self.addEventListener('install', function(event) {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
-      return cache.addAll(urlsToCache);
+      return cache.addAll(STATIC_ASSETS);
     })
   );
 });

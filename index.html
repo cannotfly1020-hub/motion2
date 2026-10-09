@@ -272,8 +272,8 @@
   </header>
 
   <main>
-    <!-- 投球解析リンク（同じフォルダ内の pitching.html） -->
-    <a href="./pitching.html" class="portal-card card-pitching" id="link-pitching">
+    <!-- 投球解析リンク（pitching/index.html） -->
+    <a href="./pitching/index.html" class="portal-card card-pitching" id="link-pitching">
       <div class="portal-icon">⚾</div>
       <div class="portal-info">
         <div class="portal-title">
@@ -289,8 +289,8 @@
       </div>
     </a>
 
-    <!-- 打撃解析リンク（同じフォルダ内の batting.html） -->
-    <a href="./batting.html" class="portal-card card-batting" id="link-batting">
+    <!-- 打撃解析リンク（batting/index.html） -->
+    <a href="./batting/index.html" class="portal-card card-batting" id="link-batting">
       <div class="portal-icon">🏏</div>
       <div class="portal-info">
         <div class="portal-title">
@@ -334,15 +334,6 @@
     ⚾ 完全端末内解析（通信料・外部API不要） | ジュニア野球向け
   </footer>
 
-  <script>
-    // GitHub上のファイル名が index2.html / index3.html の場合でも自動判別して動くようにフォールバック
-    const linkPitch = document.getElementById('link-pitching');
-    const linkBat = document.getElementById('link-batting');
-
-    // リンク先の存在チェック（ローカルやGitHubのファイル名に合わせて切り替え可能）
-    // デフォルト: pitching.html / batting.html
-    // もし index2.html / index3.html で運用される場合は以下を書き換えるか、ファイル名を pitching.html / batting.html に統一してください。
-  </script>
 </body>
 <script>
   if ('serviceWorker' in navigator) {
