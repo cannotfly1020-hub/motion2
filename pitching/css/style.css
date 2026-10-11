@@ -602,11 +602,53 @@ canvas {
   box-shadow: 0 1px 0 #e2e8f0;
 }
 
+.seek-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
 .seek-bar {
+  width: 100%;
   flex: 1;
   height: 14px;
   cursor: pointer;
   accent-color: #ff5e36;
+}
+
+.release-marker {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  border: none;
+  background: transparent;
+  color: #ff5e36;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  transform: translate(-50%, -130%);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+  touch-action: manipulation;
+}
+
+.release-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 16px;
+  background: #ff5e36;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px rgba(255, 94, 54, 0.85);
+}
+
+.release-marker:active {
+  transform: translate(-50%, -130%) scale(0.92);
 }
 
 .time-disp {
@@ -631,6 +673,7 @@ canvas {
   align-items: center;
   gap: 4px;
   width: 100%;
+  flex-wrap: wrap;
 }
 
 .btn-ctrl {
@@ -663,6 +706,47 @@ canvas {
   border-color: #ffffff;
   box-shadow: 0 1.5px 0 #047857;
   flex: 1.25;
+}
+
+.btn-release-trigger {
+  background: linear-gradient(135deg, #ff5e36, #f97316);
+  color: #ffffff;
+  border-color: #ffffff;
+  box-shadow: 0 1.5px 0 #c2410c;
+  flex: 1.4 1 9.2rem;
+  min-width: 9.2rem;
+  padding: 8px 8px;
+}
+
+.btn-release-trigger:hover {
+  filter: brightness(1.08);
+}
+
+.btn-release-trigger:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 0 0 #c2410c;
+  filter: brightness(0.96);
+}
+
+.btn-release-clear {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fdba74;
+  box-shadow: 0 1.5px 0 #fdba74;
+  flex: 0.7;
+}
+
+.btn-release-clear:active {
+  transform: translateY(1px);
+  box-shadow: 0 0 0 #fdba74;
+  background: #ffedd5;
+}
+
+.phase-sub {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #9a3412;
+  line-height: 1.25;
 }
 
 .btn-save-trigger {

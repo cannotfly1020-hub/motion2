@@ -119,6 +119,14 @@ function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
 }
 
 function applyPitchingBiomechanics(landmarks, b) {
+  currentCalculatedState.kneeFlexReady = false;
+  currentCalculatedState.releaseHeightCm = null;
+  currentCalculatedState.releaseLateralCm = null;
+  currentCalculatedState.trunkTiltDeg = null;
+  currentCalculatedState.trunkLateralDeg = null;
+  currentCalculatedState.elbowFlexDeg = null;
+  currentCalculatedState.merDeg = null;
+
   const L_SHOULDER = landmarks[11];
   const R_SHOULDER = landmarks[12];
   const L_ELBOW = landmarks[13];
@@ -153,6 +161,13 @@ function applyPitchingBiomechanics(landmarks, b) {
     const handDist = Math.hypot(throwIndex.x - throwWrist.x, throwIndex.y - throwWrist.y);
     if (handDist > 0.18 || throwIndex.visibility < 0.25) {
       throwIndex = throwWrist;
+    }
+  }
+
+  if (throwShoulder && throwElbow && throwWrist) {
+    const elbowInterior = calcJointAngle3D(throwShoulder, throwElbow, throwWrist);
+    if (Number.isFinite(elbowInterior)) {
+      currentCalculatedState.elbowFlexDeg = Math.max(0, Math.round(180 - elbowInterior));
     }
   }
 
@@ -218,6 +233,7 @@ function applyPitchingBiomechanics(landmarks, b) {
       const trueMerDeg = calcTrueMER(L_SHOULDER, R_SHOULDER, L_HIP, R_HIP, throwElbow, throwWrist);
       if (Number.isFinite(trueMerDeg) && trueMerDeg >= 30 && trueMerDeg <= 200) {
         const roundedMER = Math.round(trueMerDeg);
+        currentCalculatedState.merDeg = roundedMER;
         c2Val.textContent = `${roundedMER}°`;
         if (roundedMER > records.maxMER && roundedMER <= 190) {
           records.maxMER = roundedMER;
@@ -255,32 +271,36 @@ function applyPitchingBiomechanics(landmarks, b) {
       if (Number.isFinite(rawKneeAngle) && rawKneeAngle >= 40 && rawKneeAngle <= 180) {
         const flexAngle = Math.max(0, Math.round(180 - rawKneeAngle));
         currentCalculatedState.kneeFlexAngle = flexAngle;
+        currentCalculatedState.kneeFlexReady = true;
         c5Val.textContent = `屈曲 ${flexAngle}°`;
 
         if (isKinematicFF && records.ffKneeFlex === null) {
           records.ffKneeFlex = flexAngle;
         }
 
-        if (isThrowingPhase && leadHeel && pivotHeel) {
-          const lowestGroundY = Math.max(leadHeel.y, pivotHeel.y) * b.h;
-          const releaseTarget = (throwIndex && throwIndex.y !== undefined) ? throwIndex : throwWrist;
-          if (releaseTarget) {
-            const releasePointY = releaseTarget.y * b.h;
-            const releaseHeightPx = Math.max(0, lowestGroundY - releasePointY);
-            const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
+        paintSideKneeHero();
+      }
+    }
 
-            if (Number.isFinite(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.45)) {
-              c4Val.textContent = `${releaseHeightCm} cm`;
-              if (releaseHeightCm > records.maxRelease) {
-                records.maxRelease = releaseHeightCm;
-                records.releaseKneeFlex = flexAngle;
-                paintHero(c4Max, 'RELEASE 高さ', `${releaseHeightCm} cm`, true);
-              }
+    if (leadHeel && pivotHeel) {
+      const lowestGroundY = Math.max(leadHeel.y, pivotHeel.y) * b.h;
+      const releaseTarget = (throwIndex && throwIndex.y !== undefined) ? throwIndex : throwWrist;
+      if (releaseTarget) {
+        const releasePointY = releaseTarget.y * b.h;
+        const releaseHeightPx = Math.max(0, lowestGroundY - releasePointY);
+        const releaseHeightCm = Math.round(releaseHeightPx / activePxPerCm);
+
+        if (Number.isFinite(releaseHeightCm) && releaseHeightCm >= 40 && releaseHeightCm <= Math.round(userHeightCm * 1.45)) {
+          currentCalculatedState.releaseHeightCm = releaseHeightCm;
+          c4Val.textContent = `${releaseHeightCm} cm`;
+          if (manualReleaseTime == null && isThrowingPhase && releaseHeightCm > records.maxRelease) {
+            records.maxRelease = releaseHeightCm;
+            if (currentCalculatedState.kneeFlexReady) {
+              records.releaseKneeFlex = currentCalculatedState.kneeFlexAngle;
             }
+            paintHero(c4Max, 'RELEASE 高さ', `${releaseHeightCm} cm`, true);
           }
         }
-
-        paintSideKneeHero();
       }
     }
 
@@ -289,6 +309,7 @@ function applyPitchingBiomechanics(landmarks, b) {
       const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
       const trunkDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
       if (Number.isFinite(trunkDeg) && trunkDeg <= 60) {
+        currentCalculatedState.trunkTiltDeg = trunkDeg;
         c6Val.textContent = `${trunkDeg}°`;
         if (trunkDeg > records.maxTrunkTilt) {
           records.maxTrunkTilt = trunkDeg;
@@ -362,6 +383,7 @@ function applyPitchingBiomechanics(landmarks, b) {
       const midHip = { x: (L_HIP.x + R_HIP.x)/2, y: (L_HIP.y + R_HIP.y)/2 };
       const lateralDeg = Math.round(Math.abs((Math.atan2(midShoulder.x - midHip.x, midHip.y - midShoulder.y) * 180.0) / Math.PI));
       if (Number.isFinite(lateralDeg) && lateralDeg <= 45) {
+        currentCalculatedState.trunkLateralDeg = lateralDeg;
         c3Val.textContent = `${lateralDeg}°`;
         if (lateralDeg > records.maxTrunkLateral) {
           records.maxTrunkLateral = lateralDeg;
@@ -402,15 +424,16 @@ function applyPitchingBiomechanics(landmarks, b) {
     }
 
     const isFrontThrowingPhase = isStepping && throwWrist && throwShoulder && (throwWrist.y < throwShoulder.y);
-    if (isFrontThrowingPhase && L_SHOULDER && R_SHOULDER) {
+    if (L_SHOULDER && R_SHOULDER && (throwIndex || throwWrist)) {
       const midShoulder = { x: (L_SHOULDER.x + R_SHOULDER.x)/2, y: (L_SHOULDER.y + R_SHOULDER.y)/2 };
       const releaseTarget = (throwIndex && throwIndex.x !== undefined) ? throwIndex : throwWrist;
       if (releaseTarget) {
         const lateralReleasePx = Math.abs((releaseTarget.x - midShoulder.x) * b.w);
         const lateralReleaseCm = Math.round(lateralReleasePx / activePxPerCm);
         if (Number.isFinite(lateralReleaseCm) && lateralReleaseCm <= 80) {
+          currentCalculatedState.releaseLateralCm = lateralReleaseCm;
           c6Val.textContent = `${lateralReleaseCm} cm`;
-          if (lateralReleaseCm > records.maxReleaseLateral) {
+          if (manualReleaseTime == null && isFrontThrowingPhase && lateralReleaseCm > records.maxReleaseLateral) {
             records.maxReleaseLateral = lateralReleaseCm;
             paintHero(c6Max, 'RELEASE 横幅', `${lateralReleaseCm} cm`, true);
           }

@@ -66,8 +66,17 @@ var currentCalculatedState = {
   toeStateLabel: "◎ ストレート",
   kneeDevAngle: 0,
   kneeStateLabel: "まっすぐ (◎ 正常)",
-  kneeFlexAngle: 0
+  kneeFlexAngle: 0,
+  kneeFlexReady: false,
+  releaseHeightCm: null,
+  releaseLateralCm: null,
+  trunkTiltDeg: null,
+  trunkLateralDeg: null,
+  elbowFlexDeg: null,
+  merDeg: null
 };
+
+var manualReleaseTime = null;
 
 var records = {
   maxStride: 0,
@@ -150,11 +159,123 @@ const carteHistoryList = document.getElementById('carte-history-list');
 const playerSelectFilter = document.getElementById('player-select-filter');
 const btnDeleteAction = document.getElementById('btn-delete-action');
 
+function escapeHeroText(value) {
+  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function paintHero(el, tag, value, locked) {
-  const safeTag = String(tag).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const safeVal = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  el.innerHTML = '<span class="phase-tag">' + safeTag + '</span><span class="phase-num">' + safeVal + '</span>';
+  el.innerHTML = '<span class="phase-tag">' + escapeHeroText(tag) + '</span><span class="phase-num">' + escapeHeroText(value) + '</span>';
   el.classList.toggle('is-locked', !!locked);
+}
+
+function paintReleaseSnapshot(el, tag, value, details) {
+  const detailHtml = details.length
+    ? '<span class="phase-sub">' + details.map(escapeHeroText).join(' · ') + '</span>'
+    : '';
+  el.innerHTML = '<span class="phase-tag">' + escapeHeroText(tag) + '</span><span class="phase-num">' + escapeHeroText(value) + '</span>' + detailHtml;
+  el.classList.add('is-locked');
+}
+
+function releaseDetailBits() {
+  const bits = [];
+  if (selectedAngleMode === 'SIDE' && Number.isFinite(currentCalculatedState.trunkTiltDeg)) {
+    bits.push('前傾' + currentCalculatedState.trunkTiltDeg + '°');
+  }
+  if (selectedAngleMode === 'FRONT' && Number.isFinite(currentCalculatedState.trunkLateralDeg)) {
+    bits.push('側屈' + currentCalculatedState.trunkLateralDeg + '°');
+  }
+  if (Number.isFinite(currentCalculatedState.elbowFlexDeg)) {
+    bits.push('肘' + currentCalculatedState.elbowFlexDeg + '°');
+  }
+  if (Number.isFinite(currentCalculatedState.merDeg)) {
+    bits.push('外旋' + currentCalculatedState.merDeg + '°');
+  }
+  return bits;
+}
+
+function updateReleaseButton() {
+  const setBtn = document.getElementById('btn-set-release');
+  const clearBtn = document.getElementById('btn-clear-release');
+  if (!setBtn || !clearBtn) return;
+  if (manualReleaseTime == null) {
+    setBtn.textContent = '📍 リリース位置を決定';
+    clearBtn.hidden = true;
+  } else {
+    setBtn.textContent = '📍 リリースを更新';
+    clearBtn.hidden = false;
+  }
+}
+
+function updateReleaseMarker() {
+  const marker = document.getElementById('release-marker');
+  if (!marker) return;
+  const duration = videoElement ? videoElement.duration : 0;
+  if (manualReleaseTime == null || !Number.isFinite(duration) || duration <= 0) {
+    marker.hidden = true;
+    return;
+  }
+  const pct = Math.max(0, Math.min(100, (manualReleaseTime / duration) * 100));
+  marker.style.left = pct + '%';
+  marker.hidden = false;
+  marker.title = 'リリース ' + manualReleaseTime.toFixed(2) + 's へ移動';
+}
+
+function clearReleaseSnapshotFields() {
+  currentCalculatedState.kneeFlexReady = false;
+  currentCalculatedState.releaseHeightCm = null;
+  currentCalculatedState.releaseLateralCm = null;
+  currentCalculatedState.trunkTiltDeg = null;
+  currentCalculatedState.trunkLateralDeg = null;
+  currentCalculatedState.elbowFlexDeg = null;
+  currentCalculatedState.merDeg = null;
+}
+
+function applyManualRelease() {
+  if (!videoElement || !Number.isFinite(videoElement.duration) || videoElement.duration <= 0) return;
+  videoElement.pause();
+  manualReleaseTime = videoElement.currentTime;
+  const details = releaseDetailBits();
+  if (selectedAngleMode === 'SIDE') {
+    const heightCm = currentCalculatedState.releaseHeightCm;
+    if (heightCm != null && Number.isFinite(heightCm)) {
+      records.maxRelease = heightCm;
+      paintReleaseSnapshot(c4Max, 'RELEASE 高さ', heightCm + 'cm', details);
+    } else {
+      paintReleaseSnapshot(c4Max, 'RELEASE 高さ', '--', details);
+    }
+    if (currentCalculatedState.kneeFlexReady) {
+      records.releaseKneeFlex = currentCalculatedState.kneeFlexAngle;
+    }
+    paintSideKneeHero();
+  } else {
+    const lateralCm = currentCalculatedState.releaseLateralCm;
+    if (lateralCm != null && Number.isFinite(lateralCm)) {
+      records.maxReleaseLateral = lateralCm;
+      paintReleaseSnapshot(c6Max, 'RELEASE 横幅', lateralCm + 'cm', details);
+    } else {
+      paintReleaseSnapshot(c6Max, 'RELEASE 横幅', '--', details);
+    }
+  }
+  updateReleaseButton();
+  updateReleaseMarker();
+}
+
+function clearManualRelease() {
+  manualReleaseTime = null;
+  if (selectedAngleMode === 'SIDE') {
+    records.maxRelease = 0;
+    records.releaseKneeFlex = null;
+    paintHero(c4Max, 'RELEASE 高さ', '--', false);
+    paintSideKneeHero();
+  } else {
+    records.maxReleaseLateral = 0;
+    paintHero(c6Max, 'RELEASE 横幅', '--', false);
+  }
+  updateReleaseButton();
+  updateReleaseMarker();
+  if (stepViews[4].classList.contains('active')) {
+    processSingleFrame();
+  }
 }
 
 function paintSideKneeHero() {
@@ -165,6 +286,8 @@ function paintSideKneeHero() {
 }
 
 function showWaitingHeroes() {
+  manualReleaseTime = null;
+  clearReleaseSnapshotFields();
   [c1Val, c2Val, c3Val, c4Val, c5Val, c6Val].forEach((el) => {
     el.textContent = '--';
   });
@@ -183,6 +306,8 @@ function showWaitingHeroes() {
     paintHero(c5Max, 'MAX 踏出', '--', false);
     paintHero(c6Max, 'RELEASE 横幅', '--', false);
   }
+  updateReleaseButton();
+  updateReleaseMarker();
 }
 
 function updateCardLabels() {
@@ -980,6 +1105,7 @@ function updateTimeUI() {
   if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
   seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
   timeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
+  updateReleaseMarker();
 }
 
 videoElement.addEventListener('play', updatePlayState);
@@ -1023,6 +1149,25 @@ document.getElementById('btn-frame-next').addEventListener('click', (e) => {
   updateTimeUI();
 });
 
+document.getElementById('btn-set-release').addEventListener('click', (e) => {
+  e.stopPropagation();
+  applyManualRelease();
+});
+
+document.getElementById('btn-clear-release').addEventListener('click', (e) => {
+  e.stopPropagation();
+  clearManualRelease();
+});
+
+document.getElementById('release-marker').addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (manualReleaseTime == null || !Number.isFinite(videoElement.duration)) return;
+  videoElement.pause();
+  videoElement.currentTime = manualReleaseTime;
+  updateTimeUI();
+});
+
 document.getElementById('btn-reset-max').addEventListener('click', () => {
   records = {
     maxStride: 0, maxMER: 0, maxTwist: 0, maxRelease: 0, ffKneeFlex: null, releaseKneeFlex: null, maxTrunkTilt: 0,
@@ -1032,6 +1177,8 @@ document.getElementById('btn-reset-max').addEventListener('click', () => {
   manualToeOffsetDeg = 0;
   prevLeadToeY = null;
   leadFootFlatStationaryCount = 0;
+  manualReleaseTime = null;
+  clearReleaseSnapshotFields();
 
   showWaitingHeroes();
 });
