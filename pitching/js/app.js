@@ -166,6 +166,60 @@ function escapeHeroText(value) {
 function paintHero(el, tag, value, locked) {
   el.innerHTML = '<span class="phase-tag">' + escapeHeroText(tag) + '</span><span class="phase-num">' + escapeHeroText(value) + '</span>';
   el.classList.toggle('is-locked', !!locked);
+  refreshLiveAdvice(false);
+}
+
+let liveAdviceAt = 0;
+const LIVE_ADVICE_WAIT = '動画を再生してキー指標が決まると、ここにAIコーチのアドバイスが出ます。';
+
+function buildLiveAdviceEntry() {
+  return {
+    mode: selectedAngleMode,
+    metrics: selectedAngleMode === 'SIDE' ? {
+      stride: records.maxStride,
+      strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
+      mer: records.maxMER,
+      twist: records.maxTwist,
+      releaseH: records.maxRelease,
+      ffKneeFlex: records.ffKneeFlex !== null ? records.ffKneeFlex : currentCalculatedState.kneeFlexAngle,
+      releaseKneeFlex: records.releaseKneeFlex !== null ? records.releaseKneeFlex : currentCalculatedState.kneeFlexAngle,
+      trunkTilt: records.maxTrunkTilt
+    } : {
+      toeAngle: records.fcToeAngle !== null ? records.fcToeAngle : 0,
+      toeLabel: records.fcToeLabel || "未測定",
+      valgus: records.ffValgusAngle !== null ? records.ffValgusAngle : records.maxValgus,
+      valgusLabel: records.ffValgusLabel || "未測定",
+      trunkLateral: records.maxTrunkLateral,
+      armSlot: records.maxArmSlot,
+      inStep: records.maxInStepCm,
+      releaseLateral: records.maxReleaseLateral
+    }
+  };
+}
+
+function hasLiveMeasurements() {
+  if (selectedAngleMode === 'SIDE') {
+    return records.maxStride > 0 || records.maxMER > 0 || records.maxTwist > 0 || records.maxRelease > 0 || records.ffKneeFlex !== null;
+  }
+  return records.fcToeAngle !== null || records.maxValgus > 0 || records.maxArmSlot > 0 || records.maxInStepCm > 0;
+}
+
+function refreshLiveAdvice(force) {
+  const el = document.getElementById('live-ai-advice-text');
+  if (!el) return;
+  const now = performance.now();
+  if (!force && now - liveAdviceAt < 400) return;
+  liveAdviceAt = now;
+  if (!hasLiveMeasurements()) {
+    el.textContent = LIVE_ADVICE_WAIT;
+    return;
+  }
+  try {
+    const text = generatePitchingAICoachAdvice(buildLiveAdviceEntry());
+    if (el.textContent !== text) el.textContent = text;
+  } catch (err) {
+    el.textContent = LIVE_ADVICE_WAIT;
+  }
 }
 
 function paintReleaseSnapshot(el, tag, value, details) {
@@ -308,6 +362,7 @@ function showWaitingHeroes() {
   }
   updateReleaseButton();
   updateReleaseMarker();
+  refreshLiveAdvice(true);
 }
 
 function updateCardLabels() {
@@ -397,6 +452,32 @@ stepPills[3].addEventListener('click', () => {
   }
 });
 
+function paintScanPreview() {
+  if (!stepViews[2].classList.contains('active')) return;
+  updateScanScreenSize();
+  renderScanFrame();
+}
+
+function armScanPreview() {
+  videoElement.muted = true;
+  videoElement.playsInline = true;
+  videoElement.onloadedmetadata = () => {
+    const nudge = Math.min(0.001, (videoElement.duration || 0.001) / 2);
+    try {
+      if (videoElement.currentTime !== nudge) videoElement.currentTime = nudge;
+      else paintScanPreview();
+    } catch (e) {
+      paintScanPreview();
+    }
+  };
+  videoElement.onloadeddata = () => {
+    paintScanPreview();
+    if (typeof videoElement.requestVideoFrameCallback === 'function') {
+      videoElement.requestVideoFrameCallback(() => paintScanPreview());
+    }
+  };
+}
+
 async function handleVideoLoad(file, angleMode) {
   if (!file) return;
   selectedAngleMode = angleMode;
@@ -406,14 +487,19 @@ async function handleVideoLoad(file, angleMode) {
     videoFileUrl = null;
   }
   videoFileUrl = URL.createObjectURL(file);
-  
-  videoElement.src = videoFileUrl;
-  videoElement.load();
 
   updateCardLabels();
   setStep(2);
-  await initMediaPipe();
-  ensureScanVideoReady();
+  armScanPreview();
+  videoElement.src = videoFileUrl;
+  videoElement.load();
+
+  try {
+    await initMediaPipe();
+  } catch (err) {
+    console.warn("MediaPipe init error:", err);
+  }
+  paintScanPreview();
 }
 
 const inputSide = document.getElementById('video-input-side');
@@ -433,21 +519,6 @@ inputFront.addEventListener('change', function(e) {
     handleVideoLoad(e.target.files[0], 'FRONT');
   }
 });
-
-function ensureScanVideoReady() {
-  videoElement.muted = true;
-  videoElement.playsInline = true;
-  videoElement.currentTime = 0.001;
-  
-  videoElement.onloadeddata = () => {
-    updateScanScreenSize();
-    renderScanFrame();
-  };
-  setTimeout(() => {
-    updateScanScreenSize();
-    renderScanFrame();
-  }, 150);
-}
 
 function getCanvasPoint(evt, canvas) {
   const rect = canvas.getBoundingClientRect();
@@ -1110,12 +1181,17 @@ function updateTimeUI() {
   seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
   timeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
   updateReleaseMarker();
+  refreshLiveAdvice(false);
 }
 
 videoElement.addEventListener('play', updatePlayState);
 videoElement.addEventListener('pause', updatePlayState);
 videoElement.addEventListener('ended', updatePlayState);
 videoElement.addEventListener('seeked', () => {
+  if (stepViews[2].classList.contains('active')) {
+    paintScanPreview();
+    return;
+  }
   if (stepViews[4].classList.contains('active')) {
     processSingleFrame();
   }

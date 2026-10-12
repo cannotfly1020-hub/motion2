@@ -184,6 +184,69 @@ function paintHero(el, tag, value, locked) {
   const safeVal = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   el.innerHTML = '<span class="phase-tag">' + safeTag + '</span><span class="phase-num">' + safeVal + '</span>';
   el.classList.toggle('is-locked', !!locked);
+  refreshLiveAdvice(false);
+}
+
+let liveAdviceAt = 0;
+const LIVE_ADVICE_WAIT = '動画を再生してキー指標が決まると、ここにAIコーチのアドバイスが出ます。';
+
+function buildLiveAdviceEntry() {
+  return {
+    mode: selectedAngleMode,
+    metrics: selectedAngleMode === 'SIDE' ? {
+      twist: records.maxTwistSigned !== 0 ? records.maxTwistSigned : currentCalculatedState.twistSignedDeg,
+      twistLabel: records.twistStatusLabel || currentCalculatedState.twistStatusLabel,
+      impactKneeFlex: records.impactKneeFlex !== null ? records.impactKneeFlex : currentCalculatedState.kneeFlexAngle,
+      stride: records.maxStride,
+      strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
+      trunkTilt: records.maxTrunkTilt,
+      headShift: records.maxHeadShift,
+      headShiftY: records.maxHeadShiftY,
+      topHandH: records.maxTopHandH,
+      impactHandH: records.impactHandH !== null ? records.impactHandH : currentCalculatedState.impactHandHeightCm,
+      takebackLeadElbow: records.takebackLeadElbow !== null ? records.takebackLeadElbow : currentCalculatedState.leadElbowAngle,
+      impactBackElbow: records.impactBackElbow !== null ? records.impactBackElbow : currentCalculatedState.backElbowAngle
+    } : {
+      headShiftX: records.maxHeadShift,
+      headShiftY: records.maxHeadShiftY,
+      shoulderOpen: records.impactShoulderOpen !== null ? records.impactShoulderOpen : currentCalculatedState.shoulderOpenDeg,
+      shoulderOpenLabel: records.impactShoulderOpenLabel || currentCalculatedState.shoulderOpenLabel,
+      inStep: records.maxInStepCm,
+      inStepDir: records.inStepDir,
+      kneeValgus: records.impactKneeValgus !== null ? records.impactKneeValgus : currentCalculatedState.kneeValgusAngle,
+      kneeValgusLabel: records.impactKneeValgusLabel || currentCalculatedState.kneeValgusLabel,
+      trunkTilt: records.maxTrunkTilt,
+      topHandH: records.maxTopHandH,
+      impactHandH: records.impactHandH !== null ? records.impactHandH : currentCalculatedState.impactHandHeightCm,
+      takebackLeadElbow: records.takebackLeadElbow,
+      impactBackElbow: records.impactBackElbow
+    }
+  };
+}
+
+function hasLiveMeasurements() {
+  if (selectedAngleMode === 'SIDE') {
+    return records.maxStride > 0 || records.maxTwistSigned !== 0 || records.maxHeadShift > 0 || records.impactKneeFlex !== null || records.takebackLeadElbow !== null;
+  }
+  return records.maxHeadShift > 0 || records.impactShoulderOpen !== null || records.maxInStepCm > 0;
+}
+
+function refreshLiveAdvice(force) {
+  const el = document.getElementById('live-ai-advice-text');
+  if (!el) return;
+  const now = performance.now();
+  if (!force && now - liveAdviceAt < 400) return;
+  liveAdviceAt = now;
+  if (!hasLiveMeasurements()) {
+    el.textContent = LIVE_ADVICE_WAIT;
+    return;
+  }
+  try {
+    const text = generateBattingAICoachAdvice(buildLiveAdviceEntry());
+    if (el.textContent !== text) el.textContent = text;
+  } catch (err) {
+    el.textContent = LIVE_ADVICE_WAIT;
+  }
 }
 
 function showWaitingHeroes() {
@@ -209,6 +272,7 @@ function showWaitingHeroes() {
   [c1Val, c2Val, c3Val, c4Val, c5Val, c6Val, c7Val, c8Val, c9Val, c10Val].forEach((el) => {
     el.textContent = '--';
   });
+  refreshLiveAdvice(true);
 }
 
 function updateCardLabels() {
@@ -308,6 +372,32 @@ stepPills[3].addEventListener('click', () => {
   }
 });
 
+function paintScanPreview() {
+  if (!stepViews[2].classList.contains('active')) return;
+  updateScanScreenSize();
+  renderScanFrame();
+}
+
+function armScanPreview() {
+  videoElement.muted = true;
+  videoElement.playsInline = true;
+  videoElement.onloadedmetadata = () => {
+    const nudge = Math.min(0.001, (videoElement.duration || 0.001) / 2);
+    try {
+      if (videoElement.currentTime !== nudge) videoElement.currentTime = nudge;
+      else paintScanPreview();
+    } catch (e) {
+      paintScanPreview();
+    }
+  };
+  videoElement.onloadeddata = () => {
+    paintScanPreview();
+    if (typeof videoElement.requestVideoFrameCallback === 'function') {
+      videoElement.requestVideoFrameCallback(() => paintScanPreview());
+    }
+  };
+}
+
 function handleVideoLoad(file, angleMode) {
   if (!file) return;
   selectedAngleMode = angleMode;
@@ -317,30 +407,16 @@ function handleVideoLoad(file, angleMode) {
     videoFileUrl = null;
   }
   videoFileUrl = URL.createObjectURL(file);
-  
+
   updateCardLabels();
   setStep(2);
-
-  videoElement.muted = true;
-  videoElement.playsInline = true;
+  armScanPreview();
   videoElement.src = videoFileUrl;
   videoElement.load();
 
-  const onVideoReady = () => {
-    updateScanScreenSize();
-    renderScanFrame();
-  };
-
-  videoElement.onloadedmetadata = () => {
-    try { videoElement.currentTime = 0.001; } catch (e) {}
-    onVideoReady();
-  };
-  videoElement.onloadeddata = onVideoReady;
-
-  setTimeout(onVideoReady, 120);
-  setTimeout(onVideoReady, 300);
-
-  initMediaPipe().catch(err => console.warn("MediaPipe init error:", err));
+  initMediaPipe()
+    .catch(err => console.warn("MediaPipe init error:", err))
+    .finally(() => paintScanPreview());
 }
 
 const inputSide = document.getElementById('video-input-side');
@@ -1025,12 +1101,17 @@ function updateTimeUI() {
   if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
   seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
   timeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
+  refreshLiveAdvice(false);
 }
 
 videoElement.addEventListener('play', updatePlayState);
 videoElement.addEventListener('pause', updatePlayState);
 videoElement.addEventListener('ended', updatePlayState);
 videoElement.addEventListener('seeked', () => {
+  if (stepViews[2].classList.contains('active')) {
+    paintScanPreview();
+    return;
+  }
   if (stepViews[4].classList.contains('active')) {
     processSingleFrame();
   }

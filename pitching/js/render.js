@@ -43,11 +43,27 @@ function bindCanvasToStage(canvas) {
   canvas.style.maxWidth = "100%";
   canvas.style.height = "100%";
   canvas.style.maxHeight = "100%";
-  if (canvas.width !== size.w || canvas.height !== size.h) {
+  canvas.style.objectFit = "contain";
+  const changed = canvas.width !== size.w || canvas.height !== size.h;
+  if (changed) {
     canvas.width = size.w;
     canvas.height = size.h;
   }
-  return true;
+  watchStage(canvas);
+  return changed;
+}
+
+function watchStage(canvas) {
+  if (!canvas || canvas._stageWatch || typeof ResizeObserver === "undefined") return;
+  const parent = canvas.parentElement;
+  if (!parent) return;
+  const observer = new ResizeObserver(() => {
+    if (!bindCanvasToStage(canvas)) return;
+    if (canvas === scanCanvas && typeof renderScanFrame === "function") renderScanFrame();
+    else if (typeof renderFrameOnly === "function") renderFrameOnly();
+  });
+  observer.observe(parent);
+  canvas._stageWatch = true;
 }
 
 function updateScanScreenSize() {
@@ -58,6 +74,7 @@ function renderScanFrame() {
   const cw = scanCanvas.width;
   const ch = scanCanvas.height;
   if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
+  if (videoElement.readyState < 2) return;
 
   scanCtx.clearRect(0, 0, cw, ch);
   const b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, cw, ch);
