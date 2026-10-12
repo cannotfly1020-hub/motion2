@@ -1,153 +1,66 @@
-// 投球バイオメカニクス（角度・速度・フェーズ検出・AIアドバイス判定）
+// 投球バイオメカニクス（角度・速度・フェーズ検出）
+// トレーナーコメントの文章は trainer/pitching_knowledge.js にある。
 
-function trainerBlock(title, phenomenon, background, approach) {
-  return `【${title}】\n① ${phenomenon}\n② ${background}\n③ ${approach}`;
+function formatTrainerNumber(value) {
+  return (typeof value === 'number' && Number.isFinite(value)) ? String(value) : '--';
+}
+
+function fillTrainerText(text, metrics) {
+  if (typeof text !== 'string') return '';
+  return text.replace(/\{(\+)?([A-Za-z0-9_]+)\}/g, function(_, sign, key) {
+    const value = metrics[key];
+    if (sign === '+') {
+      if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
+      return (value > 0 ? '+' : '') + value;
+    }
+    return formatTrainerNumber(value);
+  });
+}
+
+function formatTrainerRule(rule, metrics) {
+  const rawTitle = rule.title || '評価';
+  const title = rawTitle.charAt(0) === '【' ? rawTitle : '【' + rawTitle + '】';
+  return title + '\n① ' + fillTrainerText(rule.description, metrics) +
+    '\n② ' + fillTrainerText(rule.reason, metrics) +
+    '\n③ ' + fillTrainerText(rule.exercise, metrics);
+}
+
+function renderTrainerKnowledge(rules, config, entry) {
+  const list = Array.isArray(rules) ? rules : [];
+  const safeEntry = entry || {};
+  const metrics = Object.assign({ mode: safeEntry.mode }, safeEntry.metrics || {});
+  const maxNotes = (config && config.maxNotes) || 2;
+  const findings = [];
+  const goods = [];
+
+  list.forEach(function(rule) {
+    if (!rule || typeof rule.evaluate !== 'function') return;
+    let matched = false;
+    try {
+      matched = !!rule.evaluate(metrics);
+    } catch (err) {
+      matched = false;
+    }
+    if (!matched) return;
+    const text = formatTrainerRule(rule, metrics);
+    if (rule.severity === 'good') goods.push(text);
+    else findings.push(text);
+  });
+
+  let chosen = findings.slice(0, maxNotes);
+  if (chosen.length === 0 && goods.length > 0) chosen = [goods[0]];
+  if (chosen.length === 0 && config && config.fallback) {
+    chosen = [formatTrainerRule(config.fallback, metrics)];
+  }
+
+  const header = (config && config.header) ? config.header + '\n' : '';
+  return header + chosen.join('\n\n');
 }
 
 function generatePitchingAICoachAdvice(entry) {
-  const notes = [];
-  const m = entry.metrics || {};
-
-  if (entry.mode === 'SIDE') {
-    const mer = Number.isFinite(m.mer) ? m.mer : 0;
-    if (mer >= 170) {
-      notes.push(trainerBlock(
-        '肩関節への剪断力リスク',
-        `MER時の外旋角度が大きく（${mer}°）、肩前方関節包および肘内側に高い牽引・外反ストレスがかかりやすい状態です。`,
-        '胸椎伸展や肩甲胸郭の安定が不足すると、外旋を肩関節前面で作りすぎる代償が起きます。',
-        '肩甲胸郭関節の安定性と胸椎伸展の可動域を確保しましょう。'
-      ));
-    } else if (mer > 0 && mer < 150) {
-      notes.push(trainerBlock(
-        '肩甲帯の外旋可動域',
-        `MER時の外旋角度が小さく（${mer}°）、肩甲上腕リズムでのしなりが不足しています。`,
-        '胸椎伸展や肩甲骨後傾の制限を、体幹の早期回旋や肘の過伸展で補う代償が起きやすくなります。',
-        '胸椎伸展と肩甲胸郭関節の可動性を確認し、外旋を肘で作らないよう評価してください。'
-      ));
-    }
-
-    const trunk = Number.isFinite(m.trunkTilt) ? m.trunkTilt : 0;
-    if (trunk > 0 && trunk < 25) {
-      notes.push(trainerBlock(
-        '肩肘アライメント注意',
-        `リリース時の体幹前傾が不足しています（${trunk}°）。肘が肩のラインより残りやすく、インピンジメントや肘内側側副靭帯（UCL）への負荷が増大します。`,
-        '体幹屈曲の遅れを肩の水平内転や肘下がりで補う代償が疑われます。',
-        '体幹前傾角の確保と、広背筋・体幹屈曲の連動を促すドリルを推奨します。'
-      ));
-    }
-
-    const twist = Number.isFinite(m.twist) ? m.twist : 0;
-    if (twist > 0 && twist < 22) {
-      notes.push(trainerBlock(
-        '体幹と骨盤の分離不足',
-        `体幹の捻転差が小さく（${twist}°）、運動連鎖のタメが早く抜けています。`,
-        '骨盤と胸郭のタイミングがずれ、肩肘で速度を作る代償が起きやすくなります。',
-        '胸椎回旋の可動域と、軸足股関節で骨盤を残すタイミングを再評価してください。'
-      ));
-    }
-
-    const ffK = Number.isFinite(m.ffKneeFlex) ? m.ffKneeFlex : 0;
-    const relK = Number.isFinite(m.releaseKneeFlex) ? m.releaseKneeFlex : 0;
-    if (relK > ffK + 10 && relK > 0) {
-      notes.push(trainerBlock(
-        '前足のブレーキ力',
-        `リリースで前膝の屈曲が接地時より深く（接地 ${ffK}° → リリース ${relK}°）、ブレーキが抜けています。`,
-        '床反力を体幹へ返せず、肩肘への牽引で投球を完結させる代償が疑われます。',
-        '前足股関節・殿筋の遠心性支持と、片脚での安定性を評価してください。'
-      ));
-    }
-
-    const strideRatio = Number.isFinite(m.strideRatio) ? m.strideRatio : 0;
-    if (strideRatio > 0 && strideRatio < 72) {
-      notes.push(trainerBlock(
-        'ステップと股関節伸展',
-        `歩幅が短く（身長比 ${strideRatio}%）、前方への重心移動が不足しています。`,
-        '軸足股関節の伸展が出ず、上肢で球速を補う代償が起きやすくなります。',
-        '股関節伸展の可動域と、軸足から前足への荷重移動を確認しましょう。'
-      ));
-    }
-
-    const chainClear = mer >= 150 && mer < 170 && (trunk === 0 || trunk >= 25) && notes.length === 0;
-    if (chainClear) {
-      notes.push(trainerBlock(
-        '良好な運動連鎖',
-        '下肢から体幹、肩甲帯、上肢へとエネルギーが順に伝達されています。',
-        '肩前方や肘内側への過剰な牽引・外反ストレスは目立っていません。',
-        'この負担の少ない投球連鎖を、登板後の肩甲帯ケアで維持しましょう。'
-      ));
-    }
-  } else {
-    const toe = Number.isFinite(m.toeAngle) ? m.toeAngle : 0;
-    if (toe > 12) {
-      notes.push(trainerBlock(
-        '骨盤先行開きの代償',
-        `接地時につま先が開き（${toe}°）、骨盤が早期に開いて運動連鎖のタメが抜けています。`,
-        '軸足で骨盤を残せないと、肩肘が先行して牽引ストレスが増えます。',
-        '軸足の股関節外転・外旋保持力および回旋筋群のタイミングを再評価してください。'
-      ));
-    }
-
-    const slot = Number.isFinite(m.armSlot) ? m.armSlot : 0;
-    if (slot > 0 && slot < 100) {
-      notes.push(trainerBlock(
-        '肩肘アライメント注意',
-        `挙上角度が低く（${slot}°）、肘が肩のラインより下がっており、インピンジメントや肘内側側副靭帯（UCL）への負荷が増大しています。`,
-        '体幹前傾や肩甲帯の上方回旋が不足し、肘の高さでリリース位置を補う代償が疑われます。',
-        '体幹前傾角の確保と、広背筋・体幹屈曲の連動を促すドリルを推奨します。'
-      ));
-    }
-
-    const valgus = Number.isFinite(m.valgus) ? m.valgus : 0;
-    if (valgus > 6) {
-      notes.push(trainerBlock(
-        '接地脚の膝アライメント',
-        `着地足の膝が内外へ崩れています（${valgus}°）。`,
-        '股関節の支持が不足し、膝関節と体幹の側方バランスで接地を支える代償が見られます。',
-        '殿筋群の安定性と、足部の荷重位置を評価してください。'
-      ));
-    }
-
-    const lateral = Number.isFinite(m.trunkLateral) ? m.trunkLateral : 0;
-    if (lateral > 25) {
-      notes.push(trainerBlock(
-        '体幹側屈の過大',
-        `体幹の側屈が大きく（${lateral}°）、投球側へ体が倒れています。`,
-        '腰椎への側屈ストレスが増え、肩甲帯の位置が崩れて肘への負荷が変わります。',
-        '体幹の抗側屈と、反対側股関節での支持をチェックしましょう。'
-      ));
-    }
-
-    const inStep = Number.isFinite(m.inStep) ? m.inStep : 0;
-    if (inStep > 12) {
-      notes.push(trainerBlock(
-        '踏み出し位置と骨盤',
-        `踏み出しの横ずれが大きく（${inStep}cm）、接地位置が投球線から外れています。`,
-        '骨盤の向きが早く変わり、肩肘で方向を修正する代償が起きやすくなります。',
-        '軸足股関節の向きと、ステップ足の接地位置を再評価してください。'
-      ));
-    }
-
-    const chainClear = toe <= 12 && (slot === 0 || slot >= 100) && valgus <= 6 && notes.length === 0 && (toe > 0 || slot >= 100);
-    if (chainClear) {
-      notes.push(trainerBlock(
-        '良好な運動連鎖',
-        '下肢から体幹、肩甲帯、上肢へとエネルギーが順に伝達されています。',
-        '肩前方や肘内側への過剰な牽引・外反ストレスは目立っていません。',
-        'この負担の少ない投球連鎖を、登板後の肩甲帯ケアで維持しましょう。'
-      ));
-    }
-  }
-
-  if (notes.length === 0) {
-    notes.push(trainerBlock(
-      '動作スクリーニング',
-      '現時点で突出した肩肘への代償は見当たりません。',
-      'MER・接地・リリースの数値が揃うと、運動連鎖をより正確に評価できます。',
-      '登板後の肩甲帯と体幹のコンディションをあわせて確認しましょう。'
-    ));
-  }
-
-  return '【🩺 AIトレーナー（肩肘・運動連鎖チェック）】\n' + notes.slice(0, 2).join('\n\n');
+  const rules = (typeof PITCHING_TRAINER_RULES !== 'undefined') ? PITCHING_TRAINER_RULES : [];
+  const config = (typeof PITCHING_TRAINER_CONFIG !== 'undefined') ? PITCHING_TRAINER_CONFIG : null;
+  return renderTrainerKnowledge(rules, config, entry);
 }
 
 function getSegmentAngle3D(p1, p2) {
