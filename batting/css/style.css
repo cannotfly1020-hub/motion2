@@ -946,10 +946,10 @@ input[type="file"] {
 }
 
 .ai-coach-card {
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  border: 1.5px solid #34d399;
+  background: linear-gradient(180deg, #f8fafc 0%, #e0f2fe 100%);
+  border: 1.5px solid #7dd3fc;
   border-radius: 8px;
-  padding: 7px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -957,18 +957,20 @@ input[type="file"] {
 
 .ai-coach-title {
   font-size: 0.72rem;
-  font-weight: 900;
-  color: #065f46;
+  font-weight: 800;
+  color: #0c4a6e;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
+  line-height: 1.35;
 }
 
 .ai-coach-text {
-  font-size: 0.66rem;
-  font-weight: 800;
-  color: #1e293b;
-  line-height: 1.35;
+  font-size: 0.7rem;
+  font-weight: 650;
+  color: #0f172a;
+  line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-width: 100%;

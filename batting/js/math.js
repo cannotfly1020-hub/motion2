@@ -1,120 +1,208 @@
 // 打撃バイオメカニクス（関節角度・骨盤/体幹の回旋・ステップ・軌道・アドバイス判定）
 
+function trainerBlock(title, phenomenon, background, approach) {
+  return `【${title}】\n① ${phenomenon}\n② ${background}\n③ ${approach}`;
+}
+
 function generateBattingAICoachAdvice(entry) {
-  let praises = [];
-  let improvements = [];
+  const notes = [];
+  const m = entry.metrics || {};
 
   if (entry.mode === 'SIDE') {
-    const m = entry.metrics;
-    const twist = m.twist || 0;
-    if (twist >= 22 && twist <= 38) {
-      praises.push(`捻転差【+${twist}°】！下半身先行のタメがバッチリできています！(⚡ 飛距離UP)`);
+    const twist = Number.isFinite(m.twist) ? m.twist : 0;
+    if (twist !== 0 && twist < 22) {
+      notes.push(trainerBlock(
+        '胸郭・股関節連鎖のチェック',
+        `体幹と骨盤の捻転差が小さく（${twist >= 0 ? '+' : ''}${twist}°）、腕主導（手打ち）の代償が見られます。`,
+        '腰椎への回旋ストレスに注意が必要な状態です。',
+        '股関節内旋可動域と胸郭の回旋モビリティをチェックしましょう。'
+      ));
     } else if (twist > 38) {
-      improvements.push(`捻りを少し抑えて、スムーズに胸を回す意識を持とう！(🎯 ミート率安定)`);
-    } else if (twist >= 8 && twist < 22) {
-      improvements.push(`骨盤を先に回しながら胸を少し残し、タメを作ってみよう！(⚡ 打球初速UP)`);
-    } else if (twist < 0) {
-      improvements.push(`手から振らず、着地後に腰（骨盤）から回す意識を持とう！(⚡ パワーUP)`);
+      notes.push(trainerBlock(
+        '胸郭・股関節の分離過剰',
+        `体幹と骨盤の捻転差が大きく（+${twist}°）、分離が過剰です。`,
+        '切り返しで腰椎の回旋ストレスが増え、上肢でタイミングを合わせる代償が起きやすくなります。',
+        '胸郭回旋の可動域を保ちつつ、股関節から体幹へ返すタイミングを評価してください。'
+      ));
     }
 
-    const kFlex = (m.impactKneeFlex !== null && m.impactKneeFlex !== undefined) ? m.impactKneeFlex : 0;
-    if (kFlex >= 15 && kFlex <= 32) {
-      praises.push(`前足ヒザ【屈曲 ${kFlex}°】の強い壁でパワーが伝わっています！(⚡ 強い打球)`);
-    } else if (kFlex > 38) {
-      improvements.push(`着地後に前ヒザをピタッと止め、回転の強い壁を作ろう！(⚡ 飛距離UP)`);
-    } else if (kFlex < 10) {
-      improvements.push(`前ヒザを突っ張りすぎず、少しゆとりを持って踏ん張ろう！(🎯 ケガ予防)`);
+    const head = Number.isFinite(m.headShift) ? m.headShift : 0;
+    if (head > 8) {
+      notes.push(trainerBlock(
+        '重心移動・軸足支持',
+        `軸足から前足への重心移動で突っ込みが見られます（頭の前方移動 ${head}cm）。`,
+        '前足のブレーキ力（床反力）が不足している可能性があります。',
+        '下肢の踏ん張り力と殿筋群の遠心性支持性を評価してください。'
+      ));
     }
 
-    const leadElbow = (m.takebackLeadElbow !== null && m.takebackLeadElbow !== undefined) ? m.takebackLeadElbow : null;
-    if (leadElbow !== null) {
-      if (leadElbow >= 110 && leadElbow <= 135) {
-        praises.push(`テイクバックの前ヒジ【${leadElbow}°】が理想的！最短軌道で振れています！(⚡ ヘッドスピードUP)`);
-      } else if (leadElbow > 140) {
-        improvements.push(`前ヒジを軽く曲げて懐を柔らかく保ち、遠回りを防ごう！(🎯 ミート力UP)`);
-      } else if (leadElbow < 100) {
-        improvements.push(`トップで懐を広く取る意識を持とう！(⚡ 飛距離UP)`);
-      }
+    const kFlex = (m.impactKneeFlex !== null && m.impactKneeFlex !== undefined && Number.isFinite(m.impactKneeFlex))
+      ? m.impactKneeFlex : null;
+    if (kFlex !== null && kFlex > 38) {
+      notes.push(trainerBlock(
+        '前足の遠心性支持',
+        `インパクトで前膝の屈曲が深く（${kFlex}°）、ブレーキが抜けています。`,
+        '前足の床反力が不足し、体幹が前方へ流れる代償が疑われます。',
+        '殿筋群の遠心性支持と、片脚での踏ん張りを評価してください。'
+      ));
+    } else if (kFlex !== null && kFlex > 0 && kFlex < 10) {
+      notes.push(trainerBlock(
+        '膝関節の衝撃吸収',
+        `前膝が伸展位に近く（屈曲 ${kFlex}°）、衝撃を関節で受けやすい状態です。`,
+        '股関節と足部での力の吸収が不足し、膝前面への圧縮ストレスが増えます。',
+        '軽度屈曲位での遠心性コントロールと、足関節の可動性を確認しましょう。'
+      ));
     }
 
-    const backElbow = (m.impactBackElbow !== null && m.impactBackElbow !== undefined) ? m.impactBackElbow : null;
-    if (backElbow !== null) {
-      if (backElbow >= 85 && backElbow <= 115) {
-        praises.push(`インパクトで後ろヒジ【${backElbow}°】が引きつけられ力強い！(⚡ 打球初速UP)`);
-      } else if (backElbow > 125) {
-        improvements.push(`ボールを体の近くまでしっかり引きつけて叩こう！(⚡ 強い打球)`);
-      }
+    const headY = Number.isFinite(m.headShiftY) ? m.headShiftY : 0;
+    if (headY > 6) {
+      notes.push(trainerBlock(
+        '頭部の垂直安定',
+        `スイング中の頭の上下動が大きく（${headY}cm）、視線の高さが崩れています。`,
+        '体幹の伸び上がり、または股関節での沈み込み不足による代償が疑われます。',
+        '股関節の屈曲可動域と体幹の抗重力安定をチェックしましょう。'
+      ));
     }
 
-    if (m.strideRatio >= 40 && m.strideRatio <= 55) {
-      praises.push(`ステップ幅が身長の【${m.strideRatio}%】で理想の黄金比です！(🎯 タイミング安定)`);
-    } else if (m.strideRatio > 0 && m.strideRatio < 38) {
-      improvements.push(`前足を力強く踏み出して、体重移動の力を使おう！(⚡ 飛距離UP)`);
-    } else if (m.strideRatio > 58) {
-      improvements.push(`少しスタンスを狭めて、スムーズに腰を回そう！(🎯 ミート力UP)`);
+    const strideRatio = Number.isFinite(m.strideRatio) ? m.strideRatio : 0;
+    if (strideRatio > 0 && strideRatio < 38) {
+      notes.push(trainerBlock(
+        'ステップと股関節伸展',
+        `ステップ幅が短く（身長比 ${strideRatio}%）、前方への重心移動が不足しています。`,
+        '軸足股関節の伸展が出ず、上肢で距離を補う代償が起きやすくなります。',
+        '股関節伸展可動域と、軸足からの体重移動を評価してください。'
+      ));
+    } else if (strideRatio > 58) {
+      notes.push(trainerBlock(
+        'ステップ幅と骨盤制御',
+        `ステップ幅が広く（身長比 ${strideRatio}%）、骨盤の安定が遅れやすい状態です。`,
+        '着地後に体幹が遅れ、腰椎や前膝でタイミングを合わせる代償が疑われます。',
+        'ステップ幅を整え、着地側股関節の安定性を確認しましょう。'
+      ));
     }
 
-    if (m.headShift <= 8) {
-      praises.push(`頭の突っ込み【${m.headShift}cm】が少なく、軸足に体重が残っています！(🎯 見極めUP)`);
-    } else {
-      improvements.push(`軸足の股関節に体重を残したままクルッと回転しよう！(🎯 空振り激減)`);
+    const leadElbow = (m.takebackLeadElbow !== null && m.takebackLeadElbow !== undefined && Number.isFinite(m.takebackLeadElbow))
+      ? m.takebackLeadElbow : null;
+    if (leadElbow !== null && leadElbow > 140) {
+      notes.push(trainerBlock(
+        'リード肘のアライメント',
+        `テイクバックで前肘が伸びすぎています（${leadElbow}°）。`,
+        '肩甲帯で軌道を作れず、肘関節への牽引でバットを運ぶ代償が見られます。',
+        '肘の軽度屈曲を保ち、肩甲骨の後傾と胸郭回旋の連動を確認しましょう。'
+      ));
+    } else if (leadElbow !== null && leadElbow > 0 && leadElbow < 100) {
+      notes.push(trainerBlock(
+        'リード肘の可動域',
+        `テイクバックで前肘の屈曲が強く（${leadElbow}°）、懐が狭くなっています。`,
+        '胸郭の回旋不足を肘の屈曲で補っている可能性があります。',
+        '胸椎回旋と肩関節の水平外転の可動域をチェックしましょう。'
+      ));
     }
 
-    const headY = m.headShiftY || 0;
-    if (headY > 0 && headY <= 6) {
-      praises.push(`目線の上下動【${headY}cm】が少なく、ボールが見えています！(🎯 選球眼UP)`);
-    } else if (headY > 6) {
-      improvements.push(`スイング中の頭の高さをキープし、目線のズレをなくそう！(🎯 空振り激減)`);
+    const backElbow = (m.impactBackElbow !== null && m.impactBackElbow !== undefined && Number.isFinite(m.impactBackElbow))
+      ? m.impactBackElbow : null;
+    if (backElbow !== null && backElbow > 125) {
+      notes.push(trainerBlock(
+        'インパクト時の肘位置',
+        `インパクトで後ろ肘が体から離れています（${backElbow}°）。`,
+        '体幹の回旋が遅れ、上肢だけでインパクトを作る代償が疑われます。',
+        '肩甲胸郭関節の安定と、体幹から上肢への力の伝達を評価してください。'
+      ));
+    }
+
+    const chainClear = twist >= 22 && twist <= 38 && head <= 8 && notes.length === 0;
+    if (chainClear) {
+      notes.push(trainerBlock(
+        '良好なキネティックチェーン',
+        '下半身から体幹、上肢へとエネルギーがスムーズに伝達されています。',
+        '過剰な代償動作は見られず、身体への負担が少ない状態です。',
+        'この効率的なスイング連鎖を、疲労時も崩さないようコンディショニングを継続しましょう。'
+      ));
     }
   } else {
-    // FRONT MODE
-    const m = entry.metrics;
-    if (m.headShiftX <= 6) {
-      praises.push(`頭の横ブレ【${m.headShiftX}cm】が少なく、目線がピタッと安定！(🎯 ミート率UP)`);
-    } else {
-      improvements.push(`片足立ち素振りで体幹を鍛え、目線をブラさない軸を作ろう！(🎯 ミート率UP)`);
+    const headX = Number.isFinite(m.headShiftX) ? m.headShiftX : 0;
+    if (headX > 6) {
+      notes.push(trainerBlock(
+        '頭部の側方安定',
+        `頭の横ブレが大きく（${headX}cm）、視線の軸が揺れています。`,
+        '体幹の側方安定が不足し、頸部や肩でバランスを取る代償が疑われます。',
+        '体幹の抗側屈と、股関節での片脚支持を評価してください。'
+      ));
     }
 
-    if (m.headShiftY <= 6) {
-      praises.push(`頭の上下動【${m.headShiftY}cm】が少なく、高低を見極められています！(🎯 コース対応UP)`);
-    } else {
-      improvements.push(`構えた高さをキープして回転し、高低の変化球に強くなろう！(🎯 選球眼UP)`);
+    const headY = Number.isFinite(m.headShiftY) ? m.headShiftY : 0;
+    if (headY > 6) {
+      notes.push(trainerBlock(
+        '頭部の垂直安定',
+        `頭の上下動が大きく（${headY}cm）、視線の高さが崩れています。`,
+        '股関節の沈み込み、または体幹の伸び上がりによる代償が疑われます。',
+        '股関節屈曲の可動域と体幹の抗重力安定をチェックしましょう。'
+      ));
     }
 
-    const sOpen = (m.shoulderOpen !== null && m.shoulderOpen !== undefined) ? m.shoulderOpen : 0;
-    if (sOpen <= 18) {
-      praises.push(`前肩の開き【${sOpen}°】を抑え、懐の深いタメができています！(⚡ 外角対応UP)`);
-    } else if (sOpen > 25) {
-      improvements.push(`インパクト直前まで前肩を投手へ向け続け、タメを作ろう！(🎯 逆方向ヒッティング)`);
+    const sOpen = (m.shoulderOpen !== null && m.shoulderOpen !== undefined && Number.isFinite(m.shoulderOpen))
+      ? m.shoulderOpen : null;
+    if (sOpen !== null && sOpen > 25) {
+      notes.push(trainerBlock(
+        '肩甲帯の早期回旋',
+        `前肩の開きが大きく（${sOpen}°）、体幹より上肢が先行しています。`,
+        '胸郭の回旋タメが抜け、肩関節前面でスイングを作る代償が見られます。',
+        '胸椎回旋の可動域と、肩甲胸郭関節の安定性を確認しましょう。'
+      ));
     }
 
-    const valgus = (m.kneeValgus !== null && m.kneeValgus !== undefined) ? m.kneeValgus : 0;
-    if (valgus <= 6) {
-      praises.push(`前ヒザが外へ逃げず【${valgus}°】しっかり踏ん張れています！(⚡ 打球初速UP)`);
-    } else if (valgus > 10) {
-      improvements.push(`前足の内ももと母指球でグッと受け止め、力を伝えよう！(⚡ 飛距離UP)`);
+    const valgus = (m.kneeValgus !== null && m.kneeValgus !== undefined && Number.isFinite(m.kneeValgus))
+      ? m.kneeValgus : null;
+    if (valgus !== null && valgus > 10) {
+      notes.push(trainerBlock(
+        '前膝のアライメント',
+        `前膝が内側へ崩れています（${valgus}°）。`,
+        '股関節外転・外旋の支持が不足し、膝内側への外反ストレスが増えています。',
+        '殿筋群の安定性と、足部での荷重位置を評価してください。'
+      ));
     }
 
-    if (m.inStep <= 8) {
-      praises.push(`投手へ真っ直ぐ踏み込めており、全コースに対応できます！(🎯 コース対応)`);
-    } else {
-      improvements.push(`地面のラインに沿って真っ直ぐ踏み出す素振りをしよう！(🎯 コース見極め)`);
+    const inStep = Number.isFinite(m.inStep) ? m.inStep : 0;
+    if (inStep > 8) {
+      notes.push(trainerBlock(
+        'ステップ方向と骨盤',
+        `踏み出しが投球線からずれています（${inStep}cm）。`,
+        '骨盤の向きが早く変わり、体幹の回旋タイミングがずれる代償が疑われます。',
+        '軸足股関節の向きと、踏み出し足の接地位置を再評価してください。'
+      ));
     }
 
-    if (m.trunkTilt >= 10 && m.trunkTilt <= 25) {
-      praises.push(`スイング軸の傾き【${m.trunkTilt}°】が理想的なライナー軌道です！(⚡ 長打力UP)`);
-    } else if (m.trunkTilt > 28) {
-      improvements.push(`上体をあおらず、軸を安定させて強いライナーを打とう！(⚡ ライナー量産)`);
+    const trunk = Number.isFinite(m.trunkTilt) ? m.trunkTilt : 0;
+    if (trunk > 28) {
+      notes.push(trainerBlock(
+        '体幹側屈の過大',
+        `スイング軸の側屈が大きく（${trunk}°）、体幹が倒れています。`,
+        '腰椎への側屈ストレスが増え、上肢で軌道を合わせる代償が起きやすくなります。',
+        '体幹の抗側屈と、股関節での荷重支持をチェックしましょう。'
+      ));
+    }
+
+    const chainClear = headX <= 6 && (sOpen === null || sOpen <= 18) && (valgus === null || valgus <= 6) && notes.length === 0 && (headX > 0 || sOpen !== null);
+    if (chainClear) {
+      notes.push(trainerBlock(
+        '良好なキネティックチェーン',
+        '下半身から体幹、上肢へとエネルギーがスムーズに伝達されています。',
+        '過剰な代償動作は見られず、身体への負担が少ない状態です。',
+        'この効率的なスイング連鎖を、疲労時も崩さないようコンディショニングを継続しましょう。'
+      ));
     }
   }
 
-  const praiseText = praises.length > 0 ? praises.slice(0, 2).map(p => "・" + p).join("\n") : "・一生懸命にフルスイングできています！";
-  const improveText = improvements.length > 0 ? improvements.slice(0, 1).map(i => "・" + i).join("\n") : "・今の良いフォームバランスをキープしよう！";
+  if (notes.length === 0) {
+    notes.push(trainerBlock(
+      '動作スクリーニング',
+      '現時点で突出した代償動作は見当たりません。',
+      '主要局面の数値が揃うと、運動連鎖をより正確に評価できます。',
+      '疲労の有無と、股関節・胸郭の可動域をあわせて確認しましょう。'
+    ));
+  }
 
-  let text = "【🤖 打撃AIコーチ診断】\n";
-  text += "🌟 ナイス！:\n" + praiseText + "\n\n";
-  text += "🎯 つぎの意識:\n" + improveText;
-  return text;
+  return '【🩺 AIトレーナー分析】\n' + notes.slice(0, 2).join('\n\n');
 }
 
 function calcJointAngle3D(p1, p2, p3) {

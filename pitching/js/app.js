@@ -170,7 +170,7 @@ function paintHero(el, tag, value, locked) {
 }
 
 let liveAdviceAt = 0;
-const LIVE_ADVICE_WAIT = '動画を再生してキー指標が決まると、ここにAIコーチのアドバイスが出ます。';
+const LIVE_ADVICE_WAIT = '動画を再生してキー指標が決まると、ここに肩肘・運動連鎖のチェックが出ます。';
 
 function buildLiveAdviceEntry() {
   return {
@@ -1010,7 +1010,7 @@ function renderCarteList(isInitialOpen) {
       </div>
 
       <div class="ai-coach-card">
-        <div class="ai-coach-title">🤖 投球バイオメカニクス AIコーチ診断</div>
+        <div class="ai-coach-title">🩺 AIトレーナー（肩肘・運動連鎖チェック）</div>
         <div class="ai-coach-text">${aiAdviceHtml}</div>
       </div>
 
