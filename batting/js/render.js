@@ -16,15 +16,42 @@ function getAspectFitBounds(srcW, srcH, dstW, dstH) {
     x = (dstW - w) / 2;
     y = 0;
   }
+  w = Math.max(0, Math.min(w, dstW));
+  h = Math.max(0, Math.min(h, dstH));
+  x = Math.max(0, Math.min(x, Math.max(0, dstW - w)));
+  y = Math.max(0, Math.min(y, Math.max(0, dstH - h)));
   return { x, y, w, h };
 }
 
-function updateScanScreenSize() {
-  const rect = scanCanvas.parentElement.getBoundingClientRect();
-  if (rect.width > 0 && rect.height > 0) {
-    scanCanvas.width = rect.width;
-    scanCanvas.height = rect.height;
+function stagePixelSize(canvas) {
+  const parent = canvas && canvas.parentElement;
+  if (!parent) return null;
+  const maxW = parent.clientWidth;
+  const maxH = parent.clientHeight;
+  if (maxW <= 0 || maxH <= 0) return null;
+  const rect = parent.getBoundingClientRect();
+  return {
+    w: Math.max(1, Math.min(maxW, Math.floor(rect.width))),
+    h: Math.max(1, Math.min(maxH, Math.floor(rect.height)))
+  };
+}
+
+function bindCanvasToStage(canvas) {
+  const size = stagePixelSize(canvas);
+  if (!size) return false;
+  canvas.style.width = "100%";
+  canvas.style.maxWidth = "100%";
+  canvas.style.height = "100%";
+  canvas.style.maxHeight = "100%";
+  if (canvas.width !== size.w || canvas.height !== size.h) {
+    canvas.width = size.w;
+    canvas.height = size.h;
   }
+  return true;
+}
+
+function updateScanScreenSize() {
+  bindCanvasToStage(scanCanvas);
 }
 
 function renderScanFrame() {
@@ -99,11 +126,7 @@ function drawInteractiveRuler(b) {
 }
 
 function resetWorkspaceDimensions() {
-  const rect = outputCanvas.parentElement.getBoundingClientRect();
-  if (rect.width > 0 && rect.height > 0) {
-    outputCanvas.width = rect.width;
-    outputCanvas.height = rect.height;
-  }
+  bindCanvasToStage(outputCanvas);
 }
 
 function beginAnalysisCanvas() {

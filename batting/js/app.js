@@ -499,7 +499,7 @@ document.getElementById('btn-start-analysis').addEventListener('click', () => {
   }, 150);
 });
 
-window.addEventListener('resize', () => {
+function syncCanvasToViewport() {
   if (stepViews[4].classList.contains('active')) {
     resetWorkspaceDimensions();
     processSingleFrame();
@@ -507,7 +507,11 @@ window.addEventListener('resize', () => {
     updateScanScreenSize();
     renderScanFrame();
   }
-});
+}
+window.addEventListener('resize', syncCanvasToViewport);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncCanvasToViewport);
+}
 
 function updateZoomBadge() {
   zoomBadge.textContent = `🔍 ${zoomScale.toFixed(1)}x (ピンチ可)`;

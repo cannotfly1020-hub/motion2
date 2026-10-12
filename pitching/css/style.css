@@ -13,8 +13,21 @@
   --radius: 14px;
 }
 
-* {
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+* {
   margin: 0;
   padding: 0;
   user-select: none;
@@ -25,22 +38,27 @@ body {
   font-family: "Hiragino Maru Gothic ProN", "Yu Gothic Rounded", "M PLUS Rounded 1c", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 50%, #f0fdf4 100%);
   color: var(--text);
+  height: 100vh;
   height: 100dvh;
+  max-height: 100vh;
   max-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2px 4px calc(2px + env(safe-area-inset-bottom, 0px)) 4px;
-  overflow: hidden;
+  padding: 2px 4px calc(2px + env(safe-area-inset-bottom, 0px));
+  overflow-x: hidden;
+  overflow-y: hidden;
   justify-content: flex-start;
 }
 
 header {
   width: 100%;
-  max-width: 1200px;
+  max-width: 100%;
   text-align: center;
   margin-bottom: 2px;
   flex-shrink: 0;
+  min-width: 0;
+  padding: 2px 4px 0;
 }
 
 .header-bar {
@@ -48,9 +66,11 @@ header {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 480px;
+  max-width: min(480px, 100%);
   margin: 0 auto;
   position: relative;
+  min-width: 0;
+  gap: 4px;
 }
 
 .btn-nav-home {
@@ -68,7 +88,12 @@ header {
   box-shadow: 0 1px 3px rgba(0,0,0,0.12);
   transition: all 0.15s ease;
   touch-action: manipulation;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn-nav-home:active {
@@ -77,7 +102,7 @@ header {
 }
 
 h1 {
-  font-size: 0.88rem;
+  font-size: clamp(0.72rem, 3.4vw, 0.88rem);
   font-weight: 900;
   color: #0369a1;
   display: flex;
@@ -87,6 +112,9 @@ h1 {
   text-shadow: 0 1px 0 #ffffff;
   line-height: 1.1;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .steps-nav {
@@ -95,15 +123,17 @@ h1 {
   gap: 4px;
   margin-top: 2px;
   width: 100%;
-  max-width: 480px;
+  max-width: min(480px, 100%);
   margin-inline: auto;
+  min-width: 0;
 }
 
 .step-pill {
   flex: 1;
+  min-width: 0;
   text-align: center;
-  padding: 3px 2px;
-  font-size: 0.65rem;
+  padding: 4px 2px;
+  font-size: clamp(0.58rem, 2.6vw, 0.65rem);
   font-weight: 900;
   border-radius: 9999px;
   background: #ffffff;
@@ -113,6 +143,8 @@ h1 {
   transition: all 0.2s ease;
   cursor: pointer;
   touch-action: manipulation;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
 .step-pill:active {
@@ -130,19 +162,22 @@ h1 {
 
 .app-container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 100%;
+  min-width: 0;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(8px);
   border-radius: var(--radius);
   border: 2px solid #38bdf8;
   box-shadow: 0 4px 12px rgba(14, 165, 233, 0.18);
   padding: 6px;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: hidden;
   position: relative;
 }
 
@@ -152,8 +187,13 @@ h1 {
   align-items: center;
   gap: 6px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: 100%;
+  min-height: 0;
   justify-content: space-between;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .view-section.active {
@@ -165,9 +205,10 @@ h1 {
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  max-width: min(480px, 100%);
+  min-width: 0;
   flex: 1;
   justify-content: stretch;
-  max-width: 480px;
   margin: 0 auto;
 }
 
@@ -184,6 +225,8 @@ h1 {
   position: relative;
   overflow: hidden;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .mode-card:active {
@@ -228,6 +271,7 @@ h1 {
   flex-direction: column;
   gap: 3px;
   flex: 1;
+  min-width: 0;
   text-align: left;
 }
 
@@ -267,7 +311,8 @@ h1 {
   font-size: 0.88rem;
   font-weight: 900;
   width: 100%;
-  max-width: 480px;
+  max-width: min(480px, 100%);
+  min-width: 0;
   box-shadow: 0 3px 0 #b45309;
   cursor: pointer;
   display: flex;
@@ -299,6 +344,8 @@ h1 {
   box-shadow: 0 2px 0 #0369a1;
   transition: all 0.15s ease;
   touch-action: manipulation;
+  min-height: 44px;
+  max-width: 100%;
 }
 
 .btn:active {
@@ -331,47 +378,71 @@ h1 {
   font-size: 0.92rem;
   padding: 8px 14px;
   width: 100%;
+  max-width: 100%;
+  min-height: 44px;
   box-shadow: 0 2px 0 #b45309;
 }
 
 .btn-group {
   display: flex;
   gap: 4px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: center;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   flex-shrink: 0;
 }
 
-.screen-wrapper {
+.btn-group > .btn {
+  flex: 1 1 7rem;
+  min-width: min(100%, 7rem);
+  max-width: 100%;
+  min-height: 44px;
+}
+
+.screen-wrapper,
+.video-stage,
+.canvas-container {
   position: relative;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: #0f172a;
   border-radius: 10px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 120px;
   touch-action: none;
   border: 2px solid #7dd3fc;
   box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
 }
 
-video {
+#hidden-video {
   position: fixed;
-  top: -9999px;
-  left: -9999px;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
-  opacity: 0.001;
+  max-width: 100%;
+  opacity: 0;
   pointer-events: none;
+  z-index: -1;
+  object-fit: contain;
 }
 
-canvas {
+.screen-wrapper canvas,
+.video-stage canvas,
+.canvas-container canvas,
+.video-stage video {
   width: 100%;
+  max-width: 100%;
   height: 100%;
+  max-height: 100%;
+  object-fit: contain;
   display: block;
   touch-action: none;
 }
@@ -432,10 +503,13 @@ canvas {
   font-weight: 800;
   text-align: center;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   color: #0369a1;
   line-height: 1.25;
   box-shadow: 0 1px 3px rgba(56, 189, 248, 0.15);
   flex-shrink: 0;
+  overflow-wrap: anywhere;
 }
 
 .input-group {
@@ -444,7 +518,8 @@ canvas {
   align-items: center;
   gap: 3px;
   width: 100%;
-  max-width: 300px;
+  max-width: min(300px, 100%);
+  min-width: 0;
 }
 
 .input-field {
@@ -472,6 +547,8 @@ canvas {
 
 .toggle-btn {
   flex: 1;
+  min-width: 0;
+  min-height: 44px;
   padding: 6px;
   border-radius: 8px;
   border: none;
@@ -491,15 +568,29 @@ canvas {
 
 .dashboard {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 3px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   flex-shrink: 0;
 }
 
-@media (min-width: 768px) {
+@media (max-width: 340px) {
   .dashboard {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 640px) {
+  .dashboard {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .dashboard {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
@@ -513,6 +604,9 @@ canvas {
   gap: 1px;
   box-shadow: 0 2px 0 #e2e8f0;
   position: relative;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .card-title {
@@ -522,8 +616,11 @@ canvas {
   display: flex;
   align-items: center;
   gap: 2px;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   line-height: 1.1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .card-max {
@@ -547,12 +644,13 @@ canvas {
 }
 
 .phase-num {
-  font-size: 1.7rem;
+  font-size: clamp(1.05rem, 4.8vw, 1.7rem);
   font-weight: 900;
   color: #cbd5e1;
   font-variant-numeric: tabular-nums;
   line-height: 1.02;
   letter-spacing: -0.03em;
+  max-width: 100%;
 }
 
 .card-max.is-locked {
@@ -586,6 +684,8 @@ canvas {
   flex-direction: column;
   gap: 3px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   z-index: 15;
   flex-shrink: 0;
 }
@@ -595,6 +695,8 @@ canvas {
   align-items: center;
   gap: 4px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: #ffffff;
   padding: 2px 6px;
   border-radius: 8px;
@@ -612,7 +714,9 @@ canvas {
 
 .seek-bar {
   width: 100%;
+  max-width: 100%;
   flex: 1;
+  min-width: 0;
   height: 14px;
   cursor: pointer;
   accent-color: #ff5e36;
@@ -665,14 +769,18 @@ canvas {
   flex-direction: column;
   gap: 3px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .btn-row {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   gap: 4px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   flex-wrap: wrap;
 }
 
@@ -680,17 +788,21 @@ canvas {
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
   color: #334155;
-  padding: 6px 3px;
+  padding: 8px 6px;
   border-radius: 8px;
   font-size: 0.72rem;
   font-weight: 900;
   cursor: pointer;
   box-shadow: 0 1.5px 0 #94a3b8;
   touch-action: manipulation;
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 7rem;
+  min-width: min(100%, 7rem);
+  max-width: 100%;
+  min-height: 44px;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
   transition: all 0.1s;
 }
 
@@ -713,8 +825,9 @@ canvas {
   color: #ffffff;
   border-color: #ffffff;
   box-shadow: 0 1.5px 0 #c2410c;
-  flex: 1.4 1 9.2rem;
-  min-width: 9.2rem;
+  flex: 1 1 9.2rem;
+  min-width: min(100%, 9.2rem);
+  min-height: 44px;
   padding: 8px 8px;
 }
 
@@ -800,7 +913,9 @@ canvas {
   border-radius: 16px;
   border: 3px solid #38bdf8;
   width: 100%;
-  max-width: 540px;
+  max-width: min(540px, 100%);
+  min-width: 0;
+  max-height: 88vh;
   max-height: 88dvh;
   display: flex;
   flex-direction: column;
@@ -864,8 +979,10 @@ canvas {
 
 .history-unified-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 440px) {
@@ -936,6 +1053,9 @@ canvas {
   color: #1e293b;
   line-height: 1.35;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .player-reflection-box {
@@ -964,8 +1084,9 @@ canvas {
 }
 
 .choice-chip {
-  flex: 1;
-  min-width: 80px;
+  flex: 1 1 5rem;
+  min-width: min(100%, 5rem);
+  max-width: 100%;
   padding: 4px 3px;
   border-radius: 6px;
   border: 1.5px solid #cbd5e1;
