@@ -1,65 +1,66 @@
-// 投球バイオメカニクス（角度・速度・フェーズ検出・AIアドバイス判定）
+// 投球バイオメカニクス（角度・速度・フェーズ検出）
+// トレーナーコメントの文章は trainer/pitching_knowledge.js にある。
 
-function generatePitchingAICoachAdvice(entry) {
-  let praises = [];
-  let improvements = [];
+function formatTrainerNumber(value) {
+  return (typeof value === 'number' && Number.isFinite(value)) ? String(value) : '--';
+}
 
-  if (entry.mode === 'SIDE') {
-    const m = entry.metrics;
-    // 1. 歩幅
-    if (m.strideRatio >= 75 && m.strideRatio <= 88) {
-      praises.push(`歩幅【${m.strideRatio}%】！力強い体重移動ができています！(⚡ 球速UP)`);
-    } else if (m.strideRatio < 72 && m.strideRatio > 0) {
-      improvements.push(`幅跳びジャンプなどで前への推進力をつけ、もう少し広く踏み出そう！(⚡ スピードUP)`);
+function fillTrainerText(text, metrics) {
+  if (typeof text !== 'string') return '';
+  return text.replace(/\{(\+)?([A-Za-z0-9_]+)\}/g, function(_, sign, key) {
+    const value = metrics[key];
+    if (sign === '+') {
+      if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
+      return (value > 0 ? '+' : '') + value;
     }
+    return formatTrainerNumber(value);
+  });
+}
 
-    // 2. 肩外旋（しなり）
-    if (m.mer >= 155) {
-      praises.push(`腕のしなり【${m.mer}°】！ムチのように鋭く振れています！(⚡ 球速UP)`);
-    } else if (m.mer > 0) {
-      improvements.push(`胸や肩甲骨のストレッチで、肩に力を入れず自然なしなりを作ろう！(🛡️ ケガ予防)`);
-    }
+function formatTrainerRule(rule, metrics) {
+  const rawTitle = rule.title || '評価';
+  const title = rawTitle.charAt(0) === '【' ? rawTitle : '【' + rawTitle + '】';
+  return title + '\n① ' + fillTrainerText(rule.description, metrics) +
+    '\n② ' + fillTrainerText(rule.reason, metrics) +
+    '\n③ ' + fillTrainerText(rule.exercise, metrics);
+}
 
-    // 3. 捻転差
-    if (m.twist >= 25 && m.twist <= 45) {
-      praises.push(`体幹のタメ【${m.twist}°】がバッチリ！キレのある球が投げられます！(⚡ 初速UP)`);
-    } else if (m.twist > 0 && m.twist < 22) {
-      improvements.push(`着地まで上半身を開かない意識で、腰から先に回す練習をしよう！(⚡ スピードUP)`);
-    }
+function renderTrainerKnowledge(rules, config, entry) {
+  const list = Array.isArray(rules) ? rules : [];
+  const safeEntry = entry || {};
+  const metrics = Object.assign({ mode: safeEntry.mode }, safeEntry.metrics || {});
+  const maxNotes = (config && config.maxNotes) || 2;
+  const findings = [];
+  const goods = [];
 
-    // 4. ヒザの壁
-    const ffK = m.ffKneeFlex || 0;
-    const relK = m.releaseKneeFlex || 0;
-    if (relK > 0 && relK <= ffK) {
-      praises.push(`前ヒザでしっかり踏ん張れており、強い回転ブレーキが効いています！(🎯 コントロールUP)`);
-    } else if (relK > ffK + 10) {
-      improvements.push(`ランジや片足立ちで前足をしっかり固定し、軸を安定させよう！(🎯 制球力UP)`);
+  list.forEach(function(rule) {
+    if (!rule || typeof rule.evaluate !== 'function') return;
+    let matched = false;
+    try {
+      matched = !!rule.evaluate(metrics);
+    } catch (err) {
+      matched = false;
     }
-  } else {
-    // FRONT MODE
-    const m = entry.metrics;
-    // つま先
-    if (m.toeAngle <= 12) {
-      praises.push(`つま先が捕手へ真っ直ぐ向いており、体の開きが抑えられています！(🎯 コントロールUP)`);
-    } else {
-      improvements.push(`つま先が外に開かないよう、地面のラインに沿って真っ直ぐ踏み出そう！(🎯 制球力UP)`);
-    }
+    if (!matched) return;
+    const text = formatTrainerRule(rule, metrics);
+    if (rule.severity === 'good') goods.push(text);
+    else findings.push(text);
+  });
 
-    // ヒザ内外反
-    if (m.valgus <= 6) {
-      praises.push(`着地足のヒザがブレずに真っ直ぐ踏ん張れています！(🎯 コントロールUP)`);
-    } else {
-      improvements.push(`片足バランストレーニングで、着地足のグラつきを抑えよう！(🎯 ケガ予防)`);
-    }
+  let chosen = findings.slice(0, maxNotes);
+  if (chosen.length === 0 && goods.length > 0) chosen = [goods[0]];
+  if (chosen.length === 0 && config && config.fallback) {
+    chosen = [formatTrainerRule(config.fallback, metrics)];
   }
 
-  const praiseText = praises.length > 0 ? praises.slice(0, 2).map(p => "・" + p).join("\n") : "・思い切り腕を振って投げられています！";
-  const improveText = improvements.length > 0 ? improvements.slice(0, 1).map(i => "・" + i).join("\n") : "・今の良いフォームバランスをキープして練習しよう！";
+  const header = (config && config.header) ? config.header + '\n' : '';
+  return header + chosen.join('\n\n');
+}
 
-  let text = "【🤖 AIコーチ診断】\n";
-  text += "🌟 ナイス！:\n" + praiseText + "\n\n";
-  text += "🎯 つぎの意識:\n" + improveText;
-  return text;
+function generatePitchingAICoachAdvice(entry) {
+  const rules = (typeof PITCHING_TRAINER_RULES !== 'undefined') ? PITCHING_TRAINER_RULES : [];
+  const config = (typeof PITCHING_TRAINER_CONFIG !== 'undefined') ? PITCHING_TRAINER_CONFIG : null;
+  return renderTrainerKnowledge(rules, config, entry);
 }
 
 function getSegmentAngle3D(p1, p2) {
