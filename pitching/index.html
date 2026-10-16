@@ -138,84 +138,88 @@
 
     <!-- STEP 4 -->
     <section id="view-step4" class="view-section">
-      <div class="dashboard">
-        <div class="card">
-          <div class="card-title" id="c1-title">🚶 ステップ幅 (歩幅)</div>
-          <div class="card-max" id="c1-max"><span class="phase-tag">MAX ステップ</span><span class="phase-num">--</span></div>
-          <div class="card-val" id="c1-val">--</div>
-        </div>
-        <div class="card">
-          <div class="card-title" id="c2-title">💪 うでのしなり (左肩外旋)</div>
-          <div class="card-max" id="c2-max"><span class="phase-tag">MER 肩外旋</span><span class="phase-num">--</span></div>
-          <div class="card-val" id="c2-val">--</div>
-        </div>
-        <div class="card">
-          <div class="card-title" id="c3-title">🔄 捻転差 (胸と腰のひねり)</div>
-          <div class="card-max" id="c3-max"><span class="phase-tag">MAX 捻転差</span><span class="phase-num">--</span></div>
-          <div class="card-val" id="c3-val">--</div>
-        </div>
-        <div class="card">
-          <div class="card-title" id="c4-title">⚾ 指先リリース高</div>
-          <div class="card-max" id="c4-max"><span class="phase-tag">RELEASE 高さ</span><span class="phase-num">--</span></div>
-          <div class="card-val" id="c4-val">--</div>
-        </div>
-        <div class="card">
-          <div class="card-title" id="c5-title">🦵 前足ヒザ屈曲角度 (曲がり)</div>
-          <div class="card-max" id="c5-max"><span class="phase-tag">SFC/REL 前ヒザ</span><span class="phase-num">--</span></div>
-          <div class="card-val" id="c5-val">--</div>
-        </div>
-        <div class="card">
-          <div class="card-title" id="c6-title">📐 体幹の前傾角度 (倒れ)</div>
-          <div class="card-max" id="c6-max"><span class="phase-tag">MAX 体幹前傾</span><span class="phase-num">--</span></div>
-          <div class="card-val" id="c6-val">--</div>
-        </div>
-      </div>
-
-      <div class="screen-wrapper" id="main-screen-wrapper">
-        <canvas id="output-canvas"></canvas>
-        <div id="ai-status-hud" class="ai-status-hud" hidden></div>
-        <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
-        <div class="angle-mode-badge" id="angle-mode-badge">横向き解析</div>
-        <div class="player-tag-badge" id="player-tag-badge">👤 せんしゅ1 (140cm)</div>
-        <div class="loading-overlay" id="ai-loading" style="display: none;">
-          <div class="spinner"></div>
-          <div style="font-size: 0.75rem; color: #0284c7; font-weight: 900;">⚡ AI同期中...</div>
-        </div>
-      </div>
-
-      <div class="controls-container">
-        <div class="seek-container">
-          <div class="seek-track">
-            <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
-            <button type="button" id="release-marker" class="release-marker" hidden title="リリース位置へ移動">⚾</button>
+      <div class="analysis-layout">
+        <div class="analysis-stage">
+          <div class="screen-wrapper" id="main-screen-wrapper">
+            <canvas id="output-canvas"></canvas>
+            <div id="ai-status-hud" class="ai-status-hud" hidden></div>
+            <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
+            <div class="angle-mode-badge" id="angle-mode-badge">横向き解析</div>
+            <div class="player-tag-badge" id="player-tag-badge">👤 せんしゅ1 (140cm)</div>
+            <div class="loading-overlay" id="ai-loading" style="display: none;">
+              <div class="spinner"></div>
+              <div style="font-size: 0.75rem; color: #0284c7; font-weight: 900;">⚡ AI同期中...</div>
+            </div>
           </div>
-          <span class="time-disp" id="time-disp">0.00 / 0.00</span>
         </div>
-        <div class="playback-rows">
-          <div class="btn-row">
-            <button class="btn-ctrl btn-ai-hud" id="btn-toggle-ai-hud" type="button">🤖 AI認識ステータス</button>
+        <div class="analysis-side">
+          <div class="controls-container">
+            <div class="seek-container">
+              <div class="seek-track">
+                <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
+                <button type="button" id="release-marker" class="release-marker" hidden title="リリース位置へ移動">⚾</button>
+              </div>
+              <span class="time-disp" id="time-disp">0.00 / 0.00</span>
+            </div>
+            <div class="playback-rows">
+              <div class="btn-row">
+                <button class="btn-ctrl btn-ai-hud" id="btn-toggle-ai-hud" type="button">🤖 AI認識ステータス</button>
+              </div>
+              <div class="btn-row">
+                <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
+                <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: 0 1.5px 0 #c0392b;">再生 ▶</button>
+                <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
+              </div>
+              <div class="btn-row">
+                <button class="btn-ctrl btn-fc-trigger" id="btn-manual-fc">👟 べた足決定</button>
+                <button class="btn-ctrl btn-release-trigger" id="btn-set-release">📍 リリース位置を決定</button>
+                <button class="btn-ctrl btn-release-clear" id="btn-clear-release" hidden>解除</button>
+              </div>
+              <div class="btn-row">
+                <button class="btn-ctrl btn-save-trigger" id="btn-save-record">💾 保存</button>
+                <button class="btn-ctrl" id="btn-open-carte">📋 カルテ</button>
+              </div>
+              <div class="btn-row">
+                <button class="btn-ctrl" id="btn-toggle-skeleton">🦴 骨格</button>
+                <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム</button>
+              </div>
+              <div class="btn-row">
+                <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
+                <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 選択</button>
+              </div>
+            </div>
           </div>
-          <div class="btn-row">
-            <button class="btn-ctrl" id="btn-frame-prev">◀ -1コマ</button>
-            <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: 0 1.5px 0 #c0392b;">再生 ▶</button>
-            <button class="btn-ctrl" id="btn-frame-next">+1コマ ▶</button>
-          </div>
-          <div class="btn-row">
-            <button class="btn-ctrl btn-fc-trigger" id="btn-manual-fc">👟 べた足決定</button>
-            <button class="btn-ctrl btn-release-trigger" id="btn-set-release">📍 リリース位置を決定</button>
-            <button class="btn-ctrl btn-release-clear" id="btn-clear-release" hidden>解除</button>
-          </div>
-          <div class="btn-row">
-            <button class="btn-ctrl btn-save-trigger" id="btn-save-record">💾 保存</button>
-            <button class="btn-ctrl" id="btn-open-carte">📋 カルテ</button>
-          </div>
-          <div class="btn-row">
-            <button class="btn-ctrl" id="btn-toggle-skeleton">🦴 骨格</button>
-            <button class="btn-ctrl" id="btn-zoom-reset">🔍 ズーム</button>
-          </div>
-          <div class="btn-row">
-            <button class="btn-ctrl" id="btn-reset-max">🏆 リセット</button>
-            <button class="btn-ctrl btn-secondary" id="btn-re-select">📁 選択</button>
+          <div class="dashboard">
+            <div class="card">
+              <div class="card-title" id="c1-title">🚶 ステップ幅 (歩幅)</div>
+              <div class="card-max" id="c1-max"><span class="phase-tag">MAX ステップ</span><span class="phase-num">--</span></div>
+              <div class="card-val" id="c1-val">--</div>
+            </div>
+            <div class="card">
+              <div class="card-title" id="c2-title">💪 うでのしなり (左肩外旋)</div>
+              <div class="card-max" id="c2-max"><span class="phase-tag">MER 肩外旋</span><span class="phase-num">--</span></div>
+              <div class="card-val" id="c2-val">--</div>
+            </div>
+            <div class="card">
+              <div class="card-title" id="c3-title">🔄 捻転差 (胸と腰のひねり)</div>
+              <div class="card-max" id="c3-max"><span class="phase-tag">MAX 捻転差</span><span class="phase-num">--</span></div>
+              <div class="card-val" id="c3-val">--</div>
+            </div>
+            <div class="card">
+              <div class="card-title" id="c4-title">⚾ 指先リリース高</div>
+              <div class="card-max" id="c4-max"><span class="phase-tag">RELEASE 高さ</span><span class="phase-num">--</span></div>
+              <div class="card-val" id="c4-val">--</div>
+            </div>
+            <div class="card">
+              <div class="card-title" id="c5-title">🦵 前足ヒザ屈曲角度 (曲がり)</div>
+              <div class="card-max" id="c5-max"><span class="phase-tag">SFC/REL 前ヒザ</span><span class="phase-num">--</span></div>
+              <div class="card-val" id="c5-val">--</div>
+            </div>
+            <div class="card">
+              <div class="card-title" id="c6-title">📐 体幹の前傾角度 (倒れ)</div>
+              <div class="card-max" id="c6-max"><span class="phase-tag">MAX 体幹前傾</span><span class="phase-num">--</span></div>
+              <div class="card-val" id="c6-val">--</div>
+            </div>
           </div>
         </div>
       </div>

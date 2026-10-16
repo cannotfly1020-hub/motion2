@@ -394,6 +394,7 @@ function setStep(stepNum) {
     stepPills[stepNum].classList.add('active');
   } else if (stepNum === 4 && stepPills[3]) {
     stepPills[3].classList.add('active');
+    if (typeof drawAiDiagnosticsHUD === 'function') drawAiDiagnosticsHUD();
   }
 }
 
