@@ -1,4 +1,4 @@
-const CACHE_NAME = 'baseball-ai-v11';
+const CACHE_NAME = 'baseball-ai-v12';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
@@ -46,11 +46,18 @@ self.addEventListener('activate', function(event) {
   );
 });
 
-// キャッシュまたはネットワークから取得
+// 編集したファイルをそのまま読む。通信できないときだけキャッシュを使う。
 self.addEventListener('fetch', function(event) {
+  if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then(function(response) {
-      return response || fetch(event.request);
+    fetch(event.request).then(function(response) {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then(function(cache) {
+        cache.put(event.request, copy);
+      });
+      return response;
+    }).catch(function() {
+      return caches.match(event.request);
     })
   );
 });

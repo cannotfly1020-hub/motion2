@@ -175,6 +175,7 @@ function endAnalysisCanvas() {
 }
 
 function renderFrameOnly() {
+  drawAiDiagnosticsHUD(outputCtx);
   const cw = outputCanvas.width;
   const ch = outputCanvas.height;
   if (cw === 0 || ch === 0 || !videoElement.videoWidth) return;
@@ -190,7 +191,6 @@ function renderFrameOnly() {
     outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
   }
   outputCtx.restore();
-  if (showAiDebugHud) drawAiDiagnosticsHUD(outputCtx);
 }
 
 function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw, isRightHanded) {
@@ -312,144 +312,87 @@ function hitTestAiHud(pos, canvasWidth) {
   return pos.x >= box.x && pos.x <= box.x + box.w && pos.y >= box.y && pos.y <= box.y + box.h;
 }
 
-function drawAiDiagnosticsHUD(ctx) {
-  const box = getAiHudBox(ctx.canvas.width);
-  const x = box.localX;
-  const y = box.localY;
-  const w = box.localW;
-  const h = box.localH;
-  const radius = hudLayout.radius;
+function hudVisMark(score) {
+  if (score >= 0.80) return '◎';
+  if (score >= 0.50) return '○';
+  return '×(隠れ)';
+}
 
-  ctx.save();
-  if (box.scale < 1) {
-    ctx.translate(box.originX, box.originY);
-    ctx.scale(box.scale, box.scale);
-  }
+function ensureAiStatusHud(el) {
+  if (el._ready) return;
+  el._ready = true;
+  el.innerHTML =
+    '<div class="hud-collapsed-line" data-k="collapsed"></div>' +
+    '<div class="hud-body">' +
+      '<div class="hud-head"><span class="hud-title">🤖 AI認識ステータス</span><span class="hud-muted">▲ 閉じる</span></div>' +
+      '<div>状態: <b data-k="status"></b></div>' +
+      '<div>処理速度: <b data-k="speed"></b></div>' +
+      '<div>3D空間認識: <b data-k="world"></b></div>' +
+      '<div>視認性: <span data-k="vis"></span></div>' +
+      '<div>骨盤向: <b data-k="pelvis"></b>　胸郭向: <b data-k="thorax"></b></div>' +
+      '<div>体幹捻転差: <b data-k="torsion"></b></div>' +
+    '</div>';
+  el.addEventListener('pointerdown', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    isHudCollapsed = !isHudCollapsed;
+    drawAiDiagnosticsHUD();
+  });
+}
 
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(x, y, w, h, radius);
-  } else {
-    ctx.rect(x, y, w, h);
-  }
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
-  ctx.fill();
-  ctx.strokeStyle = isHudCollapsed ? 'rgba(0, 255, 204, 0.3)' : 'rgba(255, 255, 255, 0.15)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-
-  if (isHudCollapsed) {
-    const midY = y + h / 2;
-    const dotColor = aiDiagnostics.status === 'RUNNING' ? '#30d158' : (aiDiagnostics.status === 'ERROR' ? '#ff3b30' : '#ffd60a');
-    const statusShort = aiDiagnostics.status === 'RUNNING' ? '正常' : (aiDiagnostics.status === 'ERROR' ? 'エラー' : '待機');
-    ctx.fillStyle = dotColor;
-    ctx.beginPath();
-    ctx.arc(x + 14, midY, 4, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#00ffcc';
-    ctx.fillText('🤖 AI認識: ' + statusShort, x + 24, midY);
-
-    ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillStyle = '#ccc';
-    ctx.fillText('[' + Math.round(aiDiagnostics.latencyMs) + 'ms]', x + 128, midY);
-    ctx.fillStyle = '#8e8e93';
-    ctx.fillText('▼', x + w - 16, midY);
-
-    ctx.restore();
+function drawAiDiagnosticsHUD() {
+  const el = document.getElementById('ai-status-hud');
+  if (!el) return;
+  ensureAiStatusHud(el);
+  const hidden = (typeof showAiDebugHud !== 'undefined' && !showAiDebugHud) ||
+    (typeof scanModeActive !== 'undefined' && scanModeActive);
+  if (hidden) {
+    el.hidden = true;
     return;
   }
-
-  ctx.textBaseline = 'top';
-  ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillStyle = '#00ffcc';
-  ctx.fillText('🤖 AI認識ステータス', x + 12, y + 10);
-  ctx.fillStyle = '#8e8e93';
-  ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('▲ 閉じる', x + w - 58, y + 11);
-
-  ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  let curY = y + 30;
-  const lineGap = 17;
-
-  ctx.fillStyle = '#aaa';
-  ctx.fillText('状態:', x + 12, curY);
+  const diag = (typeof aiDiagnostics !== 'undefined') ? aiDiagnostics : null;
+  const status = diag ? diag.status : 'IDLE';
+  const latency = diag ? Math.round(diag.latencyMs) : 0;
+  const fps = diag ? Math.round(diag.fps) : 0;
+  const statusShort = status === 'RUNNING' ? '正常' : (status === 'ERROR' ? 'エラー' : '待機');
+  el.hidden = false;
+  el.classList.toggle('is-collapsed', !!isHudCollapsed);
+  const collapsed = el.querySelector('[data-k="collapsed"]');
+  collapsed.textContent = '🤖 AI認識: ' + statusShort + '  [' + latency + 'ms]  ▼';
   let statusText = '一時停止中 (待機)';
   let statusColor = '#ffd60a';
-  if (aiDiagnostics.status === 'RUNNING') {
+  if (status === 'RUNNING') {
     statusText = '正常稼働中';
     statusColor = '#30d158';
-  } else if (aiDiagnostics.status === 'ERROR') {
+  } else if (status === 'ERROR') {
     statusText = '処理落ち / エラー';
     statusColor = '#ff3b30';
   }
-  ctx.fillStyle = statusColor;
-  ctx.fillText(statusText, x + 68, curY);
-  curY += lineGap;
-
-  ctx.fillStyle = '#aaa';
-  ctx.fillText('処理速度:', x + 12, curY);
-  ctx.fillStyle = '#fff';
-  ctx.fillText(Math.round(aiDiagnostics.latencyMs) + 'ms (' + Math.round(aiDiagnostics.fps) + 'コマ/秒)', x + 68, curY);
-  curY += lineGap;
-
-  ctx.fillStyle = '#aaa';
-  ctx.fillText('3D空間認識:', x + 12, curY);
-  ctx.fillStyle = aiDiagnostics.hasWorld3D ? '#30d158' : '#ff3b30';
-  ctx.fillText(aiDiagnostics.hasWorld3D ? '良好 (全身33箇所)' : '未検出 / 2Dのみ', x + 82, curY);
-  curY += lineGap;
-
-  const getMark = (score) => {
-    if (score >= 0.80) return { text: '◎', color: '#30d158' };
-    if (score >= 0.50) return { text: '○', color: '#ffd60a' };
-    return { text: '×(隠れ)', color: '#ff3b30' };
-  };
-
-  const drawVisPair = (labelA, markA, labelB, markB) => {
-    let cursor = x + 68;
-    ctx.fillStyle = '#ccc';
-    ctx.fillText(labelA, cursor, curY);
-    cursor += ctx.measureText(labelA).width + 2;
-    ctx.fillStyle = markA.color;
-    ctx.fillText(markA.text, cursor, curY);
-    cursor += ctx.measureText(markA.text).width + 8;
-    ctx.fillStyle = '#ccc';
-    ctx.fillText(labelB, cursor, curY);
-    cursor += ctx.measureText(labelB).width + 2;
-    ctx.fillStyle = markB.color;
-    ctx.fillText(markB.text, cursor, curY);
-  };
-
-  ctx.fillStyle = '#aaa';
-  ctx.fillText('視認性:', x + 12, curY);
-  drawVisPair('左肩:', getMark(aiDiagnostics.vis.leftShoulder), '右肩:', getMark(aiDiagnostics.vis.rightShoulder));
-  curY += lineGap;
-  drawVisPair('左腰:', getMark(aiDiagnostics.vis.leftHip), '右腰:', getMark(aiDiagnostics.vis.rightHip));
-  curY += lineGap;
-
-  ctx.fillStyle = '#aaa';
-  ctx.fillText('骨盤向:', x + 12, curY);
-  ctx.fillStyle = '#007aff';
-  const pYaw = (aiDiagnostics.pelvisYaw >= 0 ? '+' : '') + aiDiagnostics.pelvisYaw.toFixed(1) + '°';
-  ctx.fillText(pYaw, x + 55, curY);
-
-  ctx.fillStyle = '#aaa';
-  ctx.fillText('胸郭向:', x + 120, curY);
-  ctx.fillStyle = '#ff375f';
-  const tYaw = (aiDiagnostics.thoraxYaw >= 0 ? '+' : '') + aiDiagnostics.thoraxYaw.toFixed(1) + '°';
-  ctx.fillText(tYaw, x + 165, curY);
-  curY += lineGap;
-
-  ctx.fillStyle = '#aaa';
-  ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText('体幹捻転差:', x + 12, curY);
-  ctx.fillStyle = '#ffcc00';
-  ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText(Math.abs(aiDiagnostics.torsionDiff).toFixed(1) + '°', x + 82, curY);
-
-  ctx.restore();
+  const statusEl = el.querySelector('[data-k="status"]');
+  statusEl.textContent = statusText;
+  statusEl.style.color = statusColor;
+  el.querySelector('[data-k="speed"]').textContent = latency + 'ms (' + fps + 'コマ/秒)';
+  const worldEl = el.querySelector('[data-k="world"]');
+  const hasWorld = !!(diag && diag.hasWorld3D);
+  worldEl.textContent = hasWorld ? '良好 (全身33箇所)' : '未検出 / 2Dのみ';
+  worldEl.style.color = hasWorld ? '#30d158' : '#ff3b30';
+  const vis = (diag && diag.vis) || {};
+  el.querySelector('[data-k="vis"]').textContent =
+    '左肩' + hudVisMark(vis.leftShoulder || 0) +
+    ' 右肩' + hudVisMark(vis.rightShoulder || 0) +
+    ' 左腰' + hudVisMark(vis.leftHip || 0) +
+    ' 右腰' + hudVisMark(vis.rightHip || 0);
+  const pYaw = diag ? diag.pelvisYaw : 0;
+  const tYaw = diag ? diag.thoraxYaw : 0;
+  const torsion = diag ? diag.torsionDiff : 0;
+  const pelvisEl = el.querySelector('[data-k="pelvis"]');
+  pelvisEl.textContent = (pYaw >= 0 ? '+' : '') + pYaw.toFixed(1) + '°';
+  pelvisEl.style.color = '#007aff';
+  const thoraxEl = el.querySelector('[data-k="thorax"]');
+  thoraxEl.textContent = (tYaw >= 0 ? '+' : '') + tYaw.toFixed(1) + '°';
+  thoraxEl.style.color = '#ff375f';
+  const torsionEl = el.querySelector('[data-k="torsion"]');
+  torsionEl.textContent = Math.abs(torsion).toFixed(1) + '°';
+  torsionEl.style.color = '#ffcc00';
 }
+

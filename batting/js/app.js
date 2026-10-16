@@ -277,7 +277,7 @@ function updateAiHudButton() {
 function toggleAiDebugHud() {
   showAiDebugHud = !showAiDebugHud;
   updateAiHudButton();
-  processSingleFrame();
+  drawAiDiagnosticsHUD(outputCtx);
 }
 
 document.getElementById('btn-toggle-ai-hud').addEventListener('click', (e) => {

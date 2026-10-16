@@ -158,7 +158,10 @@ function onPoseResults(results) {
   }
 
   const b = beginAnalysisCanvas();
-  if (!b) return;
+  if (!b) {
+    drawAiDiagnosticsHUD(outputCtx);
+    return;
+  }
 
   if (results.poseLandmarks) {
     applyBattingBiomechanics(results.poseLandmarks, b);
