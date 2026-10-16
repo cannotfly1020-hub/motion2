@@ -334,7 +334,7 @@ btnToggleSkeleton.addEventListener('click', () => {
 function updateAiHudButton() {
   const btn = document.getElementById('btn-toggle-ai-hud');
   if (!btn) return;
-  btn.textContent = showAiDebugHud ? '🤖 AI状態' : '🤖 HUD切';
+  btn.textContent = showAiDebugHud ? '🤖 AI認識ステータス' : '🤖 AI認識ステータス（非表示）';
   btn.classList.toggle('is-off', !showAiDebugHud);
 }
 

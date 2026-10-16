@@ -816,6 +816,11 @@ input[type="file"] {
 }
 
 .btn-ai-hud {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 100%;
+  min-height: 44px;
+  white-space: nowrap;
   background: #042f2e;
   color: #5eead4;
   border-color: #14b8a6;
