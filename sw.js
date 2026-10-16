@@ -1,4 +1,4 @@
-const CACHE_NAME = 'baseball-ai-v10';
+const CACHE_NAME = 'baseball-ai-v11';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',

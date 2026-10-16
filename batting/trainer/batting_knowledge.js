@@ -5,7 +5,7 @@
 // severity が "good" の項目は、alert / warning が1件も無いときだけ出る。
 // 書き方の詳細は README_trainer.md。
 
-const BATTING_TRAINER_CONFIG = {
+var BATTING_TRAINER_CONFIG = {
   header: "【🩺 AIトレーナー分析】",
   maxNotes: 2,
   fallback: {
@@ -16,7 +16,7 @@ const BATTING_TRAINER_CONFIG = {
   }
 };
 
-const BATTING_TRAINER_RULES = [
+var BATTING_TRAINER_RULES = [
   {
     id: "side_twist_shortage",
     phase: "Top",

@@ -5,7 +5,7 @@
 // severity が "good" の項目は、alert / warning が1件も無いときだけ出る。
 // 書き方の詳細は README_trainer.md。
 
-const PITCHING_TRAINER_CONFIG = {
+var PITCHING_TRAINER_CONFIG = {
   header: "【🩺 AIトレーナー（肩肘・運動連鎖チェック）】",
   maxNotes: 2,
   fallback: {
@@ -16,7 +16,7 @@ const PITCHING_TRAINER_CONFIG = {
   }
 };
 
-const PITCHING_TRAINER_RULES = [
+var PITCHING_TRAINER_RULES = [
   {
     id: "mer_hyper_external_rotation",
     phase: "MER",

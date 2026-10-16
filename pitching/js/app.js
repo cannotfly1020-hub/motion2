@@ -166,60 +166,6 @@ function escapeHeroText(value) {
 function paintHero(el, tag, value, locked) {
   el.innerHTML = '<span class="phase-tag">' + escapeHeroText(tag) + '</span><span class="phase-num">' + escapeHeroText(value) + '</span>';
   el.classList.toggle('is-locked', !!locked);
-  refreshLiveAdvice(false);
-}
-
-let liveAdviceAt = 0;
-const LIVE_ADVICE_WAIT = '動画を再生してキー指標が決まると、ここに肩肘・運動連鎖のチェックが出ます。';
-
-function buildLiveAdviceEntry() {
-  return {
-    mode: selectedAngleMode,
-    metrics: selectedAngleMode === 'SIDE' ? {
-      stride: records.maxStride,
-      strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
-      mer: records.maxMER,
-      twist: records.maxTwist,
-      releaseH: records.maxRelease,
-      ffKneeFlex: records.ffKneeFlex !== null ? records.ffKneeFlex : currentCalculatedState.kneeFlexAngle,
-      releaseKneeFlex: records.releaseKneeFlex !== null ? records.releaseKneeFlex : currentCalculatedState.kneeFlexAngle,
-      trunkTilt: records.maxTrunkTilt
-    } : {
-      toeAngle: records.fcToeAngle !== null ? records.fcToeAngle : 0,
-      toeLabel: records.fcToeLabel || "未測定",
-      valgus: records.ffValgusAngle !== null ? records.ffValgusAngle : records.maxValgus,
-      valgusLabel: records.ffValgusLabel || "未測定",
-      trunkLateral: records.maxTrunkLateral,
-      armSlot: records.maxArmSlot,
-      inStep: records.maxInStepCm,
-      releaseLateral: records.maxReleaseLateral
-    }
-  };
-}
-
-function hasLiveMeasurements() {
-  if (selectedAngleMode === 'SIDE') {
-    return records.maxStride > 0 || records.maxMER > 0 || records.maxTwist > 0 || records.maxRelease > 0 || records.ffKneeFlex !== null;
-  }
-  return records.fcToeAngle !== null || records.maxValgus > 0 || records.maxArmSlot > 0 || records.maxInStepCm > 0;
-}
-
-function refreshLiveAdvice(force) {
-  const el = document.getElementById('live-ai-advice-text');
-  if (!el) return;
-  const now = performance.now();
-  if (!force && now - liveAdviceAt < 400) return;
-  liveAdviceAt = now;
-  if (!hasLiveMeasurements()) {
-    el.textContent = LIVE_ADVICE_WAIT;
-    return;
-  }
-  try {
-    const text = generatePitchingAICoachAdvice(buildLiveAdviceEntry());
-    if (el.textContent !== text) el.textContent = text;
-  } catch (err) {
-    el.textContent = LIVE_ADVICE_WAIT;
-  }
 }
 
 function paintReleaseSnapshot(el, tag, value, details) {
@@ -362,7 +308,6 @@ function showWaitingHeroes() {
   }
   updateReleaseButton();
   updateReleaseMarker();
-  refreshLiveAdvice(true);
 }
 
 function updateCardLabels() {
@@ -1260,7 +1205,6 @@ function updateTimeUI() {
   seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
   timeDisp.textContent = `${videoElement.currentTime.toFixed(2)} / ${videoElement.duration.toFixed(2)}`;
   updateReleaseMarker();
-  refreshLiveAdvice(false);
 }
 
 videoElement.addEventListener('play', updatePlayState);
