@@ -784,7 +784,7 @@ input[type="file"] {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .btn-ctrl {
@@ -798,14 +798,13 @@ input[type="file"] {
   cursor: pointer;
   box-shadow: 0 1.5px 0 #94a3b8;
   touch-action: manipulation;
-  flex: 1 1 7rem;
-  min-width: min(100%, 7rem);
+  flex: 1 1 0;
+  min-width: 0;
   max-width: 100%;
   min-height: 44px;
   text-align: center;
-  white-space: normal;
+  white-space: nowrap;
   line-height: 1.2;
-  overflow-wrap: anywhere;
   transition: all 0.1s;
 }
 
@@ -843,7 +842,7 @@ input[type="file"] {
   color: #ffffff;
   border-color: #ffffff;
   box-shadow: 0 1.5px 0 #047857;
-  flex: 1.25;
+  flex: 1 1 0;
 }
 
 .btn-release-trigger {
@@ -851,10 +850,10 @@ input[type="file"] {
   color: #ffffff;
   border-color: #ffffff;
   box-shadow: 0 1.5px 0 #c2410c;
-  flex: 1 1 9.2rem;
-  min-width: min(100%, 9.2rem);
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 44px;
-  padding: 8px 8px;
+  padding: 8px 6px;
 }
 
 .btn-release-trigger:hover {
@@ -872,7 +871,7 @@ input[type="file"] {
   color: #c2410c;
   border-color: #fdba74;
   box-shadow: 0 1.5px 0 #fdba74;
-  flex: 0.7;
+  flex: 1 1 0;
 }
 
 .btn-release-clear:active {
