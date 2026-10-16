@@ -567,7 +567,6 @@ outputCanvas.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 outputCanvas.addEventListener('touchstart', (e) => {
-  if (e.touches.length >= 2) hudTap = null;
   if (e.touches.length === 1 && isPointOnAiHud(e)) return;
   if (e.touches.length === 2) {
     initialPinchDistance = Math.hypot(
@@ -609,51 +608,40 @@ outputCanvas.addEventListener('touchend', (e) => {
   if (e.touches.length === 0) isPanning = false;
 });
 
-var hudTap = null;
-
-function isPointOnAiHud(e) {
-  if (!showAiDebugHud) return false;
-  return hitTestAiHud(getCanvasPoint(e, outputCanvas), outputCanvas.width);
+function canvasPointerPos(e) {
+  const point = (e.touches && e.touches[0]) ? e.touches[0] : e;
+  const rect = outputCanvas.getBoundingClientRect();
+  const width = rect.width || 1;
+  const height = rect.height || 1;
+  return {
+    x: (point.clientX - rect.left) * (outputCanvas.width / width),
+    y: (point.clientY - rect.top) * (outputCanvas.height / height)
+  };
 }
 
-function onHudPointerDown(e) {
-  if (!e.isPrimary || (typeof e.button === 'number' && e.button !== 0)) {
-    hudTap = null;
-    return;
-  }
+function isPointOnAiHud(e) {
+  if (!showAiDebugHud || typeof hitTestAiHud !== 'function') return false;
+  return hitTestAiHud(canvasPointerPos(e), outputCanvas.width);
+}
+
+function onCanvasPointerDown(e) {
+  if (!e.isPrimary || (typeof e.button === 'number' && e.button !== 0)) return;
   if (!isPointOnAiHud(e)) return;
-  hudTap = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
-  try { outputCanvas.setPointerCapture(e.pointerId); } catch (err) {}
+  isHudCollapsed = !isHudCollapsed;
+  if (typeof processSingleFrame === 'function') processSingleFrame();
+  else if (typeof renderFrameOnly === 'function') renderFrameOnly();
+  e.preventDefault();
+  e.stopPropagation();
 }
 
 function onHudPointerMove(e) {
-  if (!hudTap || e.pointerId !== hudTap.pointerId) {
-    if (e.pointerType === 'mouse') {
-      outputCanvas.style.cursor = isPointOnAiHud(e) ? 'pointer' : '';
-    }
-    return;
+  if (e.pointerType === 'mouse') {
+    outputCanvas.style.cursor = isPointOnAiHud(e) ? 'pointer' : '';
   }
-  if (Math.hypot(e.clientX - hudTap.x, e.clientY - hudTap.y) > 8) hudTap.moved = true;
 }
 
-function onHudPointerUp(e) {
-  if (!hudTap || e.pointerId !== hudTap.pointerId) return;
-  const toggle = !hudTap.moved && showAiDebugHud;
-  hudTap = null;
-  try { outputCanvas.releasePointerCapture(e.pointerId); } catch (err) {}
-  if (!toggle) return;
-  isHudCollapsed = !isHudCollapsed;
-  processSingleFrame();
-}
-
-function onHudPointerCancel(e) {
-  if (hudTap && e.pointerId === hudTap.pointerId) hudTap = null;
-}
-
-outputCanvas.addEventListener('pointerdown', onHudPointerDown);
+outputCanvas.addEventListener('pointerdown', onCanvasPointerDown);
 outputCanvas.addEventListener('pointermove', onHudPointerMove);
-outputCanvas.addEventListener('pointerup', onHudPointerUp);
-outputCanvas.addEventListener('pointercancel', onHudPointerCancel);
 
 document.getElementById('btn-zoom-reset').addEventListener('click', () => {
   zoomScale = 1.0;
