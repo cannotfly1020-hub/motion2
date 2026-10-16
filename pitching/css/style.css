@@ -700,6 +700,24 @@ canvas {
   background: #f1f5f9;
 }
 
+.btn-ai-hud {
+  background: #042f2e;
+  color: #5eead4;
+  border-color: #14b8a6;
+  box-shadow: 0 1.5px 0 #0f766e;
+}
+
+.btn-ai-hud.is-off {
+  background: #ffffff;
+  color: #64748b;
+  border-color: #cbd5e1;
+  box-shadow: 0 1.5px 0 #94a3b8;
+}
+
+.btn-ai-hud:active {
+  transform: translateY(1px) scale(0.98);
+}
+
 .btn-fc-trigger {
   background: linear-gradient(135deg, #10b981, #059669);
   color: #ffffff;

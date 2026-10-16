@@ -267,6 +267,33 @@ btnToggleSkeleton.addEventListener('click', () => {
   processSingleFrame();
 });
 
+function updateAiHudButton() {
+  const btn = document.getElementById('btn-toggle-ai-hud');
+  if (!btn) return;
+  btn.textContent = showAiDebugHud ? '🤖 AI状態' : '🤖 HUD切';
+  btn.classList.toggle('is-off', !showAiDebugHud);
+}
+
+function toggleAiDebugHud() {
+  showAiDebugHud = !showAiDebugHud;
+  updateAiHudButton();
+  processSingleFrame();
+}
+
+document.getElementById('btn-toggle-ai-hud').addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleAiDebugHud();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'd' && e.key !== 'D') return;
+  const tag = e.target && e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  e.preventDefault();
+  toggleAiDebugHud();
+});
+
 function setStep(stepNum) {
   Object.keys(stepViews).forEach(s => stepViews[s].classList.remove('active'));
   if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
@@ -524,6 +551,8 @@ outputCanvas.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 outputCanvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length >= 2) hudTap = null;
+  if (e.touches.length === 1 && isPointOnAiHud(e)) return;
   if (e.touches.length === 2) {
     initialPinchDistance = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
@@ -563,6 +592,52 @@ outputCanvas.addEventListener('touchend', (e) => {
   if (e.touches.length < 2) initialPinchDistance = 0;
   if (e.touches.length === 0) isPanning = false;
 });
+
+var hudTap = null;
+
+function isPointOnAiHud(e) {
+  if (!showAiDebugHud) return false;
+  return hitTestAiHud(getCanvasPoint(e, outputCanvas), outputCanvas.width);
+}
+
+function onHudPointerDown(e) {
+  if (!e.isPrimary || (typeof e.button === 'number' && e.button !== 0)) {
+    hudTap = null;
+    return;
+  }
+  if (!isPointOnAiHud(e)) return;
+  hudTap = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+  try { outputCanvas.setPointerCapture(e.pointerId); } catch (err) {}
+}
+
+function onHudPointerMove(e) {
+  if (!hudTap || e.pointerId !== hudTap.pointerId) {
+    if (e.pointerType === 'mouse') {
+      outputCanvas.style.cursor = isPointOnAiHud(e) ? 'pointer' : '';
+    }
+    return;
+  }
+  if (Math.hypot(e.clientX - hudTap.x, e.clientY - hudTap.y) > 8) hudTap.moved = true;
+}
+
+function onHudPointerUp(e) {
+  if (!hudTap || e.pointerId !== hudTap.pointerId) return;
+  const toggle = !hudTap.moved && showAiDebugHud;
+  hudTap = null;
+  try { outputCanvas.releasePointerCapture(e.pointerId); } catch (err) {}
+  if (!toggle) return;
+  isHudCollapsed = !isHudCollapsed;
+  processSingleFrame();
+}
+
+function onHudPointerCancel(e) {
+  if (hudTap && e.pointerId === hudTap.pointerId) hudTap = null;
+}
+
+outputCanvas.addEventListener('pointerdown', onHudPointerDown);
+outputCanvas.addEventListener('pointermove', onHudPointerMove);
+outputCanvas.addEventListener('pointerup', onHudPointerUp);
+outputCanvas.addEventListener('pointercancel', onHudPointerCancel);
 
 document.getElementById('btn-zoom-reset').addEventListener('click', () => {
   zoomScale = 1.0;
@@ -1010,6 +1085,10 @@ function updatePlayState() {
   if (videoElement.paused) {
     btnPlayPause.textContent = "再生 ▶";
     btnPlayPause.style.background = "linear-gradient(135deg, #10b981, #059669)";
+    if (aiDiagnostics.status !== 'ERROR') aiDiagnostics.status = 'IDLE';
+    if (showAiDebugHud && !scanModeActive && outputCanvas.width > 0) {
+      drawAiDiagnosticsHUD(outputCtx);
+    }
   } else {
     btnPlayPause.textContent = "停止 ⏸";
     btnPlayPause.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
