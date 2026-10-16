@@ -632,25 +632,26 @@ canvas {
 .btn-row {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
   gap: 4px;
   width: 100%;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .btn-ctrl {
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
   color: #334155;
-  padding: 6px 3px;
+  padding: 8px 6px;
   border-radius: 8px;
   font-size: 0.72rem;
   font-weight: 900;
   cursor: pointer;
   box-shadow: 0 1.5px 0 #94a3b8;
   touch-action: manipulation;
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
+  min-height: 44px;
   text-align: center;
   white-space: nowrap;
   transition: all 0.1s;
@@ -690,7 +691,7 @@ canvas {
   color: #ffffff;
   border-color: #ffffff;
   box-shadow: 0 1.5px 0 #b45309;
-  flex: 1.25;
+  flex: 1 1 0;
 }
 
 .btn-save-trigger {
