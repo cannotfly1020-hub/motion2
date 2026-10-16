@@ -657,8 +657,38 @@ outputCanvas.addEventListener('wheel', (e) => {
 
 var lastCalculatedLeadToePt = null;
 
+function getCanvasTouchPos(e) {
+  const rect = outputCanvas.getBoundingClientRect();
+  let clientX = e.clientX;
+  let clientY = e.clientY;
+
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else if (e.changedTouches && e.changedTouches.length > 0) {
+    clientX = e.changedTouches[0].clientX;
+    clientY = e.changedTouches[0].clientY;
+  }
+
+  const scaleX = outputCanvas.width / (rect.width || 1);
+  const scaleY = outputCanvas.height / (rect.height || 1);
+
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
+  };
+}
+
+function isPointOnAiHud(e) {
+  if (typeof showAiDebugHud !== 'undefined' && !showAiDebugHud) return false;
+  if (typeof hitTestAiHud !== 'function') return false;
+  return hitTestAiHud(getCanvasTouchPos(e), outputCanvas.width);
+}
+
 outputCanvas.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 1 && isPointOnAiHud(e)) return;
+  if (e.touches.length === 1 && isPointOnAiHud(e)) {
+    return;
+  }
   if (e.touches.length === 2) {
     initialPinchDistance = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
@@ -721,30 +751,25 @@ outputCanvas.addEventListener('touchend', (e) => {
   }
 });
 
-function canvasPointerPos(e) {
-  const point = (e.touches && e.touches[0]) ? e.touches[0] : e;
-  const rect = outputCanvas.getBoundingClientRect();
-  const width = rect.width || 1;
-  const height = rect.height || 1;
-  return {
-    x: (point.clientX - rect.left) * (outputCanvas.width / width),
-    y: (point.clientY - rect.top) * (outputCanvas.height / height)
-  };
-}
-
-function isPointOnAiHud(e) {
-  if (!showAiDebugHud || typeof hitTestAiHud !== 'function') return false;
-  return hitTestAiHud(canvasPointerPos(e), outputCanvas.width);
-}
-
 function onCanvasPointerDown(e) {
-  if (!e.isPrimary || (typeof e.button === 'number' && e.button !== 0)) return;
-  if (!isPointOnAiHud(e)) return;
-  isHudCollapsed = !isHudCollapsed;
-  if (typeof processSingleFrame === 'function') processSingleFrame();
-  else if (typeof renderFrameOnly === 'function') renderFrameOnly();
-  e.preventDefault();
-  e.stopPropagation();
+  if (typeof e.button === 'number' && e.button !== 0) return;
+
+  if (isPointOnAiHud(e)) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (typeof isHudCollapsed !== 'undefined') {
+      isHudCollapsed = !isHudCollapsed;
+    }
+
+    if (typeof renderFrameOnly === 'function') {
+      renderFrameOnly();
+    } else if (typeof redraw === 'function') {
+      redraw();
+    } else if (typeof processSingleFrame === 'function') {
+      processSingleFrame();
+    }
+  }
 }
 
 function onHudPointerMove(e) {
