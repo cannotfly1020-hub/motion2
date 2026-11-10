@@ -412,7 +412,8 @@
 
 </body>
 <script>
-  if ('serviceWorker' in navigator) {
+  var onNativeShell = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+  if ('serviceWorker' in navigator && !onNativeShell) {
     window.addEventListener('load', function() {
       navigator.serviceWorker.register('sw.js').then(function(registration) {
         console.log('ServiceWorker登録成功:', registration.scope);

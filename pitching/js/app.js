@@ -3,6 +3,7 @@
 // Safari特有のリンクジャンプ保護（ホームに戻るボタンの確実な動作）
 document.getElementById('home-link-btn').addEventListener('click', function(e) {
   e.preventDefault();
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
   videoElement.pause();
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId);
@@ -12,6 +13,7 @@ document.getElementById('home-link-btn').addEventListener('click', function(e) {
 });
 
 var videoElement = document.getElementById('hidden-video');
+if (typeof installFrameProbe === 'function') installFrameProbe();
 var bufferCanvas = document.getElementById('buffer-canvas');
 var bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
 
@@ -232,6 +234,8 @@ function clearReleaseSnapshotFields() {
 
 function applyManualRelease() {
   if (!videoElement || !Number.isFinite(videoElement.duration) || videoElement.duration <= 0) return;
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+  if (typeof nativeHaptic === 'function') nativeHaptic('MEDIUM');
   videoElement.pause();
   manualReleaseTime = videoElement.currentTime;
   const details = releaseDetailBits();
@@ -386,6 +390,9 @@ document.addEventListener('keydown', (e) => {
 });
 
 function setStep(stepNum) {
+  if (stepNum !== 4 && typeof stopFrameAccuratePlayback === 'function') {
+    stopFrameAccuratePlayback();
+  }
   Object.keys(stepViews).forEach(s => stepViews[s].classList.remove('active'));
   if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
 
@@ -451,35 +458,53 @@ function armScanPreview() {
   };
 }
 
-async function handleVideoLoad(file, angleMode) {
+function handleVideoLoad(file, angleMode) {
   if (!file) return;
-  selectedAngleMode = angleMode;
-
   if (videoFileUrl) {
     URL.revokeObjectURL(videoFileUrl);
     videoFileUrl = null;
   }
   videoFileUrl = URL.createObjectURL(file);
+  openMeasurementVideo(videoFileUrl, angleMode);
+}
 
+function openMeasurementVideo(src, angleMode) {
+  selectedAngleMode = angleMode;
   updateCardLabels();
   setStep(2);
   armScanPreview();
-  videoElement.src = videoFileUrl;
+  videoElement.src = src;
   videoElement.load();
 
-  try {
-    await initMediaPipe();
-  } catch (err) {
-    console.warn("MediaPipe init error:", err);
+  var pending = initMediaPipe();
+  if (pending && typeof pending.then === 'function') {
+    pending.catch(err => console.warn("MediaPipe init error:", err)).finally(() => paintScanPreview());
+  } else {
+    paintScanPreview();
   }
-  paintScanPreview();
 }
 
 const inputSide = document.getElementById('video-input-side');
 const inputFront = document.getElementById('video-input-front');
 
-inputSide.addEventListener('click', function() { this.value = null; });
-inputFront.addEventListener('click', function() { this.value = null; });
+var skipNativePicker = false;
+
+inputSide.addEventListener('click', function(e) {
+  this.value = null;
+  if (skipNativePicker) {
+    skipNativePicker = false;
+    return;
+  }
+  if (openVideoLibrary('SIDE', this)) e.preventDefault();
+});
+inputFront.addEventListener('click', function(e) {
+  this.value = null;
+  if (skipNativePicker) {
+    skipNativePicker = false;
+    return;
+  }
+  if (openVideoLibrary('FRONT', this)) e.preventDefault();
+});
 
 inputSide.addEventListener('change', function(e) {
   if (e.target.files && e.target.files[0]) {
@@ -492,6 +517,57 @@ inputFront.addEventListener('change', function(e) {
     handleVideoLoad(e.target.files[0], 'FRONT');
   }
 });
+
+var pendingCaptureMode = 'SIDE';
+var inputCapture = document.getElementById('video-input-capture');
+
+function openVideoCapture(angleMode) {
+  var ready = (typeof nativePrepareCapture === 'function') ? nativePrepareCapture() : Promise.resolve();
+  Promise.resolve(ready).then(function() {
+    if (typeof nativeRecordVideo === 'function' && typeof nativePlatform === 'function' && nativePlatform()) {
+      return nativeRecordVideo().then(function(src) {
+        if (src) openMeasurementVideo(src, angleMode);
+      });
+    }
+    pendingCaptureMode = angleMode;
+    if (inputCapture) inputCapture.click();
+  });
+}
+
+function openVideoLibrary(angleMode, input) {
+  if (!(typeof nativePickVideo === 'function' && typeof nativePlatform === 'function' && nativePlatform())) {
+    return false;
+  }
+  nativePickVideo().then(function(src) {
+    if (src) openMeasurementVideo(src, angleMode);
+    else if (input) {
+      skipNativePicker = true;
+      input.click();
+    }
+  });
+  return true;
+}
+
+document.getElementById('btn-capture-side').addEventListener('click', function() {
+  openVideoCapture('SIDE');
+});
+document.getElementById('btn-capture-front').addEventListener('click', function() {
+  openVideoCapture('FRONT');
+});
+if (inputCapture) {
+  inputCapture.addEventListener('click', function() { this.value = null; });
+  inputCapture.addEventListener('change', function(e) {
+    if (e.target.files && e.target.files[0]) {
+      handleVideoLoad(e.target.files[0], pendingCaptureMode);
+    }
+  });
+}
+inputSide.addEventListener('click', function() {
+  if (typeof nativePrepareCapture === 'function') nativePrepareCapture();
+}, true);
+inputFront.addEventListener('click', function() {
+  if (typeof nativePrepareCapture === 'function') nativePrepareCapture();
+}, true);
 
 function getCanvasPoint(evt, canvas) {
   const rect = canvas.getBoundingClientRect();
@@ -791,6 +867,7 @@ document.getElementById('btn-zoom-reset').addEventListener('click', () => {
 });
 
 document.getElementById('btn-manual-fc').addEventListener('click', () => {
+  if (typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
   if (selectedAngleMode === 'FRONT') {
     records.fcToeAngle = currentCalculatedState.displayToeAngle;
     records.fcToeLabel = `べた足時: ${currentCalculatedState.displayToeAngle}° (${currentCalculatedState.toeStateLabel})`;
@@ -858,6 +935,7 @@ function saveCurrentRecord() {
   allRecords.unshift(newEntry);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+    if (typeof nativeHapticSuccess === 'function') nativeHapticSuccess();
     alert(`✅ ${playerName}君の測定データをカルテに保存しました！`);
   } catch (e) {
     alert("⚠️ 保存容量がいっぱいです");
@@ -930,17 +1008,29 @@ function shareRecordToLine(groupKey) {
     text += `・ひとこと: 「${first.playerNote.trim()}」\n`;
   }
 
-  if (navigator.share) {
-    navigator.share({
-      title: `${first.playerName}選手の投球フォームレポート`,
-      text: text
-    }).catch(err => {
-      if (err.name !== 'AbortError') console.log('Share error:', err);
-    });
-  } else {
-    document.execCommand('copy');
-    alert("📋 レポート文をクリップボードにコピーしました！\n" + text);
+  var shareTitle = `${first.playerName}選手の投球フォームレポート`;
+  function fallbackShare() {
+    if (navigator.share) {
+      navigator.share({ title: shareTitle, text: text }).catch(err => {
+        if (err.name !== 'AbortError') console.log('Share error:', err);
+      });
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        alert("📋 レポート文をクリップボードにコピーしました！");
+      });
+      return;
+    }
+    alert("📋 共有メニューを開けませんでした");
   }
+  if (typeof nativeSharePayload === 'function') {
+    nativeSharePayload(shareTitle, text).then(function(handled) {
+      if (!handled) fallbackShare();
+    });
+    return;
+  }
+  fallbackShare();
 }
 
 function renderCarteList(isInitialOpen) {
@@ -1195,12 +1285,14 @@ document.getElementById('btn-export-csv').addEventListener('click', () => {
 });
 
 function updatePlayState() {
+  if (typeof probingFrameRate !== 'undefined' && probingFrameRate) return;
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId);
     animationFrameId = null;
   }
-  
-  if (videoElement.paused) {
+
+  var playing = (typeof analysisTransportPlaying !== 'undefined' && analysisTransportPlaying) || !videoElement.paused;
+  if (!playing) {
     btnPlayPause.textContent = "再生 ▶";
     btnPlayPause.style.background = "linear-gradient(135deg, #ff9f43, #ff5252)";
     if (aiDiagnostics.status !== 'ERROR') aiDiagnostics.status = 'IDLE';
@@ -1210,7 +1302,6 @@ function updatePlayState() {
   } else {
     btnPlayPause.textContent = "停止 ⏸";
     btnPlayPause.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
-    renderLoop();
   }
 }
 
@@ -1225,6 +1316,8 @@ videoElement.addEventListener('play', updatePlayState);
 videoElement.addEventListener('pause', updatePlayState);
 videoElement.addEventListener('ended', updatePlayState);
 videoElement.addEventListener('seeked', () => {
+  if (typeof probingFrameRate !== 'undefined' && probingFrameRate) return;
+  if (typeof frameSeekLoopActive !== 'undefined' && frameSeekLoopActive) return;
   if (stepViews[2].classList.contains('active')) {
     paintScanPreview();
     return;
@@ -1236,17 +1329,22 @@ videoElement.addEventListener('seeked', () => {
 
 btnPlayPause.addEventListener('click', (e) => {
   e.stopPropagation();
-  if (videoElement.paused) {
-    videoElement.play().catch(err => {
-      if (err.name !== 'AbortError') console.warn("Video Play Interrupted:", err);
-    });
-  } else {
+  if (typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
+  if (typeof analysisTransportPlaying !== 'undefined' && analysisTransportPlaying) {
+    stopFrameAccuratePlayback();
     videoElement.pause();
+    return;
   }
+  if (!videoElement.paused) {
+    videoElement.pause();
+    return;
+  }
+  startFrameAccuratePlayback();
 });
 
 seekBar.addEventListener('input', () => {
   if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
   videoElement.pause();
   videoElement.currentTime = (seekBar.value / 100) * videoElement.duration;
   updateTimeUI();
@@ -1254,15 +1352,21 @@ seekBar.addEventListener('input', () => {
 
 document.getElementById('btn-frame-prev').addEventListener('click', (e) => {
   e.stopPropagation();
+  if (typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
   videoElement.pause();
-  videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
+  var step = (typeof analysisFrameDuration === 'number' && analysisFrameDuration > 0) ? analysisFrameDuration : 0.033;
+  videoElement.currentTime = Math.max(0, videoElement.currentTime - step);
   updateTimeUI();
 });
 
 document.getElementById('btn-frame-next').addEventListener('click', (e) => {
   e.stopPropagation();
+  if (typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
   videoElement.pause();
-  videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
+  var step = (typeof analysisFrameDuration === 'number' && analysisFrameDuration > 0) ? analysisFrameDuration : 0.033;
+  videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + step);
   updateTimeUI();
 });
 

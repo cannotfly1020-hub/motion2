@@ -83,7 +83,7 @@ function initMediaPipe() {
   aiLoading.style.display = 'flex';
 
   pose = new Pose({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+    locateFile: function(file) { return localPoseUrl(file); }
   });
 
   pose.setOptions({
@@ -110,18 +110,16 @@ function initMediaPipe() {
 function processSingleFrame() {
   if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
     renderFrameOnly();
-    return;
+    return Promise.resolve();
   }
-
-  const vw = videoElement.videoWidth;
-  const vh = videoElement.videoHeight;
-  bufferCanvas.width = vw;
-  bufferCanvas.height = vh;
-  bufferCtx.drawImage(videoElement, 0, 0, vw, vh);
+  if (!paintPoseInputCanvas()) {
+    renderFrameOnly();
+    return Promise.resolve();
+  }
 
   isProcessing = true;
   _lastInferTime = performance.now();
-  pose.send({ image: bufferCanvas }).catch(err => {
+  return pose.send({ image: bufferCanvas }).catch(err => {
     console.error("Inference Error:", err);
     aiDiagnostics.status = 'ERROR';
     aiDiagnostics.latencyMs = Math.max(0, performance.now() - _lastInferTime);
@@ -171,9 +169,7 @@ function onPoseResults(results) {
 }
 
 function renderLoop() {
-  if (!videoElement.paused && !videoElement.ended) {
-    processSingleFrame();
-    updateTimeUI();
-    animationFrameId = requestAnimationFrame(renderLoop);
+  if (typeof startFrameAccuratePlayback === 'function' && !analysisTransportPlaying) {
+    startFrameAccuratePlayback();
   }
 }

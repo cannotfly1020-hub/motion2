@@ -1115,3 +1115,15 @@ canvas {
 #view-step4 .seek-bar {
   height: 10px;
 }
+
+.capture-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.capture-row .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+}
