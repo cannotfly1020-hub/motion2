@@ -28,7 +28,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2px 4px calc(2px + env(safe-area-inset-bottom, 0px)) 4px;
+  padding: calc(2px + env(safe-area-inset-top, 0px)) 4px calc(2px + env(safe-area-inset-bottom, 0px)) 4px;
   overflow: hidden;
   justify-content: flex-start;
 }
@@ -803,7 +803,11 @@ canvas {
   align-items: center;
   justify-content: center;
   z-index: 100;
-  padding: 8px;
+  padding:
+    calc(8px + env(safe-area-inset-top, 0px))
+    calc(8px + env(safe-area-inset-right, 0px))
+    calc(8px + env(safe-area-inset-bottom, 0px))
+    calc(8px + env(safe-area-inset-left, 0px));
 }
 
 .modal-card {
@@ -1035,7 +1039,7 @@ canvas {
 
 .toast-msg {
   position: fixed;
-  bottom: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%) translateY(20px);
   background: rgba(15, 23, 42, 0.92);
@@ -1074,9 +1078,9 @@ canvas {
 #view-step4 .screen-wrapper {
   flex: 0 0 auto;
   width: 100%;
-  height: 45vh;
-  max-height: 48vh;
-  min-height: 240px;
+  height: calc(45vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  max-height: calc(48vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: 200px;
 }
 
 #view-step4 .dashboard {

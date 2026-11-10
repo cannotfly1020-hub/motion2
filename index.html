@@ -49,7 +49,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 1.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+      padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 1rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
       overflow-x: hidden;
       overflow-y: auto;
     }
@@ -272,7 +272,7 @@
 
     @media (min-width: 768px) {
       body {
-        padding: 2.5rem 2rem calc(2.5rem + env(safe-area-inset-bottom, 0px));
+        padding: calc(2.5rem + env(safe-area-inset-top, 0px)) 2rem calc(2.5rem + env(safe-area-inset-bottom, 0px));
       }
 
       .portal-grid {

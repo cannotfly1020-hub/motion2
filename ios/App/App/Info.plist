@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>野球AIバイオメカニクス</string>
+	<string>野球AIバイオメカニクス</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,24 +24,32 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>投球・打撃フォームをその場で撮影します。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>動画撮影にマイクを使います。解析そのものには音声を使いません。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>撮影したフォーム動画をアルバムに保存します。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>アルバムのスロー動画を選んで解析します。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
-    <false/>
-    <key>UISceneConfigurations</key>
-    <dict>
-      <key>UIWindowSceneSessionRoleApplication</key>
-      <array>
-        <dict>
-            <key>UISceneConfigurationName</key>
-            <string>Default Configuration</string>
-            <key>UISceneDelegateClassName</key>
-            <string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
-            <key>UISceneStoryboardFile</key>
-            <string>Main</string>
-        </dict>
-      </array>
-    </dict>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
 	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -51,14 +59,6 @@
 	<array>
 		<string>armv7</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>投球・打撃フォームをその場で撮影します。</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>アルバムのスロー動画を選んで解析します。</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>撮影したフォーム動画をアルバムに保存します。</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>動画撮影にマイクを使います。解析そのものには音声を使いません。</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

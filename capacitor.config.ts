@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: '野球AIバイオメカニクス',
   webDir: 'www',
   ios: {
-    contentInset: 'automatic',
+    contentInset: 'never',
     backgroundColor: '#0284c7',
     preferredContentMode: 'mobile'
   },
