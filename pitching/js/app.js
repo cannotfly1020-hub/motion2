@@ -526,7 +526,12 @@ function openVideoCapture(angleMode) {
   Promise.resolve(ready).then(function() {
     if (typeof nativeRecordVideo === 'function' && typeof nativePlatform === 'function' && nativePlatform()) {
       return nativeRecordVideo().then(function(src) {
-        if (src) openMeasurementVideo(src, angleMode);
+        if (src) {
+          openMeasurementVideo(src, angleMode);
+          return;
+        }
+        pendingCaptureMode = angleMode;
+        if (inputCapture) inputCapture.click();
       });
     }
     pendingCaptureMode = angleMode;
