@@ -47,10 +47,27 @@ const iconPngPath = path.join(resourcesDir, 'icon.png');
 const splashPngPath = path.join(resourcesDir, 'splash.png');
 const splashDarkPngPath = path.join(resourcesDir, 'splash-dark.png');
 const background = { r: 11, g: 19, b: 41 };
+const appIconPath = path.join(root, 'ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png');
+const icon512Path = path.join(root, 'icon-512.png');
+const icon192Path = path.join(root, 'icon-192.png');
+const assetIconPath = path.join(root, 'assets/icon-only.png');
+const assetLogoPath = path.join(root, 'assets/logo.png');
 
 function writeSvg() {
   fs.mkdirSync(resourcesDir, { recursive: true });
   fs.writeFileSync(iconSvgPath, ICON_SVG);
+}
+
+async function publishIcon(icon) {
+  const sharp = require('sharp');
+  fs.mkdirSync(path.dirname(appIconPath), { recursive: true });
+  fs.mkdirSync(path.dirname(assetIconPath), { recursive: true });
+  fs.writeFileSync(iconPngPath, icon);
+  fs.writeFileSync(appIconPath, icon);
+  fs.writeFileSync(assetIconPath, icon);
+  fs.writeFileSync(assetLogoPath, icon);
+  fs.writeFileSync(icon512Path, await sharp(icon).resize(512, 512).flatten({ background }).removeAlpha().png().toBuffer());
+  fs.writeFileSync(icon192Path, await sharp(icon).resize(192, 192).flatten({ background }).removeAlpha().png().toBuffer());
 }
 
 async function rasterizeWithSharp() {
@@ -64,7 +81,7 @@ async function rasterizeWithSharp() {
   if (meta.width !== 1024 || meta.height !== 1024 || meta.hasAlpha) {
     throw new Error('icon.png must be 1024x1024 without alpha');
   }
-  fs.writeFileSync(iconPngPath, icon);
+  await publishIcon(icon);
 
   const mark = await sharp(icon).resize(1080, 1080).toBuffer();
   const splash = await sharp({
@@ -90,6 +107,7 @@ async function rasterizeWithSips(svgPath) {
   execFileSync('sips', ['-s', 'format', 'png', '-z', '1024', '1024', rendered, '--out', tmp], { stdio: 'ignore' });
   fs.renameSync(tmp, iconPngPath);
   fs.rmSync(rendered, { force: true });
+  await publishIcon(fs.readFileSync(iconPngPath));
 }
 
 async function main() {
@@ -100,7 +118,7 @@ async function main() {
     process.stderr.write('sharp rasterize failed, falling back: ' + error.message + '\n');
     await rasterizeWithSips(iconSvgPath);
   }
-  process.stdout.write('resources/icon.svg\nresources/icon.png 1024x1024\n');
+  process.stdout.write('resources/icon.svg\nresources/icon.png 1024x1024\nicon-512.png\nicon-192.png\nAppIcon-512@2x.png\n');
 }
 
 main().catch((error) => {
