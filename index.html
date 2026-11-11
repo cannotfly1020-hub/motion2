@@ -12,7 +12,10 @@
 <body>
   <div class="home-shell">
     <header class="home-header">
-      <p class="home-badge">ジュニア野球専用 · AIモーション解析</p>
+      <div class="home-header-bar">
+        <p class="home-badge">ジュニア野球専用 · AIモーション解析</p>
+        <button type="button" class="home-guide" id="home-guide-open">ガイド</button>
+      </div>
       <h1>野球AIバイオメカニクス</h1>
       <p class="home-lead">スマホでかんたん！投球・打撃フォームをAIが自動診断</p>
     </header>
@@ -100,6 +103,7 @@
     </div>
   </div>
 
+  <script src="native/guide_modal.js"></script>
   <script>
     var onNativeShell = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
     if ('serviceWorker' in navigator && !onNativeShell) {

@@ -85,6 +85,19 @@ context.clearPoseMemorySafely();
 context.clearPoseMemorySafely();
 assert('連続クリア後も空のキャッシュに戻る', context.poseCache && context.poseCacheEntryCount() === 0 && context.poseCache.isFullyScanned === false);
 
+context.activeTrimStart = function() { return 2; };
+context.activeTrimEnd = function() { return 5; };
+useVideo(10, 1 / 30);
+assert('3秒区間は90コマ', context.poseFrameCount() === 90 && context.poseCacheSlots() === 90);
+assert('区間の先頭秒は枠0', context.poseFrameIndex(2) === 0);
+assert('区間より前は枠0に丸まる', context.poseFrameIndex(0) === 0);
+assert('区間内の1秒後は30枠', context.poseFrameIndex(3) === 30);
+context.videoElement.currentTime = 2;
+context.storePoseSample(fakePose(2), { writeMetrics: false });
+assert('区間の先頭時刻は枠0に入る', context.poseCache.landmarksByFrame[0] && context.poseCache.landmarksByFrame[30] == null);
+delete context.activeTrimStart;
+delete context.activeTrimEnd;
+
 if (failed > 0) {
   console.error(failed + ' failed');
   process.exit(1);

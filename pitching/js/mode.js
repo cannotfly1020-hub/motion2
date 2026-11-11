@@ -48,7 +48,13 @@ function updateReleaseMarker() {
     marker.hidden = true;
     return;
   }
-  const pct = Math.max(0, Math.min(100, (manualReleaseTime / duration) * 100));
+  if (typeof timeInsideTrim === 'function' && !timeInsideTrim(manualReleaseTime)) {
+    marker.hidden = true;
+    return;
+  }
+  const pct = (typeof percentFromTime === 'function')
+    ? percentFromTime(manualReleaseTime)
+    : Math.max(0, Math.min(100, (manualReleaseTime / duration) * 100));
   marker.style.left = pct + '%';
   marker.hidden = false;
   marker.title = 'リリース ' + manualReleaseTime.toFixed(2) + 's へ移動';

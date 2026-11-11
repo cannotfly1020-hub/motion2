@@ -419,18 +419,41 @@ function poseFrameStep() {
   return Math.min(1 / 24, Math.max(1 / 240, step));
 }
 
+function measurementWindow() {
+  var duration = videoElement && Number(videoElement.duration);
+  if (!Number.isFinite(duration) || duration <= 0) return { start: 0, end: 0, span: 0 };
+  var start = 0;
+  var end = duration;
+  if (typeof activeTrimStart === 'function') start = Number(activeTrimStart());
+  if (typeof activeTrimEnd === 'function') end = Number(activeTrimEnd());
+  if (!Number.isFinite(start) || start < 0) start = 0;
+  if (!Number.isFinite(end) || end <= 0) end = duration;
+  if (start > duration) start = 0;
+  if (end > duration) end = duration;
+  if (!(end > start)) {
+    start = 0;
+    end = duration;
+  }
+  return { start: start, end: end, span: end - start };
+}
+
 function poseFrameCount() {
-  var duration = videoElement && videoElement.duration;
-  if (!Number.isFinite(duration) || duration <= 0) return 0;
-  return Math.max(1, Math.round(duration / poseFrameStep()));
+  var span = measurementWindow().span;
+  if (!(span > 0)) return 0;
+  return Math.max(1, Math.round(span / poseFrameStep()));
 }
 
 function poseFrameIndex(time) {
+  var origin = measurementWindow().start;
   var count = poseFrameCount();
-  var index = Math.round((time || 0) / poseFrameStep());
+  var index = Math.round(((time || 0) - origin) / poseFrameStep());
   if (index < 0) index = 0;
   if (count > 0 && index > count - 1) index = count - 1;
   return index;
+}
+
+function poseSlotTime(slot) {
+  return measurementWindow().start + (slot || 0) * poseScanTimeStep();
 }
 
 function poseMemoryStride() {
@@ -712,8 +735,8 @@ function notePoseMotion(fromPose, toPose, framesSpanned) {
 function startCachePlayback() {
   if (!videoElement || !poseCache.isFullyScanned) return false;
   if (analysisTransportPlaying) return true;
-  var duration = videoElement.duration;
-  if (!Number.isFinite(duration) || duration <= 0) return false;
+  var playWindow = measurementWindow();
+  if (!(playWindow.span > 0)) return false;
 
   var generation = ++frameSeekGeneration;
   analysisTransportPlaying = true;
@@ -722,13 +745,20 @@ function startCachePlayback() {
   console.log('[PoseCache] playback from cache', poseCache.totalFrames);
 
   var sawPlaying = false;
+  var wrapping = false;
   function paint() {
     if (generation !== frameSeekGeneration) return;
     if (!videoElement.paused && !videoElement.ended) sawPlaying = true;
     renderCachedPose(poseCacheIndexForNative(poseFrameIndex(videoElement.currentTime)));
     if (typeof updateTimeUI === 'function') updateTimeUI();
-    if (videoElement.ended || videoElement.currentTime >= duration - 0.001) {
-      stopFrameAccuratePlayback();
+    if (videoElement.ended || videoElement.currentTime >= playWindow.end - 0.001) {
+      if (wrapping) return;
+      wrapping = true;
+      waitForSeeked(playWindow.start).then(function() {
+        wrapping = false;
+        if (generation !== frameSeekGeneration) return;
+        beginPlay();
+      });
       return;
     }
     if (sawPlaying && videoElement.paused) {
@@ -754,8 +784,8 @@ function startCachePlayback() {
     cachePlaybackFrame = requestAnimationFrame(paint);
   }
 
-  if (videoElement.currentTime >= duration - poseScanTimeStep()) {
-    waitForSeeked(0).then(beginPlay);
+  if (videoElement.currentTime < playWindow.start - 0.001 || videoElement.currentTime >= playWindow.end - poseScanTimeStep()) {
+    waitForSeeked(playWindow.start).then(beginPlay);
     return true;
   }
   beginPlay();
@@ -765,20 +795,42 @@ function startCachePlayback() {
 function startFrameAccuratePlayback() {
   if (!videoElement || !videoElement.videoWidth) return;
   if (analysisTransportPlaying) return;
-  var duration = videoElement.duration;
-  if (!Number.isFinite(duration) || duration <= 0) return;
+  var scanWindow = measurementWindow();
+  if (!(scanWindow.span > 0)) return;
   if (poseCache.isFullyScanned) {
     startCachePlayback();
     return;
   }
+  var cacheEmpty = poseCacheEntryCount() === 0;
+  if (cacheEmpty && Math.abs((videoElement.currentTime || 0) - scanWindow.start) > 0.05) {
+    var rewindToken = frameSeekGeneration;
+    frameSeekLoopActive = true;
+    waitForSeeked(scanWindow.start).then(function() {
+      frameSeekLoopActive = false;
+      if (rewindToken !== frameSeekGeneration) return;
+      startFrameAccuratePlayback();
+    });
+    return;
+  }
+  if (videoElement.currentTime < scanWindow.start - 0.0008 || videoElement.currentTime > scanWindow.end + 0.0008) {
+    var edgeToken = frameSeekGeneration;
+    frameSeekLoopActive = true;
+    waitForSeeked(scanWindow.start).then(function() {
+      frameSeekLoopActive = false;
+      if (edgeToken !== frameSeekGeneration) return;
+      startFrameAccuratePlayback();
+    });
+    return;
+  }
 
   noteLongVideoMemoryGuard();
+  var scanEnd = scanWindow.end;
   var missing = firstMissingPoseFrame();
   var here = poseCacheIndexForNative(poseFrameIndex(videoElement.currentTime));
   var hereSeen = !!(poseCache && (poseCache.landmarksByFrame[here] || (poseCache.visitedByFrame && poseCache.visitedByFrame[here])));
   var sampleStep = poseScanTimeStep();
-  var missingTime = missing * sampleStep;
-  if (missing >= 0 && Math.abs((videoElement.currentTime || 0) - missingTime) > sampleStep * 0.4 && (hereSeen || videoElement.currentTime >= duration - sampleStep)) {
+  var missingTime = poseSlotTime(missing);
+  if (missing >= 0 && Math.abs((videoElement.currentTime || 0) - missingTime) > sampleStep * 0.4 && (hereSeen || videoElement.currentTime >= scanEnd - sampleStep)) {
     var token = frameSeekGeneration;
     frameSeekLoopActive = true;
     waitForSeeked(missingTime).then(function() {
@@ -902,7 +954,7 @@ function startFrameAccuratePlayback() {
 
   function tick() {
     if (!alive()) return;
-    if (videoElement.currentTime >= duration - step * 0.25) {
+    if (videoElement.currentTime >= scanEnd - step * 0.25) {
       finish(true);
       return;
     }
@@ -911,7 +963,7 @@ function startFrameAccuratePlayback() {
     var landA = poseInferLast;
     var stride = poseMemoryStride() > 1 ? 1 : (landA ? poseStride : 1);
     if (stride < 1) stride = 1;
-    var target = Math.min(duration, timeA + stride * step);
+    var target = Math.min(scanEnd, timeA + stride * step);
     waitForSeeked(target).then(function() {
       if (!alive()) return;
       if (videoElement.currentTime < timeA + step * 0.5) {

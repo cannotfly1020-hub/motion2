@@ -51,10 +51,7 @@ function armScanPreview(src) {
     return;
   }
   startMeasurementVideo(videoElement, src, function() {
-    paintScanPreview();
-    if (typeof videoElement.requestVideoFrameCallback === 'function') {
-      videoElement.requestVideoFrameCallback(function() { paintScanPreview(); });
-    }
+    whenProbeSettled(offerTrimOrScan);
   });
 }
 
@@ -76,7 +73,7 @@ function openMeasurementVideo(src, angleMode) {
   restoreCameraCalibration();
   selectedAngleMode = angleMode;
   updateCardLabels();
-  setStep(2);
+  resetTrimRange();
   beginAnalysisProgress('video', '動画を読み込んでいます...', '画面を閉じずにお待ちください');
   if (typeof clearGhostCache === 'function') clearGhostCache();
   try {
@@ -200,8 +197,8 @@ function renderScanFrame() {
   scanCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
 
   if (Number.isFinite(videoElement.duration) && videoElement.duration > 0) {
-    scanSeekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
-    scanTimeDisp.textContent = videoElement.currentTime.toFixed(2) + ' / ' + videoElement.duration.toFixed(2);
+    scanSeekBar.value = percentFromTime(videoElement.currentTime);
+    scanTimeDisp.textContent = videoElement.currentTime.toFixed(2) + ' / ' + activeTrimEnd().toFixed(2);
   }
 
   if (tuneRuler.isActive) drawInteractiveRuler(b);
@@ -735,6 +732,12 @@ var zoomBadge, aiLoading, scanLoading, btnScanNextStep, scanGuideText;
 var carteModal, btnCloseCarte, carteHistoryList, playerSelectFilter, btnDeleteAction, toastBox;
 var toastTimeout = null;
 var skipNativePicker = false;
+var trimStartTime = 0;
+var trimEndTime = 0;
+var trimPreviewOn = false;
+var trimPreviewFrame = 0;
+var trimDragging = false;
+var TRIM_AUTO_SKIP_SECONDS = 4;
 var pendingCaptureMode = 'SIDE';
 var inputCapture = null;
 var STORAGE_KEY = 'motion_records';
@@ -898,19 +901,19 @@ function bootMotionShell() {
   window.addEventListener('touchend', onScanPointerUp);
   scanSeekBar.addEventListener('input', function() {
     if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
-    videoElement.currentTime = (scanSeekBar.value / 100) * videoElement.duration;
+    videoElement.currentTime = timeFromPercent(scanSeekBar.value);
     tuneRuler.isActive = false;
     btnScanNextStep.style.display = 'none';
     renderScanFrame();
   });
   document.getElementById('btn-scan-prev').addEventListener('click', function() {
-    videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
+    videoElement.currentTime = Math.max(activeTrimStart(), videoElement.currentTime - 0.033);
     tuneRuler.isActive = false;
     btnScanNextStep.style.display = 'none';
     renderScanFrame();
   });
   document.getElementById('btn-scan-next').addEventListener('click', function() {
-    videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
+    videoElement.currentTime = Math.min(activeTrimEnd(), videoElement.currentTime + 0.033);
     tuneRuler.isActive = false;
     btnScanNextStep.style.display = 'none';
     renderScanFrame();
@@ -972,12 +975,6 @@ function bootMotionShell() {
   document.getElementById('btn-save-record').addEventListener('click', saveCurrentRecord);
   document.getElementById('btn-open-carte').addEventListener('click', openCarteModal);
   document.getElementById('btn-open-carte-top').addEventListener('click', openCarteModal);
-  var setupGuide = document.getElementById('btn-setup-guide');
-  if (setupGuide) {
-    setupGuide.addEventListener('click', function() {
-      showToast(setupGuide.getAttribute('data-tip') || '真横から三脚等で固定して撮影すると、最も高い計測精度が得られます。', 4200);
-    });
-  }
   btnCloseCarte.addEventListener('click', closeCarteModal);
   playerSelectFilter.addEventListener('change', function() { renderCarteList(false); });
   btnDeleteAction.addEventListener('click', deleteFilteredCartes);
@@ -1006,11 +1003,11 @@ function bootMotionShell() {
     if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
     if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
     videoElement.pause();
-    var rawTime = (seekBar.value / 100) * videoElement.duration;
+    var rawTime = timeFromPercent(seekBar.value);
     var snappedTime = applyKeyframeSnap(rawTime);
     videoElement.currentTime = snappedTime;
     if (videoElement.duration > 0 && Math.abs(snappedTime - rawTime) > 0.0001) {
-      seekBar.value = (snappedTime / videoElement.duration) * 100;
+      seekBar.value = percentFromTime(snappedTime);
     }
     updateTimeUI();
   });
@@ -1023,6 +1020,7 @@ function bootMotionShell() {
     stepFrame(1);
   });
   document.getElementById('btn-reset-max').addEventListener('click', function() {
+    resetTrimRange();
     if (typeof resetMotionRecords === 'function') records = resetMotionRecords();
     if (typeof onResetAnalysis === 'function') onResetAnalysis();
     if (typeof clearGhostCache === 'function') clearGhostCache();
@@ -1030,6 +1028,7 @@ function bootMotionShell() {
     if (typeof showWaitingHeroes === 'function') showWaitingHeroes();
   });
   document.getElementById('btn-re-select').addEventListener('click', function() {
+    resetTrimRange();
     videoElement.pause();
     tuneRuler.isActive = false;
     btnScanNextStep.style.display = 'none';
@@ -1043,6 +1042,7 @@ function bootMotionShell() {
   if (typeof bindModeExtras === 'function') bindModeExtras();
   ensureKeyframePins();
   ensureCalibrationControls();
+  bindTrimControls();
 }
 
 function showToast(text, duration) {
@@ -1075,7 +1075,329 @@ function toggleAiDebugHud() {
   drawAiDiagnosticsHUD(outputCtx);
 }
 
+function activeTrimStart() {
+  var duration = videoElement && Number(videoElement.duration);
+  var start = Number(trimStartTime) || 0;
+  if (!Number.isFinite(start) || start < 0) start = 0;
+  if (Number.isFinite(duration) && duration > 0 && start >= duration) start = 0;
+  return start;
+}
+
+function activeTrimEnd() {
+  var duration = videoElement && Number(videoElement.duration);
+  var start = activeTrimStart();
+  var end = Number(trimEndTime);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return (Number.isFinite(end) && end > start) ? end : 0;
+  }
+  if (!Number.isFinite(end) || end <= 0 || end > duration) end = duration;
+  if (end <= start) end = duration;
+  return end;
+}
+
+function timeFromPercent(percent) {
+  var start = activeTrimStart();
+  var span = activeTrimEnd() - start;
+  if (!(span > 0)) return start;
+  var ratio = Number(percent) / 100;
+  if (!Number.isFinite(ratio)) ratio = 0;
+  if (ratio < 0) ratio = 0;
+  if (ratio > 1) ratio = 1;
+  return start + span * ratio;
+}
+
+function percentFromTime(time) {
+  var start = activeTrimStart();
+  var span = activeTrimEnd() - start;
+  if (!(span > 0)) return 0;
+  var ratio = ((Number(time) || 0) - start) / span;
+  if (ratio < 0) ratio = 0;
+  if (ratio > 1) ratio = 1;
+  return ratio * 100;
+}
+
+function timeInsideTrim(time) {
+  var value = Number(time);
+  if (!Number.isFinite(value)) return false;
+  return value >= activeTrimStart() - 0.02 && value <= activeTrimEnd() + 0.02;
+}
+
+function resetTrimRange() {
+  trimStartTime = 0;
+  trimEndTime = 0;
+  stopTrimPreview();
+}
+
+function setTrimRange(range) {
+  var duration = videoElement && Number(videoElement.duration);
+  var start = range && Number(range.startTime);
+  var end = range && Number(range.endTime);
+  if (!Number.isFinite(start) || start < 0) start = 0;
+  if (!Number.isFinite(duration) || duration <= 0) {
+    trimStartTime = start;
+    trimEndTime = (Number.isFinite(end) && end > start) ? end : 0;
+    syncTrimUi();
+    return;
+  }
+  if (start >= duration) start = 0;
+  if (!Number.isFinite(end) || end <= start) end = duration;
+  if (end > duration) end = duration;
+  if (end - start < 0.2) end = Math.min(duration, start + 0.2);
+  trimStartTime = start;
+  trimEndTime = end;
+  syncTrimUi();
+}
+
+MotionPlayerCore.setTrimRange = setTrimRange;
+MotionPlayerCore.resetTrimRange = resetTrimRange;
+
+function formatTrimClock(value) {
+  var safe = Math.max(0, Number(value) || 0);
+  var parts = safe.toFixed(1).split('.');
+  if (parts[0].length < 2) parts[0] = '0' + parts[0];
+  return parts[0] + '.' + parts[1];
+}
+
+function trimViewActive() {
+  var trim = document.getElementById('view-trim');
+  return !!(trim && trim.classList.contains('active'));
+}
+
+function stopTrimPreview() {
+  var wasPlaying = trimPreviewOn;
+  trimPreviewOn = false;
+  trimDragging = false;
+  if (trimPreviewFrame) cancelAnimationFrame(trimPreviewFrame);
+  trimPreviewFrame = 0;
+  if (wasPlaying && videoElement) {
+    try { videoElement.pause(); } catch (err) { /* すでに停止 */ }
+  }
+}
+
+function paintTrimPreview() {
+  var canvas = document.getElementById('trim-preview-canvas');
+  if (!canvas || !videoElement || !videoElement.videoWidth || videoElement.readyState < 2) return;
+  var parent = canvas.parentElement;
+  var width = Math.max(1, parent ? parent.clientWidth : 320);
+  var height = Math.max(1, Math.round(width * 9 / 16));
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  var bounds = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, canvas.width, canvas.height);
+  ctx.drawImage(videoElement, bounds.x, bounds.y, bounds.w, bounds.h);
+}
+
+function startTrimPreview() {
+  stopTrimPreview();
+  if (!videoElement || !(videoElement.duration > 0)) return;
+  trimPreviewOn = true;
+  try { videoElement.currentTime = activeTrimStart(); } catch (err) { /* シーク前 */ }
+  function tick() {
+    if (!trimPreviewOn) return;
+    if (!trimDragging && !videoElement.seeking) {
+      var end = activeTrimEnd();
+      var start = activeTrimStart();
+      if (videoElement.ended || videoElement.currentTime >= end - 0.02) {
+        try { videoElement.currentTime = start; } catch (err) { /* 巻き戻し前 */ }
+      } else if (videoElement.paused) {
+        var replay = videoElement.play();
+        if (replay && typeof replay.catch === 'function') replay.catch(function() {});
+      }
+    }
+    paintTrimPreview();
+    trimPreviewFrame = requestAnimationFrame(tick);
+  }
+  var started = videoElement.play();
+  if (started && typeof started.catch === 'function') started.catch(function() {});
+  trimPreviewFrame = requestAnimationFrame(tick);
+}
+
+function syncTrimUi() {
+  var duration = videoElement && Number(videoElement.duration);
+  if (!Number.isFinite(duration) || duration <= 0) return;
+  var start = activeTrimStart();
+  var end = activeTrimEnd();
+  var span = Math.max(0, end - start);
+  var label = document.getElementById('trim-range-label');
+  var badge = document.getElementById('trim-badge');
+  var advice = document.getElementById('trim-advice');
+  var spanBar = document.getElementById('trim-span');
+  var startHandle = document.getElementById('trim-handle-start');
+  var endHandle = document.getElementById('trim-handle-end');
+  if (label) label.textContent = '開始: ' + formatTrimClock(start) + 's 〜 終了: ' + formatTrimClock(end) + 's（合計 ' + span.toFixed(1) + '秒）';
+  if (badge) badge.textContent = '合計 ' + span.toFixed(1) + '秒';
+  if (advice) {
+    advice.classList.remove('is-good', 'is-warn');
+    if (span >= 2 && span <= 5) {
+      advice.textContent = '✅ 最適な長さです';
+      advice.classList.add('is-good');
+    } else if (span > 8) {
+      advice.textContent = '⚠️ 動作部分（3秒程度）に絞ると高速・高精度に解析できます';
+      advice.classList.add('is-warn');
+    } else {
+      advice.textContent = '2〜5秒に絞ると解析が速くなります';
+    }
+  }
+  var startRatio = start / duration;
+  var endRatio = end / duration;
+  if (spanBar) {
+    spanBar.style.left = 'calc(14px + (100% - 28px) * ' + startRatio + ')';
+    spanBar.style.width = 'calc((100% - 28px) * ' + Math.max(0, endRatio - startRatio) + ')';
+  }
+  if (startHandle) startHandle.style.left = 'calc(14px + (100% - 28px) * ' + startRatio + ')';
+  if (endHandle) endHandle.style.left = 'calc(14px + (100% - 28px) * ' + endRatio + ')';
+}
+
+function showTrimView() {
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+  var trim = document.getElementById('view-trim');
+  if (!trim || !stepViews) {
+    enterPoseScan();
+    return;
+  }
+  Object.keys(stepViews).forEach(function(key) { stepViews[key].classList.remove('active'); });
+  trim.classList.add('active');
+  if (stepPills) {
+    Object.keys(stepPills).forEach(function(key) {
+      var pill = stepPills[key];
+      if (!pill) return;
+      pill.classList.toggle('active', Number(key) === 1);
+      pill.classList.remove('is-done');
+    });
+  }
+  syncTrimUi();
+  startTrimPreview();
+}
+
+function enterPoseScan() {
+  stopTrimPreview();
+  setStep(2);
+  var start = activeTrimStart();
+  try {
+    if (Math.abs((videoElement.currentTime || 0) - start) > 0.03) videoElement.currentTime = start;
+  } catch (err) { /* スキャン開始位置へ移る前 */ }
+  setTimeout(function() {
+    updateScanScreenSize();
+    renderScanFrame();
+  }, 80);
+}
+
+function offerTrimOrScan() {
+  var duration = videoElement && Number(videoElement.duration);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    showToast('動画の長さを読み取れませんでした。別の動画を選んでください。');
+    setStep(1);
+    return;
+  }
+  if (duration <= TRIM_AUTO_SKIP_SECONDS) {
+    setTrimRange({ startTime: 0, endTime: duration });
+    enterPoseScan();
+    return;
+  }
+  var span = Math.min(3, duration);
+  var start = Math.max(0, (duration - span) / 2);
+  setTrimRange({ startTime: start, endTime: Math.min(duration, start + span) });
+  showTrimView();
+}
+
+function whenProbeSettled(done) {
+  var tries = 0;
+  function check() {
+    tries += 1;
+    if (typeof probingFrameRate !== 'undefined' && probingFrameRate && tries < 70) {
+      setTimeout(check, 80);
+      return;
+    }
+    done();
+  }
+  check();
+}
+
+function trimTimeFromPointer(event) {
+  var slider = document.getElementById('trim-slider');
+  var duration = videoElement && Number(videoElement.duration);
+  if (!slider || !(duration > 0)) return 0;
+  var point = event.touches && event.touches[0] ? event.touches[0] : event;
+  var rect = slider.getBoundingClientRect();
+  var usable = Math.max(1, rect.width - 28);
+  var ratio = (point.clientX - rect.left - 14) / usable;
+  if (ratio < 0) ratio = 0;
+  if (ratio > 1) ratio = 1;
+  return ratio * duration;
+}
+
+function moveTrimHandle(which, event) {
+  var time = trimTimeFromPointer(event);
+  var start = activeTrimStart();
+  var end = activeTrimEnd();
+  var duration = videoElement.duration;
+  if (which === 'start') {
+    if (time > end - 0.2) time = end - 0.2;
+    if (time < 0) time = 0;
+    trimStartTime = time;
+  } else {
+    if (time < start + 0.2) time = start + 0.2;
+    if (time > duration) time = duration;
+    trimEndTime = time;
+  }
+  trimDragging = true;
+  try { videoElement.pause(); } catch (err) { /* ドラッグ中は止める */ }
+  try { videoElement.currentTime = which === 'start' ? activeTrimStart() : activeTrimEnd(); } catch (err) { /* シーク前 */ }
+  syncTrimUi();
+  paintTrimPreview();
+}
+
+function bindTrimHandle(handle, which) {
+  if (!handle || handle.getAttribute('data-trim-bound') === '1') return;
+  handle.setAttribute('data-trim-bound', '1');
+  handle.addEventListener('pointerdown', function(event) {
+    if (event.button != null && event.button !== 0) return;
+    event.preventDefault();
+    if (handle.setPointerCapture) handle.setPointerCapture(event.pointerId);
+    moveTrimHandle(which, event);
+    function move(next) { moveTrimHandle(which, next); }
+    function end() {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      trimDragging = false;
+      startTrimPreview();
+    }
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  });
+}
+
+function bindTrimControls() {
+  bindTrimHandle(document.getElementById('trim-handle-start'), 'start');
+  bindTrimHandle(document.getElementById('trim-handle-end'), 'end');
+  var confirmButton = document.getElementById('trim-confirm');
+  var skipButton = document.getElementById('trim-skip');
+  if (confirmButton && confirmButton.getAttribute('data-trim-bound') !== '1') {
+    confirmButton.setAttribute('data-trim-bound', '1');
+    confirmButton.addEventListener('click', function() {
+      enterPoseScan();
+    });
+  }
+  if (skipButton && skipButton.getAttribute('data-trim-bound') !== '1') {
+    skipButton.setAttribute('data-trim-bound', '1');
+    skipButton.addEventListener('click', function() {
+      var duration = videoElement && Number(videoElement.duration);
+      setTrimRange({ startTime: 0, endTime: duration });
+      enterPoseScan();
+    });
+  }
+}
+
 function setStep(stepNum) {
+  var trimView = document.getElementById('view-trim');
+  if (trimView) trimView.classList.remove('active');
+  stopTrimPreview();
   if (stepNum !== 4 && typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
   Object.keys(stepViews).forEach(function(s) { stepViews[s].classList.remove('active'); });
   if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
@@ -1385,6 +1707,7 @@ function exportCarteCsv() {
 }
 
 function updatePlayState() {
+  if (trimViewActive()) return;
   if (typeof probingFrameRate !== 'undefined' && probingFrameRate) return;
   if (typeof videoElement === 'undefined' || !videoElement || !btnPlayPause) return;
   if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
@@ -1403,8 +1726,8 @@ function updatePlayState() {
 
 function updateTimeUI() {
   if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
-  seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
-  timeDisp.textContent = videoElement.currentTime.toFixed(2) + ' / ' + videoElement.duration.toFixed(2);
+  seekBar.value = percentFromTime(videoElement.currentTime);
+  timeDisp.textContent = videoElement.currentTime.toFixed(2) + ' / ' + activeTrimEnd().toFixed(2);
   if (typeof updateReleaseMarker === 'function') updateReleaseMarker();
 }
 
@@ -1414,8 +1737,8 @@ function stepFrame(direction) {
   videoElement.pause();
   var step = (typeof analysisFrameDuration === 'number' && analysisFrameDuration > 0) ? analysisFrameDuration : 0.033;
   var next = videoElement.currentTime + direction * step;
-  if (direction < 0) next = Math.max(0, next);
-  else next = Math.min(videoElement.duration || 0, next);
+  if (direction < 0) next = Math.max(activeTrimStart(), next);
+  else next = Math.min(activeTrimEnd(), next);
   videoElement.currentTime = applyKeyframeSnap(next);
   updateTimeUI();
 }
@@ -1535,9 +1858,11 @@ function activeKeyframeSlots() {
 }
 
 function keyframeSlotTime(slot) {
-  if (typeof poseScanTimeStep === 'function') return slot * poseScanTimeStep();
+  if (typeof poseSlotTime === 'function') return poseSlotTime(slot);
+  var start = activeTrimStart();
+  if (typeof poseScanTimeStep === 'function') return start + slot * poseScanTimeStep();
   var step = (typeof analysisFrameDuration === 'number' && analysisFrameDuration > 0) ? analysisFrameDuration : (1 / 30);
-  return slot * step;
+  return start + slot * step;
 }
 
 function applyKeyframeSnap(time) {
@@ -1595,7 +1920,7 @@ function ensureKeyframePins() {
 
 function pinPercent(slot) {
   if (typeof videoElement === 'undefined' || !videoElement || !(videoElement.duration > 0)) return 0;
-  return Math.max(0, Math.min(100, (keyframeSlotTime(slot) / videoElement.duration) * 100));
+  return percentFromTime(keyframeSlotTime(slot));
 }
 
 function refreshKeyframePins() {

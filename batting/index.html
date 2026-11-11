@@ -19,7 +19,7 @@
     <div class="header-bar">
       <a href="../index.html" class="btn-nav-home" id="home-link-btn"><span aria-hidden="true">‹</span> ホーム</a>
       <h1>打撃バイオメカニクス</h1>
-      <button type="button" class="header-guide" id="btn-setup-guide" data-tip="真横から三脚等で固定して撮影すると、最も高い計測精度が得られます。">ガイド</button>
+      <button type="button" class="header-guide" id="btn-setup-guide">ガイド</button>
     </div>
     <nav class="step-track" aria-label="進行">
       <div id="step-nav-1" class="step-pill active"><span class="step-index">1</span><span class="step-label">動画選択</span></div>
@@ -59,6 +59,32 @@
       <input type="file" id="video-input-side" accept="video/*" hidden>
       <input type="file" id="video-input-front" accept="video/*" hidden>
       <input type="file" id="video-input-capture" accept="video/*" capture="environment" hidden>
+    </section>
+
+    <section id="view-trim" class="view-section">
+      <div class="setup-board trim-board">
+        <article class="setup-card trim-card">
+          <div class="setup-card-head">
+            <h2>解析区間の指定</h2>
+            <span class="trim-badge" id="trim-badge">合計 0.0秒</span>
+          </div>
+          <p class="trim-range-label" id="trim-range-label">開始: 00.0s 〜 終了: 00.0s（合計 0.0秒）</p>
+          <div class="trim-stage">
+            <canvas id="trim-preview-canvas"></canvas>
+          </div>
+          <p class="trim-advice" id="trim-advice"></p>
+          <div class="trim-slider" id="trim-slider">
+            <div class="trim-rail"></div>
+            <div class="trim-span" id="trim-span"></div>
+            <button type="button" class="trim-handle" id="trim-handle-start" aria-label="開始位置">▶</button>
+            <button type="button" class="trim-handle" id="trim-handle-end" aria-label="終了位置">◀</button>
+          </div>
+          <div class="trim-actions">
+            <button type="button" class="setup-btn setup-btn-solid" id="trim-confirm">🚀 この区間でAI解析を開始</button>
+            <button type="button" class="setup-btn" id="trim-skip">全体を使用（スキップ）</button>
+          </div>
+        </article>
+      </div>
     </section>
 
     <section id="view-step2" class="view-section">
@@ -267,6 +293,7 @@
   <script src="../native/motion_ui.js"></script>
   <script src="../native/pose_pipeline.js"></script>
   <script src="../native/bridge.js"></script>
+  <script src="../native/guide_modal.js"></script>
   <script src="../native/motion_player_core.js"></script>
   <script src="js/batting_pose.js"></script>
   <script src="trainer/batting_knowledge.js"></script>
