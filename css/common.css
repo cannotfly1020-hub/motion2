@@ -1014,7 +1014,8 @@ display: flex;
   flex-shrink: 0;
 }
 .seek-container {
-display: flex;
+position: relative;
+  display: flex;
   align-items: center;
   gap: 4px;
   width: 100%;
@@ -1023,6 +1024,26 @@ display: flex;
   border-radius: 8px;
   border: 1.5px solid var(--primary-wash-strong);
   box-shadow: 0 1px 0 #e2e8f0;
+}
+.seek-key-pin {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 2;
+}
+.seek-key-pin.is-first {
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.8);
+}
+.seek-key-pin.is-second {
+  background: #f97316;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.8);
 }
 .seek-bar {
 flex: 1;
@@ -1662,6 +1683,9 @@ position: relative;
   min-width: 0;
   display: flex;
   align-items: center;
+}
+.seek-track .seek-bar {
+  width: 100%;
 }
 .release-marker {
 position: absolute;

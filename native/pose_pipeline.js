@@ -371,6 +371,9 @@ function clearPoseMemorySafely() {
   clearAnalysisCanvases();
   poseCache = emptyPoseCache(null);
   window.poseCache = poseCache;
+  if (typeof clearDetectedKeyframes === 'function') {
+    try { clearDetectedKeyframes(); } catch (err) { console.warn('[PoseCache] keyframe clear skipped', err); }
+  }
 }
 
 function resetPoseCache() {
@@ -570,6 +573,9 @@ function markPoseCacheComplete() {
   }
   poseCache.isFullyScanned = true;
   console.log('[PoseCache] full scan cached', total, 'stride', poseMemoryStride(), 'kept', poseCacheEntryCount());
+  if (typeof onPoseCacheComplete === 'function') {
+    try { onPoseCacheComplete(); } catch (err) { console.warn('[PoseCache] keyframe detection skipped', err); }
+  }
 }
 
 function renderCachedPose(index) {

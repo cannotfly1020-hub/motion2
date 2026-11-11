@@ -684,6 +684,15 @@ var smoothToeDeg = 0;
 var prevLeadToeY = null;
 var leadFootFlatStationaryCount = 0;
 var manualReleaseTime = null;
+var topFrame = null;
+var impactFrame = null;
+var footContactFrame = null;
+var releaseFrame = null;
+var autoTopFrame = null;
+var autoImpactFrame = null;
+var autoFootContactFrame = null;
+var autoReleaseFrame = null;
+var keyframeSnapLock = null;
 var lastCalculatedLeadToePt = null;
 var currentCalculatedState = {};
 var records = {};
@@ -962,7 +971,12 @@ function bootMotionShell() {
     if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
     if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
     videoElement.pause();
-    videoElement.currentTime = (seekBar.value / 100) * videoElement.duration;
+    var rawTime = (seekBar.value / 100) * videoElement.duration;
+    var snappedTime = applyKeyframeSnap(rawTime);
+    videoElement.currentTime = snappedTime;
+    if (videoElement.duration > 0 && Math.abs(snappedTime - rawTime) > 0.0001) {
+      seekBar.value = (snappedTime / videoElement.duration) * 100;
+    }
     updateTimeUI();
   });
   document.getElementById('btn-frame-prev').addEventListener('click', function(e) {
@@ -992,6 +1006,7 @@ function bootMotionShell() {
     setStep(1);
   });
   if (typeof bindModeExtras === 'function') bindModeExtras();
+  ensureKeyframePins();
 }
 
 function showToast(text, duration) {
@@ -1353,6 +1368,211 @@ function stepFrame(direction) {
   videoElement.pause();
   var step = (typeof analysisFrameDuration === 'number' && analysisFrameDuration > 0) ? analysisFrameDuration : 0.033;
   var next = videoElement.currentTime + direction * step;
-  videoElement.currentTime = direction < 0 ? Math.max(0, next) : Math.min(videoElement.duration || 0, next);
+  if (direction < 0) next = Math.max(0, next);
+  else next = Math.min(videoElement.duration || 0, next);
+  videoElement.currentTime = applyKeyframeSnap(next);
   updateTimeUI();
+}
+
+function battingKeyframeMode() {
+  return !MotionPlayerCore.config || MotionPlayerCore.config.mode !== 'pitching';
+}
+
+function currentKeyframeHandedness() {
+  if (battingKeyframeMode()) return selectedBatSide !== 'LEFT';
+  return selectedThrowArm === 'RIGHT';
+}
+
+function placeGhostFromFrame(slotNumber, frameIndex) {
+  if (typeof poseCache === 'undefined' || !poseCache || !poseCache.landmarksByFrame) return;
+  if (typeof clonePoseLandmarks !== 'function') return;
+  if (slotNumber === 1 && typeof ghost1Locked !== 'undefined' && ghost1Locked) return;
+  if (slotNumber === 2 && typeof ghost2Locked !== 'undefined' && ghost2Locked) return;
+  var frame = poseCache.landmarksByFrame[frameIndex];
+  var copy = clonePoseLandmarks(frame);
+  if (!copy) return;
+  if (slotNumber === 1) ghostLandmarksKey1 = copy;
+  else ghostLandmarksKey2 = copy;
+}
+
+function onPoseCacheComplete() {
+  if (typeof poseCache === 'undefined' || !poseCache || !poseCache.isFullyScanned) return;
+  var counted = (typeof poseCacheSlots === 'function') ? poseCacheSlots() : 0;
+  var count = counted > 0 ? counted : (poseCache.totalFrames || 0);
+  var detected = null;
+  try {
+    if (battingKeyframeMode()) detected = detectBattingKeyframes(poseCache.landmarksByFrame, count, currentKeyframeHandedness());
+    else detected = detectPitchingKeyframes(poseCache.landmarksByFrame, count, currentKeyframeHandedness());
+  } catch (err) {
+    console.warn('[Keyframe] detection failed', err);
+    detected = null;
+  }
+  if (!detected) return;
+  if (battingKeyframeMode()) {
+    autoTopFrame = detected.top;
+    autoImpactFrame = detected.impact;
+    if (typeof ghost1Locked === 'undefined' || !ghost1Locked) {
+      topFrame = detected.top;
+      placeGhostFromFrame(1, detected.top);
+    }
+    if (typeof ghost2Locked === 'undefined' || !ghost2Locked) {
+      impactFrame = detected.impact;
+      placeGhostFromFrame(2, detected.impact);
+    }
+  } else {
+    autoFootContactFrame = detected.footContact;
+    autoReleaseFrame = detected.release;
+    if (typeof ghost1Locked === 'undefined' || !ghost1Locked) {
+      footContactFrame = detected.footContact;
+      placeGhostFromFrame(1, detected.footContact);
+    }
+    if (typeof ghost2Locked === 'undefined' || !ghost2Locked) {
+      releaseFrame = detected.release;
+      placeGhostFromFrame(2, detected.release);
+    }
+  }
+  refreshKeyframePins();
+  if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
+}
+
+function clearDetectedKeyframes() {
+  topFrame = null;
+  impactFrame = null;
+  footContactFrame = null;
+  releaseFrame = null;
+  autoTopFrame = null;
+  autoImpactFrame = null;
+  autoFootContactFrame = null;
+  autoReleaseFrame = null;
+  keyframeSnapLock = null;
+  refreshKeyframePins();
+}
+
+function lockDetectedKeyframe(which) {
+  if (typeof videoElement === 'undefined' || !videoElement) return;
+  var index = 0;
+  if (typeof poseFrameIndex === 'function') {
+    index = poseFrameIndex(videoElement.currentTime);
+    if (typeof poseCacheIndexForNative === 'function') index = poseCacheIndexForNative(index);
+  }
+  if (which === 1) {
+    if (battingKeyframeMode()) topFrame = index;
+    else footContactFrame = index;
+  } else if (battingKeyframeMode()) {
+    impactFrame = index;
+  } else {
+    releaseFrame = index;
+  }
+  refreshKeyframePins();
+}
+
+function restoreDetectedKeyframe(which) {
+  if (which === 2 && !battingKeyframeMode() && autoReleaseFrame != null && (typeof ghost2Locked === 'undefined' || !ghost2Locked)) {
+    releaseFrame = autoReleaseFrame;
+    placeGhostFromFrame(2, autoReleaseFrame);
+  }
+  if (which === 1 && !battingKeyframeMode() && autoFootContactFrame != null && (typeof ghost1Locked === 'undefined' || !ghost1Locked)) {
+    footContactFrame = autoFootContactFrame;
+    placeGhostFromFrame(1, autoFootContactFrame);
+  }
+  refreshKeyframePins();
+  if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
+}
+
+function activeKeyframeSlots() {
+  var slots = [];
+  if (topFrame != null) slots.push(topFrame);
+  if (impactFrame != null) slots.push(impactFrame);
+  if (footContactFrame != null) slots.push(footContactFrame);
+  if (releaseFrame != null) slots.push(releaseFrame);
+  return slots;
+}
+
+function keyframeSlotTime(slot) {
+  if (typeof poseScanTimeStep === 'function') return slot * poseScanTimeStep();
+  var step = (typeof analysisFrameDuration === 'number' && analysisFrameDuration > 0) ? analysisFrameDuration : (1 / 30);
+  return slot * step;
+}
+
+function applyKeyframeSnap(time) {
+  if (typeof analysisTransportPlaying !== 'undefined' && analysisTransportPlaying) return time;
+  if (typeof frameSeekLoopActive !== 'undefined' && frameSeekLoopActive) return time;
+  if (!Number.isFinite(time)) return time;
+  var frameStep = (typeof poseFrameStep === 'function') ? poseFrameStep() : 0;
+  if (!(frameStep > 0)) return time;
+  var targets = activeKeyframeSlots();
+  var bestTime = time;
+  var bestFrames = 2.001;
+  for (var i = 0; i < targets.length; i++) {
+    var pinTime = keyframeSlotTime(targets[i]);
+    var framesAway = Math.abs(time - pinTime) / frameStep;
+    if (framesAway <= 2 && framesAway < bestFrames) {
+      bestFrames = framesAway;
+      bestTime = pinTime;
+    }
+  }
+  if (Math.abs(bestTime - time) <= frameStep * 0.2) {
+    keyframeSnapLock = null;
+    return time;
+  }
+  var token = bestTime.toFixed(4);
+  if (keyframeSnapLock !== token && typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
+  keyframeSnapLock = token;
+  return bestTime;
+}
+
+function ensureKeyframePins() {
+  var input = document.getElementById('seek-bar');
+  if (!input || !input.parentElement) return null;
+  var host = input.parentElement;
+  if (!host.classList.contains('seek-track')) {
+    var track = document.createElement('div');
+    track.className = 'seek-track';
+    host.insertBefore(track, input);
+    track.appendChild(input);
+    host = track;
+  }
+  if (!host.querySelector('.seek-key-pin.is-first')) {
+    var first = document.createElement('span');
+    first.className = 'seek-key-pin is-first';
+    first.hidden = true;
+    host.appendChild(first);
+  }
+  if (!host.querySelector('.seek-key-pin.is-second')) {
+    var second = document.createElement('span');
+    second.className = 'seek-key-pin is-second';
+    second.hidden = true;
+    host.appendChild(second);
+  }
+  return host;
+}
+
+function pinPercent(slot) {
+  if (typeof videoElement === 'undefined' || !videoElement || !(videoElement.duration > 0)) return 0;
+  return Math.max(0, Math.min(100, (keyframeSlotTime(slot) / videoElement.duration) * 100));
+}
+
+function refreshKeyframePins() {
+  var host = ensureKeyframePins();
+  if (!host) return;
+  var firstPin = host.querySelector('.seek-key-pin.is-first');
+  var secondPin = host.querySelector('.seek-key-pin.is-second');
+  var firstSlot = battingKeyframeMode() ? topFrame : footContactFrame;
+  var secondSlot = battingKeyframeMode() ? impactFrame : releaseFrame;
+  if (firstPin) {
+    if (firstSlot == null) firstPin.hidden = true;
+    else {
+      firstPin.hidden = false;
+      firstPin.style.left = pinPercent(firstSlot) + '%';
+    }
+  }
+  if (secondPin) {
+    if (secondSlot == null) secondPin.hidden = true;
+    else {
+      secondPin.hidden = false;
+      var percent = pinPercent(secondSlot);
+      if (firstSlot != null && Math.abs(percent - pinPercent(firstSlot)) < 2) percent = Math.min(100, percent + 1.5);
+      secondPin.style.left = percent + '%';
+    }
+  }
 }

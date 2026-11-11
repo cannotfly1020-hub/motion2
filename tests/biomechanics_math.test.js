@@ -70,6 +70,52 @@ check(
   null
 );
 
+function keyframeBody(spec) {
+  const points = [];
+  for (let i = 0; i < 33; i += 1) points.push({ x: 0.5, y: 0.55, z: 0, visibility: 1 });
+  points[0] = { x: 0.5, y: 0.2, z: 0, visibility: 1 };
+  points[11] = { x: 0.42, y: 0.32, z: 0, visibility: 1 };
+  points[12] = { x: 0.58, y: 0.32, z: spec.shoulderZ || 0.02, visibility: 1 };
+  points[15] = { x: spec.wristX - 0.02, y: spec.wristY, z: 0, visibility: 1 };
+  points[16] = { x: spec.wristX, y: spec.wristY, z: 0, visibility: 1 };
+  points[23] = { x: 0.45, y: 0.62, z: 0, visibility: 1 };
+  points[24] = { x: 0.55, y: 0.62, z: 0.04, visibility: 1 };
+  points[27] = { x: spec.ankleX, y: 0.9, z: 0, visibility: 1 };
+  points[28] = { x: spec.ankleX + 0.2, y: 0.9, z: 0, visibility: 1 };
+  return points;
+}
+
+const swingX = [0.50, 0.40, 0.30, 0.20, 0.35, 0.55, 0.80, 0.90];
+const swing = swingX.map(function(x, index) {
+  return keyframeBody({
+    wristX: x,
+    wristY: 0.4,
+    ankleX: index >= 6 ? x : 0.2,
+    shoulderZ: index === 3 ? 0.2 : 0.02
+  });
+});
+const battingKeys = context.detectBattingKeyframes(swing, swing.length, true);
+check('打撃トップは手首が反転したコマ', battingKeys.top, 3);
+check('打撃インパクトは速度ピーク直後の前足ライン', battingKeys.impact, 6);
+
+const ankleX = [0.20, 0.35, 0.55, 0.80, 0.82, 0.82, 0.82, 0.82];
+const pitch = ankleX.map(function(x, index) {
+  return keyframeBody({
+    wristX: index < 6 ? 0.55 : 0.9,
+    wristY: index === 6 ? 0.12 : 0.45,
+    ankleX: x
+  });
+});
+const pitchKeys = context.detectPitchingKeyframes(pitch, pitch.length, true);
+check('右投げのべた足は足首が止まった最初のコマ', pitchKeys.footContact, 4);
+check('リリースは手首速度のピーク付近', pitchKeys.release, 6);
+
+const fallbackKeys = context.detectBattingKeyframes(null, 10, true);
+check('検出できない動画の第1候補は25〜40%', fallbackKeys.top, 3);
+check('検出できない動画の第2候補は50〜65%', fallbackKeys.impact, 5);
+const safeKeys = context.detectPitchingKeyframes(undefined, Number.NaN, true);
+check('壊れた入力でもキーフレームは数値', Number.isFinite(safeKeys.footContact) && Number.isFinite(safeKeys.release), true);
+
 let failed = 0;
 cases.forEach(function(item) {
   if (item.pass) {

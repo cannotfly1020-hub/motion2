@@ -70,6 +70,7 @@ function applyManualRelease() {
   if (typeof nativeHaptic === 'function') nativeHaptic('MEDIUM');
   videoElement.pause();
   manualReleaseTime = videoElement.currentTime;
+  if (typeof lockDetectedKeyframe === 'function') lockDetectedKeyframe(2);
   const details = releaseDetailBits();
   if (selectedAngleMode === 'SIDE') {
     const heightCm = currentCalculatedState.releaseHeightCm;
@@ -113,6 +114,7 @@ function clearManualRelease() {
   updateReleaseMarker();
   ghostLandmarksKey2 = null;
   ghost2Locked = false;
+  if (typeof restoreDetectedKeyframe === 'function') restoreDetectedKeyframe(2);
   if (stepViews[4].classList.contains('active')) {
     processSingleFrame();
   }
@@ -579,6 +581,7 @@ function bindModeExtras() {
       records.ffKneeFlex = currentCalculatedState.kneeFlexAngle;
       paintSideKneeHero();
     }
+    if (typeof lockDetectedKeyframe === 'function') lockDetectedKeyframe(1);
     if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(1, true);
     if (typeof updateDrawerKeyBadge === 'function') updateDrawerKeyBadge();
     if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();

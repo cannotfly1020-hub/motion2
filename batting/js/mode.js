@@ -426,6 +426,7 @@ function bindModeExtras() {
     if (typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
     records.takebackLeadElbow = currentCalculatedState.leadElbowAngle;
     paintHero(c9Max, 'TOP 前ヒジ', records.takebackLeadElbow + '°', true);
+    if (typeof lockDetectedKeyframe === 'function') lockDetectedKeyframe(1);
     if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(1, true);
     if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
     showToast('🎯 トップ時の前ヒジ角度【' + records.takebackLeadElbow + '°】を記録しました！');
@@ -450,6 +451,7 @@ function bindModeExtras() {
       paintHero(c8Max, 'IMPACT グリップ', records.impactHandH + ' cm', true);
       paintHero(c10Max, 'IMPACT 後ヒジ', records.impactBackElbow + '°', true);
     }
+    if (typeof lockDetectedKeyframe === 'function') lockDetectedKeyframe(2);
     if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(2, true);
     if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
     showToast('💥 インパクト瞬間の各数値を記録しました！');
