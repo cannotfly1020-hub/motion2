@@ -190,77 +190,30 @@ function renderFrameOnly() {
   if (videoElement.readyState >= 2) {
     outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
   }
+  if (typeof paintGhostSkeletons === 'function') {
+    paintGhostSkeletons(outputCtx, b.x, b.y, b.w, b.h);
+  }
+  if (typeof lastPoseLandmarks !== 'undefined' && lastPoseLandmarks && (typeof isSkeletonVisible === 'undefined' || isSkeletonVisible) && typeof paintLiveSkeleton === 'function') {
+    paintLiveSkeleton(outputCtx, lastPoseLandmarks, b.x, b.y, b.w, b.h);
+  }
   outputCtx.restore();
 }
 
 function drawPrecisionSkeleton(landmarks, ox, oy, bw, bh, isSouthpaw, isRightHanded) {
-  const connections = [
-    [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21],
-    [12, 14], [14, 16], [16, 18], [16, 20], [16, 22],
-    [11, 23], [12, 24], [23, 24],
-    [23, 25], [25, 27], [27, 29], [29, 31], [27, 31],
-    [24, 26], [26, 28], [28, 30], [30, 32], [28, 32]
-  ];
-
-  outputCtx.strokeStyle = "#10b981";
-  outputCtx.lineWidth = 3.5;
-  connections.forEach(([i, j]) => {
-    const p1 = landmarks[i];
-    const p2 = landmarks[j];
-    if (p1 && p2) {
-      outputCtx.beginPath();
-      outputCtx.moveTo(ox + p1.x * bw, oy + p1.y * bh);
-      outputCtx.lineTo(ox + p2.x * bw, oy + p2.y * bh);
-      outputCtx.stroke();
-    }
-  });
-
-  const keyJoints = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32];
   const throwWristIdx = isRightHanded ? 16 : 15;
-  const throwElbowIdx = isRightHanded ? 14 : 13;
   const throwIndexIdx = isRightHanded ? 20 : 19;
-  const leadKneeIdx = isRightHanded ? 25 : 26;
-  const leadToeIdx = isRightHanded ? 31 : 32;
-
-  keyJoints.forEach(idx => {
-    const p = landmarks[idx];
-    if (p) {
-      let drawX = ox + p.x * bw;
-      let drawY = oy + p.y * bh;
-
-      if (idx === throwIndexIdx && landmarks[throwWristIdx]) {
-        const wristP = landmarks[throwWristIdx];
-        const dist = Math.hypot(p.x - wristP.x, p.y - wristP.y);
-        if (dist > 0.18) {
-          drawX = ox + wristP.x * bw;
-          drawY = oy + wristP.y * bh;
-        }
-      }
-
-      outputCtx.beginPath();
-      let radius = 4.5;
-      if (idx === throwIndexIdx) radius = 7;
-      else if (idx === throwWristIdx) radius = 6;
-      else if (idx === throwElbowIdx) radius = 5.5;
-      else if (idx === leadKneeIdx) radius = 6;
-      else if (idx === leadToeIdx) radius = 7;
-
-      outputCtx.arc(drawX, drawY, radius, 0, Math.PI * 2);
-      
-      if (idx === throwIndexIdx) outputCtx.fillStyle = "#ff007f";
-      else if (idx === throwWristIdx) outputCtx.fillStyle = "#ff5252";
-      else if (idx === throwElbowIdx) outputCtx.fillStyle = "#ff9f43";
-      else if (idx === leadKneeIdx) outputCtx.fillStyle = "#ffe600";
-      else if (idx === leadToeIdx) outputCtx.fillStyle = "#00d2ff";
-      else if ([17, 18, 21, 22].includes(idx)) outputCtx.fillStyle = "#a855f7";
-      else outputCtx.fillStyle = "#38bdf8";
-
-      outputCtx.fill();
-      outputCtx.strokeStyle = "#ffffff";
-      outputCtx.lineWidth = 1.5;
-      outputCtx.stroke();
+  let drawLandmarks = landmarks;
+  const wrist = landmarks[throwWristIdx];
+  const indexTip = landmarks[throwIndexIdx];
+  if (wrist && indexTip && typeof clonePoseLandmarks === 'function') {
+    const dist = Math.hypot(indexTip.x - wrist.x, indexTip.y - wrist.y);
+    if (dist > 0.18 || indexTip.visibility < 0.25) {
+      drawLandmarks = clonePoseLandmarks(landmarks);
+      if (drawLandmarks) drawLandmarks[throwIndexIdx] = { x: wrist.x, y: wrist.y, z: wrist.z || 0, visibility: wrist.visibility };
     }
-  });
+  }
+  if (typeof paintGhostSkeletons === 'function') paintGhostSkeletons(outputCtx, ox, oy, bw, bh);
+  if (typeof paintLiveSkeleton === 'function') paintLiveSkeleton(outputCtx, drawLandmarks, ox, oy, bw, bh);
 }
 
 var isHudCollapsed = false;

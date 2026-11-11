@@ -363,6 +363,10 @@ function armScanPreview() {
     if (typeof videoElement.requestVideoFrameCallback === 'function') {
       videoElement.requestVideoFrameCallback(() => paintScanPreview());
     }
+    endAnalysisProgress('video');
+  };
+  videoElement.onerror = () => {
+    endAnalysisProgress('video');
   };
 }
 
@@ -380,7 +384,9 @@ function openMeasurementVideo(src, angleMode) {
   selectedAngleMode = angleMode;
   updateCardLabels();
   setStep(2);
+  beginAnalysisProgress('video', '動画を読み込んでいます...', '画面を閉じずにお待ちください');
   armScanPreview();
+  if (typeof clearGhostCache === 'function') clearGhostCache();
   videoElement.src = src;
   videoElement.load();
 
@@ -565,7 +571,7 @@ document.getElementById('btn-scan-next').addEventListener('click', () => {
 });
 
 document.getElementById('btn-scan-action').addEventListener('click', async () => {
-  scanLoading.style.display = 'flex';
+  beginAnalysisProgress('scan', '関節座標を計算中...', '画面を閉じずにお待ちください');
   scanModeActive = true;
 
   const vw = videoElement.videoWidth;
@@ -579,8 +585,8 @@ document.getElementById('btn-scan-action').addEventListener('click', async () =>
   } catch (err) {
     console.error("Scan Error:", err);
   } finally {
-    scanLoading.style.display = 'none';
     scanModeActive = false;
+    endAnalysisProgress('scan');
   }
 });
 
@@ -613,7 +619,8 @@ document.getElementById('btn-start-analysis').addEventListener('click', () => {
   setStep(4);
   setTimeout(() => {
     resetWorkspaceDimensions();
-    processSingleFrame();
+    beginAnalysisProgress('frame', '関節座標を計算中...', '画面を閉じずにお待ちください');
+    Promise.resolve(processSingleFrame()).finally(() => endAnalysisProgress('frame'));
   }, 150);
 });
 
@@ -759,6 +766,8 @@ document.getElementById('btn-manual-top').addEventListener('click', () => {
   if (typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
   records.takebackLeadElbow = currentCalculatedState.leadElbowAngle;
   paintHero(c9Max, 'TOP 前ヒジ', `${records.takebackLeadElbow}°`, true);
+  if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(1, true);
+  if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
   showToast(`🎯 トップ時の前ヒジ角度【${records.takebackLeadElbow}°】を記録しました！`);
 });
 
@@ -783,6 +792,8 @@ document.getElementById('btn-manual-impact').addEventListener('click', () => {
     paintHero(c8Max, 'IMPACT グリップ', `${records.impactHandH} cm`, true);
     paintHero(c10Max, 'IMPACT 後ヒジ', `${records.impactBackElbow}°`, true);
   }
+  if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(2, true);
+  if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
   showToast("💥 インパクト瞬間の各数値を記録しました！");
 });
 
@@ -798,23 +809,9 @@ function getSavedRecords() {
   }
 }
 
-function saveCurrentRecord() {
-  const allRecords = getSavedRecords();
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}`;
-  const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-
-  const newEntry = {
-    id: Date.now(),
-    date: dateStr,
-    time: timeStr,
-    playerName: playerName,
-    height: userHeightCm,
-    batSide: selectedBatSide,
+function snapshotAdviceEntry() {
+  return {
     mode: selectedAngleMode,
-    feelGrade: "😆 めっちゃ芯で捉えた！",
-    bodyCondition: "🟢 どこも痛くない！元気！",
-    playerNote: "",
     metrics: selectedAngleMode === 'SIDE' ? {
       twist: records.maxTwistSigned !== 0 ? records.maxTwistSigned : currentCalculatedState.twistSignedDeg,
       twistLabel: records.twistStatusLabel || currentCalculatedState.twistStatusLabel,
@@ -843,6 +840,28 @@ function saveCurrentRecord() {
       takebackLeadElbow: records.takebackLeadElbow,
       impactBackElbow: records.impactBackElbow
     }
+  };
+}
+
+function saveCurrentRecord() {
+  const allRecords = getSavedRecords();
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}`;
+  const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+  const adviceEntry = snapshotAdviceEntry();
+
+  const newEntry = {
+    id: Date.now(),
+    date: dateStr,
+    time: timeStr,
+    playerName: playerName,
+    height: userHeightCm,
+    batSide: selectedBatSide,
+    mode: adviceEntry.mode,
+    feelGrade: "😆 めっちゃ芯で捉えた！",
+    bodyCondition: "🟢 どこも痛くない！元気！",
+    playerNote: "",
+    metrics: adviceEntry.metrics
   };
 
   allRecords.unshift(newEntry);
@@ -1210,14 +1229,14 @@ function updatePlayState() {
 
   var playing = (typeof analysisTransportPlaying !== 'undefined' && analysisTransportPlaying) || !videoElement.paused;
   if (!playing) {
-    btnPlayPause.textContent = "再生 ▶";
+    btnPlayPause.textContent = "再生";
     btnPlayPause.style.background = "linear-gradient(135deg, #10b981, #059669)";
     if (aiDiagnostics.status !== 'ERROR') aiDiagnostics.status = 'IDLE';
     if (showAiDebugHud && !scanModeActive && outputCanvas.width > 0) {
       drawAiDiagnosticsHUD(outputCtx);
     }
   } else {
-    btnPlayPause.textContent = "停止 ⏸";
+    btnPlayPause.textContent = "停止";
     btnPlayPause.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
   }
 }
@@ -1296,6 +1315,8 @@ document.getElementById('btn-reset-max').addEventListener('click', () => {
   };
   initialNoseX = null;
   initialNoseY = null;
+  if (typeof clearGhostCache === 'function') clearGhostCache();
+  if (typeof updateDrawerKeyBadge === 'function') updateDrawerKeyBadge();
   showWaitingHeroes();
 });
 
@@ -1311,6 +1332,7 @@ document.getElementById('btn-re-select').addEventListener('click', () => {
   zoomPan = { x: 0, y: 0 };
   initialNoseX = null;
   initialNoseY = null;
+  if (typeof clearGhostCache === 'function') clearGhostCache();
   updateZoomBadge();
   setStep(1);
 });

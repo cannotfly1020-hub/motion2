@@ -58,10 +58,91 @@ function waitForSeeked(target) {
   });
 }
 
+var analysisProgressStack = [];
+var analysisBusyControlIds = [
+  'video-input-side',
+  'video-input-front',
+  'video-input-capture',
+  'btn-capture-side',
+  'btn-capture-front',
+  'btn-scan-action',
+  'btn-scan-next-step',
+  'btn-start-analysis',
+  'btn-re-scan'
+];
+
+function renderAnalysisProgress() {
+  var root = document.getElementById('analysis-progress');
+  if (!root) return;
+  var titleEl = document.getElementById('analysis-progress-title');
+  var detailEl = document.getElementById('analysis-progress-detail');
+  var job = analysisProgressStack.length ? analysisProgressStack[analysisProgressStack.length - 1] : null;
+  if (!job) {
+    root.classList.remove('is-visible');
+    root.setAttribute('aria-hidden', 'true');
+    setAnalysisControlsBusy(false);
+    return;
+  }
+  if (titleEl && titleEl.textContent !== job.title) titleEl.textContent = job.title;
+  if (detailEl && detailEl.textContent !== (job.detail || '')) detailEl.textContent = job.detail || '';
+  root.classList.add('is-visible');
+  root.setAttribute('aria-hidden', 'false');
+  setAnalysisControlsBusy(true);
+}
+
+function beginAnalysisProgress(key, title, detail) {
+  var next = { key: key, title: title, detail: detail || '' };
+  var index = -1;
+  for (var i = 0; i < analysisProgressStack.length; i++) {
+    if (analysisProgressStack[i].key === key) {
+      index = i;
+      break;
+    }
+  }
+  if (index >= 0) analysisProgressStack[index] = next;
+  else analysisProgressStack.push(next);
+  renderAnalysisProgress();
+}
+
+function endAnalysisProgress(key) {
+  var kept = [];
+  for (var i = 0; i < analysisProgressStack.length; i++) {
+    if (analysisProgressStack[i].key !== key) kept.push(analysisProgressStack[i]);
+  }
+  analysisProgressStack = kept;
+  renderAnalysisProgress();
+}
+
+function setAnalysisControlsBusy(busy) {
+  for (var i = 0; i < analysisBusyControlIds.length; i++) {
+    var el = document.getElementById(analysisBusyControlIds[i]);
+    if (el) el.disabled = busy;
+  }
+}
+
+function reportPlaybackProgress() {
+  if (!videoElement) return;
+  var duration = videoElement.duration;
+  var step = analysisFrameDuration > 0 ? analysisFrameDuration : (1 / 30);
+  if (!Number.isFinite(duration) || duration <= 0) return;
+  var total = Math.max(1, Math.round(duration / step));
+  var index = Math.floor((videoElement.currentTime || 0) / step) + 1;
+  if (index < 1) index = 1;
+  if (index > total) index = total;
+  var pct = Math.round((index / total) * 100);
+  if (pct > 100) pct = 100;
+  beginAnalysisProgress(
+    'playback',
+    'AI骨格スキャン中... 画面を閉じずにお待ちください',
+    '解析進捗: ' + pct + '%（' + index + ' / ' + total + '）'
+  );
+}
+
 function stopFrameAccuratePlayback() {
   frameSeekGeneration += 1;
   analysisTransportPlaying = false;
   frameSeekLoopActive = false;
+  endAnalysisProgress('playback');
   if (typeof updatePlayState === 'function') updatePlayState();
 }
 
@@ -76,6 +157,7 @@ function startFrameAccuratePlayback() {
   frameSeekLoopActive = true;
   if (!videoElement.paused) videoElement.pause();
   if (typeof updatePlayState === 'function') updatePlayState();
+  reportPlaybackProgress();
 
   var step = analysisFrameDuration;
   if (!(step > 0)) step = 1 / 30;
@@ -86,6 +168,7 @@ function startFrameAccuratePlayback() {
     if (generation !== frameSeekGeneration) return;
     analysisTransportPlaying = false;
     frameSeekLoopActive = false;
+    endAnalysisProgress('playback');
     if (typeof updatePlayState === 'function') updatePlayState();
   }
 
@@ -111,6 +194,7 @@ function startFrameAccuratePlayback() {
       var pending = (typeof processSingleFrame === 'function') ? processSingleFrame() : null;
       Promise.resolve(pending).then(function() {
         if (generation !== frameSeekGeneration) return;
+        reportPlaybackProgress();
         if (typeof updateTimeUI === 'function') updateTimeUI();
         tick();
       });
@@ -120,6 +204,7 @@ function startFrameAccuratePlayback() {
   var first = (typeof processSingleFrame === 'function') ? processSingleFrame() : null;
   Promise.resolve(first).then(function() {
     if (generation !== frameSeekGeneration) return;
+    reportPlaybackProgress();
     if (typeof updateTimeUI === 'function') updateTimeUI();
     tick();
   });
@@ -129,6 +214,7 @@ function probeAnalysisFrameDuration() {
   if (!videoElement || typeof videoElement.requestVideoFrameCallback !== 'function') return;
   if (probingFrameRate || analysisTransportPlaying) return;
   probingFrameRate = true;
+  beginAnalysisProgress('probe', '動画のコマ数を確認しています...', '画面を閉じずにお待ちください');
 
   var samples = [];
   var previous = null;
@@ -136,6 +222,7 @@ function probeAnalysisFrameDuration() {
 
   function restore() {
     probingFrameRate = false;
+    endAnalysisProgress('probe');
     try { videoElement.pause(); } catch (err) { /* すでに停止 */ }
     waitForSeeked(origin);
   }
@@ -160,6 +247,7 @@ function probeAnalysisFrameDuration() {
   videoElement.requestVideoFrameCallback(take);
   videoElement.play().catch(function() {
     probingFrameRate = false;
+    endAnalysisProgress('probe');
   });
 }
 

@@ -200,10 +200,10 @@ function updateReleaseButton() {
   const clearBtn = document.getElementById('btn-clear-release');
   if (!setBtn || !clearBtn) return;
   if (manualReleaseTime == null) {
-    setBtn.textContent = '📍 リリース位置を決定';
+    setBtn.textContent = '💥リリース';
     clearBtn.hidden = true;
   } else {
-    setBtn.textContent = '📍 リリースを更新';
+    setBtn.textContent = '💥更新';
     clearBtn.hidden = false;
   }
 }
@@ -455,6 +455,10 @@ function armScanPreview() {
     if (typeof videoElement.requestVideoFrameCallback === 'function') {
       videoElement.requestVideoFrameCallback(() => paintScanPreview());
     }
+    endAnalysisProgress('video');
+  };
+  videoElement.onerror = () => {
+    endAnalysisProgress('video');
   };
 }
 
@@ -472,7 +476,9 @@ function openMeasurementVideo(src, angleMode) {
   selectedAngleMode = angleMode;
   updateCardLabels();
   setStep(2);
+  beginAnalysisProgress('video', '動画を読み込んでいます...', '画面を閉じずにお待ちください');
   armScanPreview();
+  if (typeof clearGhostCache === 'function') clearGhostCache();
   videoElement.src = src;
   videoElement.load();
 
@@ -660,7 +666,7 @@ document.getElementById('btn-scan-next').addEventListener('click', () => {
 });
 
 document.getElementById('btn-scan-action').addEventListener('click', async () => {
-  scanLoading.style.display = 'flex';
+  beginAnalysisProgress('scan', '関節座標を計算中...', '画面を閉じずにお待ちください');
   scanModeActive = true;
 
   const vw = videoElement.videoWidth;
@@ -674,8 +680,8 @@ document.getElementById('btn-scan-action').addEventListener('click', async () =>
   } catch (err) {
     console.error("Scan Error:", err);
   } finally {
-    scanLoading.style.display = 'none';
     scanModeActive = false;
+    endAnalysisProgress('scan');
   }
 });
 
@@ -705,7 +711,8 @@ document.getElementById('btn-start-analysis').addEventListener('click', () => {
   setStep(4);
   setTimeout(() => {
     resetWorkspaceDimensions();
-    processSingleFrame();
+    beginAnalysisProgress('frame', '関節座標を計算中...', '画面を閉じずにお待ちください');
+    Promise.resolve(processSingleFrame()).finally(() => endAnalysisProgress('frame'));
   }, 150);
 });
 
@@ -885,6 +892,9 @@ document.getElementById('btn-manual-fc').addEventListener('click', () => {
     records.ffKneeFlex = currentCalculatedState.kneeFlexAngle;
     paintSideKneeHero();
   }
+  if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(2, true);
+  if (typeof updateDrawerKeyBadge === 'function') updateDrawerKeyBadge();
+  if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
 });
 
 const STORAGE_KEY = 'pitching_ai_records_v1';
@@ -899,23 +909,9 @@ function getSavedRecords() {
   }
 }
 
-function saveCurrentRecord() {
-  const allRecords = getSavedRecords();
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}`;
-  const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-
-  const newEntry = {
-    id: Date.now(),
-    date: dateStr,
-    time: timeStr,
-    playerName: playerName,
-    height: userHeightCm,
-    throwArm: selectedThrowArm,
+function snapshotAdviceEntry() {
+  return {
     mode: selectedAngleMode,
-    feelGrade: "😆 めっちゃ良かった！",
-    bodyCondition: "🟢 どこも痛くない！元気！",
-    playerNote: "",
     metrics: selectedAngleMode === 'SIDE' ? {
       stride: records.maxStride,
       strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
@@ -935,6 +931,28 @@ function saveCurrentRecord() {
       inStep: records.maxInStepCm,
       releaseLateral: records.maxReleaseLateral
     }
+  };
+}
+
+function saveCurrentRecord() {
+  const allRecords = getSavedRecords();
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')}`;
+  const timeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+  const adviceEntry = snapshotAdviceEntry();
+
+  const newEntry = {
+    id: Date.now(),
+    date: dateStr,
+    time: timeStr,
+    playerName: playerName,
+    height: userHeightCm,
+    throwArm: selectedThrowArm,
+    mode: adviceEntry.mode,
+    feelGrade: "😆 めっちゃ良かった！",
+    bodyCondition: "🟢 どこも痛くない！元気！",
+    playerNote: "",
+    metrics: adviceEntry.metrics
   };
 
   allRecords.unshift(newEntry);
@@ -1298,14 +1316,14 @@ function updatePlayState() {
 
   var playing = (typeof analysisTransportPlaying !== 'undefined' && analysisTransportPlaying) || !videoElement.paused;
   if (!playing) {
-    btnPlayPause.textContent = "再生 ▶";
+    btnPlayPause.textContent = "再生";
     btnPlayPause.style.background = "linear-gradient(135deg, #ff9f43, #ff5252)";
     if (aiDiagnostics.status !== 'ERROR') aiDiagnostics.status = 'IDLE';
     if (showAiDebugHud && !scanModeActive && outputCanvas.width > 0) {
       drawAiDiagnosticsHUD(outputCtx);
     }
   } else {
-    btnPlayPause.textContent = "停止 ⏸";
+    btnPlayPause.textContent = "停止";
     btnPlayPause.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
   }
 }
@@ -1405,6 +1423,8 @@ document.getElementById('btn-reset-max').addEventListener('click', () => {
   leadFootFlatStationaryCount = 0;
   manualReleaseTime = null;
   clearReleaseSnapshotFields();
+  if (typeof clearGhostCache === 'function') clearGhostCache();
+  if (typeof updateDrawerKeyBadge === 'function') updateDrawerKeyBadge();
 
   showWaitingHeroes();
 });
@@ -1423,6 +1443,7 @@ document.getElementById('btn-re-select').addEventListener('click', () => {
   manualToeOffsetDeg = 0;
   prevLeadToeY = null;
   leadFootFlatStationaryCount = 0;
+  if (typeof clearGhostCache === 'function') clearGhostCache();
   updateZoomBadge();
   setStep(1);
 });

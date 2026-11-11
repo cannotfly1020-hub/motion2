@@ -12,6 +12,13 @@ for (const file of ['index.html', 'manifest.json', 'sw.js', 'icon-192.png', 'ico
   if (existsSync(src)) cpSync(src, join(www, file));
 }
 
+if (existsSync(join(root, 'css'))) {
+  cpSync(join(root, 'css'), join(www, 'css'), {
+    recursive: true,
+    filter: (src) => !src.endsWith('.DS_Store')
+  });
+}
+
 for (const dir of ['batting', 'pitching', 'native', 'libs']) {
   cpSync(join(root, dir), join(www, dir), {
     recursive: true,

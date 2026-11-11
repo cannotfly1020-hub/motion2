@@ -1,9 +1,11 @@
-const CACHE_NAME = 'baseball-ai-v14';
+const CACHE_NAME = 'baseball-ai-v15';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './css/common.css',
+  './native/motion_ui.js',
   './native/pose_pipeline.js',
   './native/bridge.js',
   './libs/mediapipe/pose.js',

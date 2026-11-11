@@ -671,29 +671,28 @@ input[type="file"] {
 
 .card {
   background: #ffffff;
-  border: 1.5px solid #bae6fd;
-  border-radius: 8px;
-  padding: 4px 5px 3px;
+  border: 1.5px solid #0369a1;
+  border-radius: 12px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  box-shadow: 0 2px 0 #e2e8f0;
+  gap: 2px;
+  box-shadow: 0 2px 0 #075985, 0 8px 16px rgba(3, 105, 161, 0.08);
   position: relative;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  height: auto;
+  overflow: visible;
 }
 
 .card-title {
-  font-size: 0.60rem;
+  font-size: 0.74rem;
   font-weight: 900;
-  color: #0369a1;
-  display: flex;
-  align-items: center;
-  gap: 2px;
+  color: #0c4a6e;
+  display: block;
   white-space: normal;
   overflow-wrap: anywhere;
-  line-height: 1.1;
+  line-height: 1.35;
   min-width: 0;
   max-width: 100%;
 }
@@ -703,11 +702,13 @@ input[type="file"] {
   flex-direction: column;
   align-items: flex-start;
   gap: 0;
-  margin-top: 1px;
-  padding: 1px 2px 2px;
+  margin-top: 0;
+  padding: 2px 4px;
   border-radius: 6px;
   background: #f8fafc;
-  line-height: 1;
+  line-height: normal;
+  height: auto;
+  overflow: visible;
 }
 
 .phase-tag {
@@ -719,11 +720,11 @@ input[type="file"] {
 }
 
 .phase-num {
-  font-size: clamp(1.45rem, 6.4vw, 2.15rem);
+  font-size: clamp(1.7rem, 7.2vw, 2.15rem);
   font-weight: 900;
-  color: #cbd5e1;
+  color: #0f172a;
   font-variant-numeric: tabular-nums;
-  line-height: 1.02;
+  line-height: 1.15;
   letter-spacing: -0.03em;
   max-width: 100%;
 }
@@ -743,11 +744,15 @@ input[type="file"] {
 }
 
 .card-val {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #94a3b8;
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #334155;
   font-variant-numeric: tabular-nums;
-  line-height: 1.15;
+  line-height: 1.45;
+  min-height: 1.45em;
+  overflow: visible;
+  white-space: nowrap;
 }
 
 .card-val::before {
@@ -1312,11 +1317,12 @@ header {
 }
 
 .card {
-  padding: 8px 8px 6px;
+  padding: 8px 12px;
 }
 
 .card-val {
-  font-size: clamp(0.68rem, 2.2vw, 0.8rem);
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 
 .mode-card {
@@ -1408,94 +1414,158 @@ header {
   }
 }
 
-@media (max-width: 767px) {
-  body:has(#view-step4.view-section.active) {
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-  }
+html:has(#view-step4.view-section.active),
+body:has(#view-step4.view-section.active) {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
 
-  body:has(#view-step4.view-section.active) .app-container {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-  }
+body:has(#view-step4.view-section.active) header {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
 
-  #view-step4.view-section.active {
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-    justify-content: flex-start;
-    gap: 6px;
-  }
+body:has(#view-step4.view-section.active) .app-container {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  margin-bottom: 4px;
+  padding: 4px;
+  gap: 0;
+}
 
-  #view-step4 .analysis-layout {
-    flex: 1 1 auto;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-    gap: 6px;
-  }
+#view-step4.view-section.active {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  justify-content: flex-start;
+  gap: 0;
+}
 
-  #view-step4 .analysis-stage {
-    flex: 0 0 auto;
-    gap: 0;
-  }
+#view-step4 .analysis-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  gap: 0;
+}
 
-  #view-step4 .analysis-side {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-    gap: 6px;
-  }
+#view-step4 .analysis-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+}
 
-  #view-step4 .screen-wrapper {
-    aspect-ratio: auto;
-    flex: 0 0 auto;
-    width: 100%;
-    height: calc(45vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    max-height: calc(48vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    min-height: 200px;
-  }
+#view-step4 .screen-wrapper {
+  aspect-ratio: auto;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+}
 
-  #view-step4 .dashboard {
-    order: 1;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    align-content: start;
-    gap: 3px;
-  }
+#view-step4 .dashboard {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 6px;
+}
 
-  #view-step4 .controls-container {
-    order: 2;
-    flex: 0 0 auto;
-    gap: 2px;
-  }
+#view-step4 .card,
+#view-step4 .card-max,
+#view-step4 .card-title,
+#view-step4 .phase-num,
+#view-step4 .card-val {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
 
-  #view-step4 .card {
-    padding: 2px 4px;
-    gap: 0;
-  }
+#view-step4 .card {
+  padding: 8px 12px;
+  min-height: 0;
+}
 
-  #view-step4 .phase-num {
-    font-size: 1.1rem;
-  }
+#view-step4 .phase-num {
+  font-size: clamp(1.45rem, 6.6vw, 1.9rem);
+  line-height: 1.2;
+}
 
-  #view-step4 .playback-rows {
-    gap: 2px;
-  }
+#view-step4 .card-val {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  min-height: 1.45em;
+  padding-top: 1px;
+}
 
-  #view-step4 .btn-ctrl,
-  #view-step4 .btn-ai-hud {
-    min-height: 34px;
-    padding: 4px 6px;
-    font-size: 0.68rem;
-  }
+#view-step4 .controls-container {
+  gap: 4px;
+}
 
-  #view-step4 .seek-bar {
-    height: 10px;
-  }
+#view-step4 .seek-container {
+  padding: 1px 6px;
+  min-height: 28px;
+}
+
+#view-step4 .playback-rows {
+  gap: 4px;
+}
+
+#view-step4 .btn-row-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+}
+
+#view-step4 .btn-row-actions .btn-ctrl {
+  min-height: 32px;
+  padding: 3px 2px;
+  font-size: clamp(0.52rem, 2.55vw, 0.66rem);
+  line-height: 1.15;
+  white-space: nowrap;
+  box-shadow: none;
+  border-radius: 7px;
+}
+
+#view-step4 .btn-row-tools {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+}
+
+#view-step4 .btn-row-tools .btn-ctrl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 2px 0;
+  font-size: 0.72rem;
+  line-height: 1;
+  white-space: normal;
+  box-shadow: none;
+  border-radius: 7px;
+  gap: 0;
+}
+
+#view-step4 .btn-row-tools .btn-ctrl span {
+  font-size: 0.5rem;
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+#view-step4 .btn-ai-hud {
+  display: none;
+}
+
+#view-step4 .seek-bar {
+  height: 10px;
 }
 
 .capture-row {
@@ -1508,4 +1578,100 @@ header {
   flex: 1 1 0;
   min-width: 0;
   min-height: 44px;
+}
+
+.analysis-progress {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    calc(24px + env(safe-area-inset-top, 0px))
+    calc(20px + env(safe-area-inset-right, 0px))
+    calc(24px + env(safe-area-inset-bottom, 0px))
+    calc(20px + env(safe-area-inset-left, 0px));
+  background: rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.analysis-progress.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.analysis-progress-card {
+  width: min(20rem, 100%);
+  background: rgba(255, 255, 255, 0.97);
+  color: #0f172a;
+  border-radius: 18px;
+  padding: 22px 18px 18px;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.analysis-spinner {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #f8fafc;
+  box-shadow: inset 0 0 0 2px #e2e8f0, 0 8px 18px rgba(15, 23, 42, 0.18);
+  position: relative;
+  animation: analysis-spin 0.9s linear infinite;
+}
+
+.analysis-spinner-seam,
+.analysis-spinner-seam::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 16px;
+  height: 40px;
+  border: 2.5px solid #ef4444;
+  border-radius: 50%;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+
+.analysis-spinner-seam {
+  transform: rotate(32deg);
+}
+
+.analysis-spinner-seam::before {
+  left: -2px;
+  right: -2px;
+  top: 6px;
+  transform: rotate(-64deg);
+}
+
+.analysis-progress-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.analysis-progress-detail {
+  margin: 8px 0 0;
+  min-height: 1.2em;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #334155;
+  font-variant-numeric: tabular-nums;
+}
+
+button:disabled,
+input:disabled {
+  opacity: 0.55;
+}
+
+@keyframes analysis-spin {
+  to { transform: rotate(360deg); }
 }

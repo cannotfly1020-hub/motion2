@@ -117,9 +117,7 @@ function applyBattingBiomechanics(landmarks, b) {
     ? { s: R_SHOULDER, e: R_ELBOW, w: R_WRIST } 
     : { s: L_SHOULDER, e: L_ELBOW, w: L_WRIST };
 
-  if (isSkeletonVisible) {
-    drawBattingSkeleton(landmarks, b.x, b.y, b.w, b.h, isRightBatter);
-  }
+  if (typeof rememberPoseLandmarks === 'function') rememberPoseLandmarks(landmarks);
 
   if (NOSE && initialNoseX === null) {
     initialNoseX = NOSE.x;
@@ -161,6 +159,7 @@ function applyBattingBiomechanics(landmarks, b) {
           records.maxTwistSigned = roundedTwist;
           records.twistStatusLabel = twistLabel;
           paintHero(c1Max, 'TOP 捻転差', `+${roundedTwist}°`, true);
+          if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(1, false);
         }
       }
     }
@@ -339,5 +338,10 @@ function applyBattingBiomechanics(landmarks, b) {
       currentCalculatedState.backElbowAngle = backDeg;
       c10Val.textContent = `${backDeg}°`;
     }
+  }
+
+  if (typeof updateDrawerKeyBadge === 'function') updateDrawerKeyBadge();
+  if (isSkeletonVisible) {
+    drawBattingSkeleton(landmarks, b.x, b.y, b.w, b.h, isRightBatter);
   }
 }

@@ -183,61 +183,18 @@ function renderFrameOnly() {
   if (videoElement.readyState >= 2) {
     outputCtx.drawImage(videoElement, b.x, b.y, b.w, b.h);
   }
+  if (typeof paintGhostSkeletons === 'function') {
+    paintGhostSkeletons(outputCtx, b.x, b.y, b.w, b.h);
+  }
+  if (typeof lastPoseLandmarks !== 'undefined' && lastPoseLandmarks && (typeof isSkeletonVisible === 'undefined' || isSkeletonVisible) && typeof paintLiveSkeleton === 'function') {
+    paintLiveSkeleton(outputCtx, lastPoseLandmarks, b.x, b.y, b.w, b.h);
+  }
   outputCtx.restore();
 }
 
 function drawBattingSkeleton(landmarks, ox, oy, bw, bh, isRightBatter) {
-  const connections = [
-    [11, 12], [11, 13], [13, 15], [15, 17], [15, 19],
-    [12, 14], [14, 16], [16, 18], [16, 20],
-    [11, 23], [12, 24], [23, 24],
-    [23, 25], [25, 27], [27, 29], [29, 31],
-    [24, 26], [26, 28], [28, 30], [30, 32]
-  ];
-
-  outputCtx.strokeStyle = "#10b981";
-  outputCtx.lineWidth = 3.5;
-  connections.forEach(([i, j]) => {
-    const p1 = landmarks[i];
-    const p2 = landmarks[j];
-    if (p1 && p2) {
-      outputCtx.beginPath();
-      outputCtx.moveTo(ox + p1.x * bw, oy + p1.y * bh);
-      outputCtx.lineTo(ox + p2.x * bw, oy + p2.y * bh);
-      outputCtx.stroke();
-    }
-  });
-
-  const keyJoints = [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 31, 32];
-  const frontKneeIdx = isRightBatter ? 25 : 26;
-
-  keyJoints.forEach(idx => {
-    const p = landmarks[idx];
-    if (p) {
-      let drawX = ox + p.x * bw;
-      let drawY = oy + p.y * bh;
-
-      outputCtx.beginPath();
-      let radius = 5;
-      if ([15, 16].includes(idx)) radius = 7;
-      if (idx === frontKneeIdx) radius = 7;
-
-      outputCtx.arc(drawX, drawY, radius, 0, Math.PI * 2);
-      
-      if ([15, 16].includes(idx)) {
-        outputCtx.fillStyle = "#f59e0b";
-      } else if (idx === frontKneeIdx) {
-        outputCtx.fillStyle = "#ffe600";
-      } else {
-        outputCtx.fillStyle = "#34d399";
-      }
-
-      outputCtx.fill();
-      outputCtx.strokeStyle = "#ffffff";
-      outputCtx.lineWidth = 1.5;
-      outputCtx.stroke();
-    }
-  });
+  if (typeof paintGhostSkeletons === 'function') paintGhostSkeletons(outputCtx, ox, oy, bw, bh);
+  if (typeof paintLiveSkeleton === 'function') paintLiveSkeleton(outputCtx, landmarks, ox, oy, bw, bh);
 }
 
 var isHudCollapsed = false;

@@ -79,8 +79,7 @@ function recordAiDiagnostics(results) {
 
 function initMediaPipe() {
   if (pose) return Promise.resolve();
-  scanLoading.style.display = 'flex';
-  aiLoading.style.display = 'flex';
+  beginAnalysisProgress('model', 'AIモデル初期化中...', '画面を閉じずにお待ちください');
 
   pose = new Pose({
     locateFile: function(file) { return localPoseUrl(file); }
@@ -98,12 +97,10 @@ function initMediaPipe() {
   pose.onResults(onPoseResults);
   return pose.initialize().then(() => {
     isPoseLoaded = true;
-    scanLoading.style.display = 'none';
-    aiLoading.style.display = 'none';
   }).catch(err => {
     console.error("MediaPipe Load Error:", err);
-    scanLoading.style.display = 'none';
-    aiLoading.style.display = 'none';
+  }).finally(() => {
+    endAnalysisProgress('model');
   });
 }
 
