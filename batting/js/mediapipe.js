@@ -80,28 +80,42 @@ function recordAiDiagnostics(results) {
 function initMediaPipe() {
   if (pose) return Promise.resolve();
   beginAnalysisProgress('model', 'AIモデル初期化中...', '画面を閉じずにお待ちください');
-
-  pose = new Pose({
-    locateFile: function(file) { return localPoseUrl(file); }
-  });
-
-  pose.setOptions({
-    modelComplexity: 2,
-    smoothLandmarks: true,
-    enableSegmentation: false,
-    smoothSegmentation: false,
-    minDetectionConfidence: 0.15,
-    minTrackingConfidence: 0.15
-  });
-
-  pose.onResults(onPoseResults);
-  return pose.initialize().then(() => {
-    isPoseLoaded = true;
-  }).catch(err => {
-    console.error("MediaPipe Load Error:", err);
-  }).finally(() => {
+  console.log('[VideoLoad] MediaPipe initialize start');
+  var modelTimer = setTimeout(function() {
+    console.warn('[VideoLoad] AIモデル初期化がタイムアウトしたため、オーバーレイを解除します');
     endAnalysisProgress('model');
-  });
+  }, 15000);
+
+  try {
+    pose = new Pose({
+      locateFile: function(file) { return localPoseUrl(file); }
+    });
+
+    pose.setOptions({
+      modelComplexity: 2,
+      smoothLandmarks: true,
+      enableSegmentation: false,
+      smoothSegmentation: false,
+      minDetectionConfidence: 0.15,
+      minTrackingConfidence: 0.15
+    });
+
+    pose.onResults(onPoseResults);
+    return pose.initialize().then(() => {
+      isPoseLoaded = true;
+      console.log('[VideoLoad] MediaPipe initialize done');
+    }).catch(err => {
+      console.error('[VideoLoad] MediaPipe Load Error:', err);
+    }).finally(() => {
+      clearTimeout(modelTimer);
+      endAnalysisProgress('model');
+    });
+  } catch (err) {
+    clearTimeout(modelTimer);
+    endAnalysisProgress('model');
+    console.error('[VideoLoad] MediaPipe Load Error:', err);
+    return Promise.reject(err);
+  }
 }
 
 function processSingleFrame() {
@@ -116,6 +130,10 @@ function processSingleFrame() {
 
   isProcessing = true;
   _lastInferTime = performance.now();
+  if (!processSingleFrame._logged) {
+    processSingleFrame._logged = true;
+    console.log('[VideoLoad] MediaPipe inference start');
+  }
   return pose.send({ image: bufferCanvas }).catch(err => {
     console.error("Inference Error:", err);
     aiDiagnostics.status = 'ERROR';

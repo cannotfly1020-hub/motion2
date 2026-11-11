@@ -346,28 +346,17 @@ function paintScanPreview() {
   renderScanFrame();
 }
 
-function armScanPreview() {
-  videoElement.muted = true;
-  videoElement.playsInline = true;
-  videoElement.onloadedmetadata = () => {
-    const nudge = Math.min(0.001, (videoElement.duration || 0.001) / 2);
-    try {
-      if (videoElement.currentTime !== nudge) videoElement.currentTime = nudge;
-      else paintScanPreview();
-    } catch (e) {
-      paintScanPreview();
-    }
-  };
-  videoElement.onloadeddata = () => {
+function armScanPreview(src) {
+  if (typeof startMeasurementVideo !== 'function') {
+    endAnalysisProgress('video');
+    return;
+  }
+  startMeasurementVideo(videoElement, src, function() {
     paintScanPreview();
     if (typeof videoElement.requestVideoFrameCallback === 'function') {
-      videoElement.requestVideoFrameCallback(() => paintScanPreview());
+      videoElement.requestVideoFrameCallback(function() { paintScanPreview(); });
     }
-    endAnalysisProgress('video');
-  };
-  videoElement.onerror = () => {
-    endAnalysisProgress('video');
-  };
+  });
 }
 
 function handleVideoLoad(file, angleMode) {
@@ -385,14 +374,24 @@ function openMeasurementVideo(src, angleMode) {
   updateCardLabels();
   setStep(2);
   beginAnalysisProgress('video', '動画を読み込んでいます...', '画面を閉じずにお待ちください');
-  armScanPreview();
   if (typeof clearGhostCache === 'function') clearGhostCache();
-  videoElement.src = src;
-  videoElement.load();
+  try {
+    armScanPreview(src);
+  } catch (err) {
+    console.error('[VideoLoad] open failed:', err);
+    endAnalysisProgress('video');
+    alert('動画の読み込みに失敗しました。別の動画を選択してください。');
+  }
 
-  initMediaPipe()
-    .catch(err => console.warn("MediaPipe init error:", err))
-    .finally(() => paintScanPreview());
+  try {
+    var pending = initMediaPipe();
+    Promise.resolve(pending)
+      .catch(err => console.warn('[VideoLoad] MediaPipe init error:', err))
+      .finally(() => paintScanPreview());
+  } catch (err) {
+    console.error('[VideoLoad] MediaPipe init error:', err);
+    if (typeof endAnalysisProgress === 'function') endAnalysisProgress('model');
+  }
 }
 
 const inputSide = document.getElementById('video-input-side');

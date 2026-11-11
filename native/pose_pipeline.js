@@ -34,7 +34,7 @@ function paintPoseInputCanvas() {
 
 function waitForSeeked(target) {
   return new Promise(function(resolve) {
-    if (!Number.isFinite(target)) {
+    if (!videoElement || !Number.isFinite(target)) {
       resolve();
       return;
     }
@@ -46,16 +46,123 @@ function waitForSeeked(target) {
     function done() {
       if (finished) return;
       finished = true;
+      clearTimeout(timer);
       videoElement.removeEventListener('seeked', done);
       resolve();
     }
+    var timer = setTimeout(function() {
+      console.warn('[VideoLoad] seek timeout at', target);
+      done();
+    }, 2500);
     videoElement.addEventListener('seeked', done);
     try {
       videoElement.currentTime = target;
     } catch (err) {
+      console.warn('[VideoLoad] seek failed:', err);
       done();
     }
   });
+}
+
+var cancelVideoLoadWatch = null;
+
+function applyInlineVideoPolicy(video) {
+  video.muted = true;
+  video.defaultMuted = true;
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.preload = 'auto';
+}
+
+function startMeasurementVideo(video, src, onReady) {
+  if (cancelVideoLoadWatch) cancelVideoLoadWatch();
+  applyInlineVideoPolicy(video);
+  var loaded = false;
+  var timeoutId = setTimeout(function() {
+    console.warn('[VideoLoad] 読み込みがタイムアウトしたため、強制的に解除して処理を続行します');
+    finish('timeout');
+  }, 5000);
+
+  function detach() {
+    clearTimeout(timeoutId);
+    video.removeEventListener('loadedmetadata', onMeta);
+    video.removeEventListener('loadeddata', onData);
+    video.removeEventListener('canplay', onCanPlay);
+    video.removeEventListener('error', onError);
+  }
+
+  function finish(reason) {
+    if (loaded || cancelVideoLoadWatch === null) return;
+    loaded = true;
+    detach();
+    cancelVideoLoadWatch = null;
+    console.log('[VideoLoad] ready via', reason, 'readyState=', video.readyState, 'src=', video.currentSrc || video.src);
+    try {
+      var nudge = 0.001;
+      if (Number.isFinite(video.duration) && video.duration > 0 && video.duration < nudge) {
+        nudge = video.duration / 2;
+      }
+      if (Math.abs((video.currentTime || 0) - nudge) > 0.0004) video.currentTime = nudge;
+    } catch (err) {
+      console.warn('[VideoLoad] Initial seek failed:', err);
+    }
+    endAnalysisProgress('video');
+    if (typeof onReady === 'function') {
+      try {
+        onReady();
+      } catch (err) {
+        console.error('[VideoLoad] preview failed:', err);
+      }
+    }
+  }
+
+  function onMeta() {
+    console.log('[VideoLoad] loadedmetadata');
+    finish('loadedmetadata');
+  }
+  function onData() {
+    console.log('[VideoLoad] loadeddata');
+    finish('loadeddata');
+  }
+  function onCanPlay() {
+    console.log('[VideoLoad] canplay');
+    finish('canplay');
+  }
+  function onError() {
+    if (loaded) return;
+    loaded = true;
+    detach();
+    cancelVideoLoadWatch = null;
+    console.error('[VideoLoad] Video element error:', video.error);
+    endAnalysisProgress('video');
+    alert('動画の読み込みに失敗しました。別の動画を選択してください。');
+  }
+
+  cancelVideoLoadWatch = function() {
+    loaded = true;
+    detach();
+    cancelVideoLoadWatch = null;
+  };
+  video.addEventListener('loadedmetadata', onMeta);
+  video.addEventListener('loadeddata', onData);
+  video.addEventListener('canplay', onCanPlay);
+  video.addEventListener('error', onError);
+  console.log('[VideoLoad] set src', src);
+  try {
+    video.src = src;
+    video.load();
+  } catch (err) {
+    console.error('[VideoLoad] load() failed:', err);
+    onError();
+    return;
+  }
+  setTimeout(function() {
+    if (!loaded && video.readyState >= 2) {
+      console.log('[VideoLoad] readyState', video.readyState);
+      finish('readyState');
+    }
+  }, 0);
 }
 
 var analysisProgressStack = [];
@@ -215,13 +322,20 @@ function probeAnalysisFrameDuration() {
   if (probingFrameRate || analysisTransportPlaying) return;
   probingFrameRate = true;
   beginAnalysisProgress('probe', '動画のコマ数を確認しています...', '画面を閉じずにお待ちください');
+  console.log('[VideoLoad] probe frame duration');
 
   var samples = [];
   var previous = null;
   var origin = videoElement.currentTime || 0;
+  var probeTimer = setTimeout(function() {
+    console.warn('[VideoLoad] コマ数確認がタイムアウトしたため、既定のコマ間隔で続行します');
+    restore();
+  }, 5000);
 
   function restore() {
+    if (!probingFrameRate) return;
     probingFrameRate = false;
+    clearTimeout(probeTimer);
     endAnalysisProgress('probe');
     try { videoElement.pause(); } catch (err) { /* すでに停止 */ }
     waitForSeeked(origin);
@@ -245,9 +359,9 @@ function probeAnalysisFrameDuration() {
   }
 
   videoElement.requestVideoFrameCallback(take);
-  videoElement.play().catch(function() {
-    probingFrameRate = false;
-    endAnalysisProgress('probe');
+  videoElement.play().catch(function(err) {
+    console.warn('[VideoLoad] frame probe play failed:', err);
+    restore();
   });
 }
 
