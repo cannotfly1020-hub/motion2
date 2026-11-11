@@ -2,425 +2,164 @@
 <html lang="ja">
 <head>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0284c7">
+  <meta name="theme-color" content="#f8fafc">
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>野球AIバイオメカニクス</title>
-  <style>
-    :root {
-      --primary: #0284c7;
-      --pitch-color: #ff5e36;
-      --bat-color: #10b981;
-      --bg: #f0f9ff;
-      --text: #0f172a;
-      --text-muted: #64748b;
-      --radius: 16px;
-    }
-
-    html, body {
-      width: 100%;
-      min-height: 100%;
-      min-height: 100dvh;
-      margin: 0;
-      padding: 0;
-      overflow-x: hidden;
-      box-sizing: border-box;
-      -webkit-text-size-adjust: 100%;
-    }
-
-    *, *::before, *::after {
-      box-sizing: border-box;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-
-    body {
-      font-family: "Hiragino Maru Gothic ProN", "Yu Gothic Rounded", "M PLUS Rounded 1c", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: linear-gradient(180deg, #bae6fd 0%, #e0f2fe 50%, #f8fafc 100%);
-      color: var(--text);
-      min-height: 100vh;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 1rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
-      overflow-x: hidden;
-      overflow-y: auto;
-    }
-
-    header,
-    main,
-    footer,
-    div,
-    a {
-      min-width: 0;
-      max-width: 100%;
-    }
-
-    header {
-      width: 100%;
-      max-width: min(64rem, 100%);
-      text-align: center;
-      margin-bottom: 1rem;
-      flex-shrink: 0;
-    }
-
-    .app-badge {
-      display: inline-block;
-      background: rgba(255, 255, 255, 0.9);
-      border: 1.5px solid #38bdf8;
-      color: #0284c7;
-      font-size: clamp(0.72rem, 1.6vw, 0.85rem);
-      font-weight: 900;
-      padding: 2px 10px;
-      border-radius: 9999px;
-      margin-bottom: 6px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-
-    h1 {
-      font-size: clamp(1.2rem, 4vw, 2rem);
-      font-weight: 900;
-      color: #0369a1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 6px;
-      text-shadow: 0 1px 0 #ffffff;
-      line-height: 1.2;
-      max-width: 100%;
-      min-width: 0;
-    }
-
-    .subtitle {
-      font-size: clamp(0.85rem, 2vw, 1.05rem);
-      font-weight: 800;
-      color: #475569;
-      margin-top: 4px;
-    }
-
-    main {
-      width: 100%;
-      max-width: min(64rem, 100%);
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      flex: 1;
-    }
-
-    .portal-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 12px;
-      width: 100%;
-      min-width: 0;
-    }
-
-    /* ポータルメニューカード */
-    .portal-card {
-      background: #ffffff;
-      border-radius: var(--radius);
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      text-decoration: none;
-      color: inherit;
-      box-shadow: 0 4px 0 #cbd5e1;
-      transition: all 0.15s ease;
-      position: relative;
-      overflow: hidden;
-      border: 2.5px solid transparent;
-      touch-action: manipulation;
-      min-width: 0;
-      max-width: 100%;
-      min-height: 7.25rem;
-    }
-
-    .portal-card:active {
-      transform: translateY(2px);
-      box-shadow: 0 1px 0 #cbd5e1;
-    }
-
-    /* 投球カード */
-    .card-pitching {
-      border-color: #ff5e36;
-      background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);
-    }
-    .card-pitching .portal-icon {
-      background: linear-gradient(135deg, #ff9f43, #ff5e36);
-      box-shadow: 0 4px 10px rgba(255, 94, 54, 0.35);
-    }
-    .card-pitching .portal-title {
-      color: #c2410c;
-    }
-    .card-pitching .tag {
-      background: #ffedd5;
-      color: #c2410c;
-      border: 1px solid #fdba74;
-    }
-
-    /* 打撃カード */
-    .card-batting {
-      border-color: #10b981;
-      background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
-    }
-    .card-batting .portal-icon {
-      background: linear-gradient(135deg, #34d399, #10b981);
-      box-shadow: 0 4px 10px rgba(16, 185, 129, 0.35);
-    }
-    .card-batting .portal-title {
-      color: #047857;
-    }
-    .card-batting .tag {
-      background: #dcfce7;
-      color: #15803d;
-      border: 1px solid #86efac;
-    }
-
-    .portal-icon {
-      width: 64px;
-      height: 64px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2.3rem;
-      flex-shrink: 0;
-      color: #ffffff;
-    }
-
-    .portal-info {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      flex: 1;
-      min-width: 0;
-    }
-
-    .portal-title {
-      font-size: clamp(1.05rem, 2.4vw, 1.45rem);
-      font-weight: 900;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .portal-desc {
-      font-size: clamp(0.78rem, 1.7vw, 0.95rem);
-      font-weight: 800;
-      color: #64748b;
-      line-height: 1.35;
-    }
-
-    .tags-row {
-      display: flex;
-      gap: 4px;
-      flex-wrap: wrap;
-      margin-top: 2px;
-    }
-
-    .tag {
-      font-size: 0.62rem;
-      font-weight: 900;
-      padding: 1px 6px;
-      border-radius: 6px;
-    }
-
-    .arrow-icon {
-      font-size: 1.1rem;
-      font-weight: 900;
-      color: #94a3b8;
-    }
-
-    /* ガイド・特徴ボックス */
-    .guide-container {
-      background: rgba(255, 255, 255, 0.9);
-      border: 1.5px solid #bae6fd;
-      border-radius: var(--radius);
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      box-shadow: 0 2px 6px rgba(14, 165, 233, 0.1);
-    }
-
-    .guide-title {
-      font-size: 0.8rem;
-      font-weight: 900;
-      color: #0369a1;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .guide-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 6px;
-      width: 100%;
-      min-width: 0;
-    }
-
-    @media (min-width: 768px) {
-      body {
-        padding: calc(2.5rem + env(safe-area-inset-top, 0px)) 2rem calc(2.5rem + env(safe-area-inset-bottom, 0px));
-      }
-
-      .portal-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1.25rem;
-      }
-
-      .portal-card {
-        min-height: 11rem;
-        align-items: flex-start;
-        padding: 1.35rem;
-      }
-
-      .guide-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-
-      .guide-item-title {
-        font-size: clamp(0.78rem, 1.2vw, 0.95rem);
-      }
-
-      .guide-item-desc {
-        font-size: clamp(0.72rem, 1.1vw, 0.85rem);
-      }
-    }
-
-    .guide-item {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 6px 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
-      max-width: 100%;
-    }
-
-    .guide-item-title {
-      font-size: 0.68rem;
-      font-weight: 900;
-      color: #334155;
-      display: flex;
-      align-items: center;
-      gap: 3px;
-    }
-
-    .guide-item-desc {
-      font-size: 0.62rem;
-      font-weight: 800;
-      color: #64748b;
-      line-height: 1.25;
-    }
-
-    footer {
-      margin-top: auto;
-      text-align: center;
-      padding-top: 10px;
-      font-size: 0.65rem;
-      font-weight: 800;
-      color: #64748b;
-    }
-  </style>
+  <link rel="stylesheet" href="css/home.css">
 </head>
 <body>
+  <div class="home-shell">
+    <header class="home-header">
+      <p class="home-badge">ジュニア野球専用 · AIモーション解析</p>
+      <h1>野球AIバイオメカニクス</h1>
+      <p class="home-lead">スマホでかんたん！投球・打撃フォームをAIが自動診断</p>
+    </header>
 
-  <header>
-    <div class="app-badge">⚾ ジュニア野球専用 AIモーション解析</div>
-    <h1>⚾ 野球AIバイオメカニクス 🏏</h1>
-    <p class="subtitle">スマホでかんたん！投球・打撃フォームをAIが自動診断</p>
-  </header>
+    <main class="portal-list">
+      <a href="./pitching/index.html" class="portal-card card-pitching" id="link-pitching">
+        <span class="portal-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <circle cx="12" cy="12" r="8"></circle>
+            <path d="M8 8.5c1.4 1.2 1.4 5.8 0 7"></path>
+            <path d="M16 8.5c-1.4 1.2-1.4 5.8 0 7"></path>
+          </svg>
+        </span>
+        <span class="portal-info">
+          <span class="portal-title">投球フォーム解析 <span class="portal-arrow" aria-hidden="true">›</span></span>
+          <p class="portal-desc">歩幅、腕のしなり、捻転差、前足の壁、リリース高を測定します。</p>
+          <span class="tags-row">
+            <span class="tag">捻転差</span>
+            <span class="tag">前足の壁</span>
+            <span class="tag">腕のしなり</span>
+            <span class="tag">歩幅(cm)</span>
+          </span>
+        </span>
+      </a>
 
-  <main>
-    <div class="portal-grid">
-    <!-- 投球解析リンク（pitching/index.html） -->
-    <a href="./pitching/index.html" class="portal-card card-pitching" id="link-pitching">
-      <div class="portal-icon">⚾</div>
-      <div class="portal-info">
-        <div class="portal-title">
-          <span>投球フォーム解析</span>
-          <span class="arrow-icon">▶</span>
-        </div>
-        <p class="portal-desc">歩幅・腕のしなり(肩外旋)・捻転差・前足ヒザの壁・リリース高を計測</p>
-        <div class="tags-row">
-          <span class="tag">⚡ 球速UP</span>
-          <span class="tag">🎯 制球力UP</span>
-          <span class="tag">🛡️ ヒジ肩予防</span>
-        </div>
+      <a href="./batting/index.html" class="portal-card card-batting" id="link-batting">
+        <span class="portal-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M7 17l8.5-8.5"></path>
+            <path d="M14.2 7.2l2.2 2.2"></path>
+            <path d="M6.2 16.2l1.6 1.6"></path>
+          </svg>
+        </span>
+        <span class="portal-info">
+          <span class="portal-title">打撃フォーム解析 <span class="portal-arrow" aria-hidden="true">›</span></span>
+          <p class="portal-desc">捻転差、前足の壁、頭のブレ、ステップ幅を測定します。</p>
+          <span class="tags-row">
+            <span class="tag">捻転差</span>
+            <span class="tag">前足の壁</span>
+            <span class="tag">頭のブレ</span>
+            <span class="tag">ステップ幅</span>
+          </span>
+        </span>
+      </a>
+    </main>
+
+    <section class="home-steps" aria-label="測定の手順">
+      <h2>かんたん3ステップで測定</h2>
+      <ol>
+        <li>
+          <span class="step-index">1</span>
+          <div class="step-copy">
+            <strong>動画選択</strong>
+            <p>横向き、または正面から全身が写る動画を選びます。</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-index">2</span>
+          <div class="step-copy">
+            <strong>AI姿勢スキャン</strong>
+            <p>骨格を読み、地面の水平と身長の基準を合わせます。</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-index">3</span>
+          <div class="step-copy">
+            <strong>動作分析</strong>
+            <p>角度と距離を確認し、カルテに残せます。</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <button type="button" class="home-history-btn" id="home-history-open">保存した選手カルテ・測定履歴</button>
+    <p class="home-note">測定データはこの端末の中だけに保存されます。</p>
+  </div>
+
+  <div class="history-sheet" id="home-history" hidden>
+    <div class="history-card" role="dialog" aria-modal="true" aria-labelledby="home-history-title">
+      <div class="history-head">
+        <h2 id="home-history-title">測定履歴</h2>
+        <button type="button" class="history-close" id="home-history-close">閉じる</button>
       </div>
-    </a>
-
-    <!-- 打撃解析リンク（batting/index.html） -->
-    <a href="./batting/index.html" class="portal-card card-batting" id="link-batting">
-      <div class="portal-icon">🏏</div>
-      <div class="portal-info">
-        <div class="portal-title">
-          <span>打撃フォーム解析</span>
-          <span class="arrow-icon">▶</span>
-        </div>
-        <p class="portal-desc">捻転差(タメ)・前足ヒザの壁・頭の突っ込み/目線ブレ・ステップ幅を計測</p>
-        <div class="tags-row">
-          <span class="tag">⚡ 飛距離UP</span>
-          <span class="tag">🎯 ミート力UP</span>
-          <span class="tag">🌪️ タメを作る</span>
-        </div>
-      </div>
-    </a>
+      <div id="home-history-list"></div>
     </div>
+  </div>
 
-    <!-- 機能特徴・使い方ガイド -->
-    <div class="guide-container">
-      <div class="guide-title">💡 かんたん3ステップで測定</div>
-      <div class="guide-grid">
-        <div class="guide-item">
-          <div class="guide-item-title">① 動画を撮影</div>
-          <div class="guide-item-desc">横向きまたは正面から、全身が写るように撮影します。</div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-item-title">② AIが骨格測定</div>
-          <div class="guide-item-desc">ボタンを押すだけでAIが各関節の角度やブレを自動計算！</div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-item-title">③ AIトレーナー分析</div>
-          <div class="guide-item-desc">運動連鎖と代償を見て、障害予防のケアを提案します。</div>
-        </div>
-        <div class="guide-item">
-          <div class="guide-item-title">④ LINEで共有</div>
-          <div class="guide-item-desc">測定結果と選手の振り返りをまとめて監督や親に送れます。</div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <footer>
-    ⚾ 完全端末内解析（通信料・外部API不要） | ジュニア野球向け
-  </footer>
-
-</body>
-<script>
-  var onNativeShell = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
-  if ('serviceWorker' in navigator && !onNativeShell) {
-    window.addEventListener('load', function() {
-      navigator.serviceWorker.register('sw.js').then(function(registration) {
-        console.log('ServiceWorker登録成功:', registration.scope);
-      }).catch(function(err) {
-        console.log('ServiceWorker登録失敗:', err);
+  <script>
+    var onNativeShell = typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+    if ('serviceWorker' in navigator && !onNativeShell) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js').catch(function() {});
       });
+    }
+
+    function escapeHomeText(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function readHomeRecords(key, sport) {
+      try {
+        var data = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!Array.isArray(data)) return [];
+        return data.map(function(item) {
+          return {
+            sport: sport,
+            name: item && item.playerName ? item.playerName : '選手',
+            date: item && item.date ? item.date : '',
+            height: item && item.height ? item.height : '',
+            id: item && item.id ? item.id : 0
+          };
+        });
+      } catch (err) {
+        return [];
+      }
+    }
+
+    function renderHomeHistory() {
+      var list = document.getElementById('home-history-list');
+      var records = readHomeRecords('pitching_ai_records_v1', '投球').concat(readHomeRecords('batting_ai_records_v1', '打撃'));
+      records.sort(function(a, b) { return b.id - a.id; });
+      if (!records.length) {
+        list.innerHTML = '<p class="history-empty">保存された測定はまだありません。解析画面のカルテ保存から残せます。</p>';
+        return;
+      }
+      list.innerHTML = records.slice(0, 12).map(function(item) {
+        var meta = item.sport;
+        if (item.date) meta += ' · ' + item.date;
+        if (item.height) meta += ' · ' + item.height + 'cm';
+        return '<div class="history-item"><strong>' + escapeHomeText(item.name) + '</strong><span>' + escapeHomeText(meta) + '</span></div>';
+      }).join('');
+    }
+
+    var history = document.getElementById('home-history');
+    document.getElementById('home-history-open').addEventListener('click', function() {
+      renderHomeHistory();
+      history.hidden = false;
     });
-  }
-</script>
+    document.getElementById('home-history-close').addEventListener('click', function() {
+      history.hidden = true;
+    });
+    history.addEventListener('click', function(event) {
+      if (event.target === history) history.hidden = true;
+    });
+  </script>
+</body>
 </html>
