@@ -2,41 +2,81 @@ const fs = require('fs');
 const path = require('path');
 
 const ICON_SVG = `<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- 背景: 高級感のある深いミッドナイトスレート -->
-  <rect width="1024" height="1024" fill="#0b1329" />
-  
-  <!-- 野球ボールのベース円（マットホワイト/ライトスレート） -->
-  <circle cx="512" cy="512" r="380" fill="#f8fafc" />
-  
-  <!-- 野球ボールの赤いステッチライン（左・右のシーム） -->
-  <path d="M 330 180 C 400 320 400 704 330 844" stroke="#dc2626" stroke-width="20" stroke-linecap="round" />
-  <path d="M 694 180 C 624 320 624 704 694 844" stroke="#dc2626" stroke-width="20" stroke-linecap="round" />
-  
-  <!-- 赤いステッチの縫い目（端正なハッシュマーク） -->
-  <path d="M 315 260 L 345 280 M 355 350 L 385 365 M 365 450 L 395 455 M 365 570 L 395 565 M 355 670 L 385 655 M 315 760 L 345 740" stroke="#dc2626" stroke-width="12" stroke-linecap="round" />
-  <path d="M 709 260 L 679 280 M 669 350 L 639 365 M 659 450 L 629 455 M 659 570 L 629 565 M 669 670 L 639 655 M 709 760 L 679 740" stroke="#dc2626" stroke-width="12" stroke-linecap="round" />
-  
-  <!-- バイオメカニクスの運動連鎖シンボル: トップ（青）とインパクト（橙）の交差軌道 -->
-  <!-- 軌道1（青: タメ・トップ） -->
-  <path d="M 240 680 C 240 400 420 280 620 280" stroke="#2563eb" stroke-width="32" stroke-linecap="round" />
-  <!-- 軌道2（橙: 加速・インパクト/リリース） -->
-  <path d="M 400 740 C 600 740 780 620 780 340" stroke="#f97316" stroke-width="32" stroke-linecap="round" />
-  
-  <!-- 計測関節ノード（幾何学的にソリッドな白＋テーマカラーのリング） -->
-  <!-- トップ位置ノード（青） -->
-  <circle cx="620" cy="280" r="32" fill="#2563eb" />
-  <circle cx="620" cy="280" r="16" fill="#ffffff" />
-  
-  <!-- 接地・タメ位置ノード（エメラルド） -->
-  <circle cx="240" cy="680" r="26" fill="#059669" />
-  <circle cx="240" cy="680" r="12" fill="#ffffff" />
-  
-  <!-- インパクト/リリース位置ノード（橙） -->
-  <circle cx="780" cy="340" r="36" fill="#f97316" />
-  <circle cx="780" cy="340" r="18" fill="#ffffff" />
+  <defs>
+    <!-- 背景グラデーション: 深いミッドナイトスレート -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
 
-  <!-- 幾何学アライメントの基準点（センターハブ） -->
-  <circle cx="512" cy="512" r="16" fill="#0f172a" />
+    <!-- 白球の自然な球体グラデーション -->
+    <radialGradient id="ballGrad" cx="38%" cy="36%" r="68%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="70%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#e2e8f0" />
+    </radialGradient>
+
+    <!-- 球体のドロップシャドウ -->
+    <filter id="ballShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+
+    <!-- 一閃する加速キネマティック軌道のグラデーション（エメラルド → ロイヤルブルー → オレンジ） -->
+    <linearGradient id="arcGrad" x1="180" y1="820" x2="840" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="45%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#f97316" />
+    </linearGradient>
+  </defs>
+
+  <!-- 1. 背景 -->
+  <rect width="1024" height="1024" fill="url(#bgGrad)" />
+
+  <!-- 2. 白球（シャドウ付き） -->
+  <circle cx="512" cy="512" r="360" fill="url(#ballGrad)" filter="url(#ballShadow)" />
+
+  <!-- 3. 野球ボールの自然な赤いシーム曲線（左シーム & 右シーム） -->
+  <g stroke="#dc2626" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 左シーム主線 -->
+    <path d="M 310 200 C 420 340 420 684 310 824" stroke-width="16" opacity="0.95" />
+    <!-- 右シーム主線 -->
+    <path d="M 714 200 C 604 340 604 684 714 824" stroke-width="16" opacity="0.95" />
+
+    <!-- 左シームの縫い目（立体感のあるハッシュマーク） -->
+    <path d="M 290 280 L 325 300" stroke-width="10" />
+    <path d="M 335 365 L 372 380" stroke-width="10" />
+    <path d="M 358 455 L 398 460" stroke-width="10" />
+    <path d="M 358 569 L 398 564" stroke-width="10" />
+    <path d="M 335 659 L 372 644" stroke-width="10" />
+    <path d="M 290 744 L 325 724" stroke-width="10" />
+
+    <!-- 右シームの縫い目 -->
+    <path d="M 734 280 L 699 300" stroke-width="10" />
+    <path d="M 689 365 L 652 380" stroke-width="10" />
+    <path d="M 666 455 L 626 460" stroke-width="10" />
+    <path d="M 666 569 L 626 564" stroke-width="10" />
+    <path d="M 689 659 L 652 644" stroke-width="10" />
+    <path d="M 734 744 L 699 724" stroke-width="10" />
+  </g>
+
+  <!-- 4. 斜めに一閃する鮮烈な加速軌道（キネマティック・アーク） -->
+  <!-- 下敷き（わずかなコントラスト枠） -->
+  <path d="M 210 790 C 270 480 500 270 820 220" stroke="#0f172a" stroke-width="40" stroke-linecap="round" opacity="0.15" />
+  <!-- メイン加速ライン -->
+  <path d="M 210 790 C 270 480 500 270 820 220" stroke="url(#arcGrad)" stroke-width="26" stroke-linecap="round" />
+
+  <!-- 5. 計測ノード（始点: タメ・エメラルド / 終点: インパクト・オレンジ） -->
+  <!-- 始点ノード（左下） -->
+  <circle cx="210" cy="790" r="22" fill="#059669" />
+  <circle cx="210" cy="790" r="10" fill="#ffffff" />
+
+  <!-- 加速変曲点ノード（中央やや右上） -->
+  <circle cx="490" cy="380" r="16" fill="#2563eb" />
+  <circle cx="490" cy="380" r="7" fill="#ffffff" />
+
+  <!-- 終点インパクトノード（右上: 最大ピーク） -->
+  <circle cx="820" cy="220" r="32" fill="#f97316" />
+  <circle cx="820" cy="220" r="15" fill="#ffffff" />
 </svg>
 `;
 
