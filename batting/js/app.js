@@ -80,6 +80,7 @@ var records = {
   maxStride: 0,
   maxTrunkTilt: 0,
   maxHeadShift: 0,
+  maxHeadShiftRatio: 0,
   maxHeadShiftY: 0,
   maxTopHandH: 0,
   impactHandH: null,
@@ -813,13 +814,16 @@ function snapshotAdviceEntry() {
     mode: selectedAngleMode,
     metrics: selectedAngleMode === 'SIDE' ? {
       twist: records.maxTwistSigned !== 0 ? records.maxTwistSigned : currentCalculatedState.twistSignedDeg,
+      topTwistCaptured: records.maxTwistSigned !== 0,
       twistLabel: records.twistStatusLabel || currentCalculatedState.twistStatusLabel,
       impactKneeFlex: records.impactKneeFlex !== null ? records.impactKneeFlex : currentCalculatedState.kneeFlexAngle,
       stride: records.maxStride,
       strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
       trunkTilt: records.maxTrunkTilt,
       headShift: records.maxHeadShift,
+      headShiftRatio: records.maxHeadShiftRatio || 0,
       headShiftY: records.maxHeadShiftY,
+      impactKneeLocked: records.impactKneeFlex !== null,
       topHandH: records.maxTopHandH,
       impactHandH: records.impactHandH !== null ? records.impactHandH : currentCalculatedState.impactHandHeightCm,
       takebackLeadElbow: records.takebackLeadElbow !== null ? records.takebackLeadElbow : currentCalculatedState.leadElbowAngle,
@@ -833,6 +837,7 @@ function snapshotAdviceEntry() {
       inStepDir: records.inStepDir,
       kneeValgus: records.impactKneeValgus !== null ? records.impactKneeValgus : currentCalculatedState.kneeValgusAngle,
       kneeValgusLabel: records.impactKneeValgusLabel || currentCalculatedState.kneeValgusLabel,
+      kneeValgusLocked: records.impactKneeValgus !== null,
       trunkTilt: records.maxTrunkTilt,
       topHandH: records.maxTopHandH,
       impactHandH: records.impactHandH !== null ? records.impactHandH : currentCalculatedState.impactHandHeightCm,
@@ -1016,7 +1021,7 @@ function renderCarteList(isInitialOpen) {
     const card = document.createElement('div');
     card.className = 'history-card';
 
-    const aiAdviceHtml = generateBattingAICoachAdvice(first).replace(/\n/g, '<br>');
+    const aiAdviceHtml = generateBattingDiagnosisHtml(first);
 
     card.innerHTML = `
       <div class="history-card-head">
@@ -1066,10 +1071,7 @@ function renderCarteList(isInitialOpen) {
         </div>
       </div>
 
-      <div class="ai-coach-card">
-        <div class="ai-coach-title">🩺 AIトレーナー分析</div>
-        <div class="ai-coach-text">${aiAdviceHtml}</div>
-      </div>
+      <div class="trainer-diagnosis-list">${aiAdviceHtml}</div>
 
       <div class="player-reflection-box">
         <div class="reflection-sec-title">🏏 今日の打撃の感覚は？</div>
@@ -1307,7 +1309,7 @@ document.getElementById('btn-frame-next').addEventListener('click', (e) => {
 document.getElementById('btn-reset-max').addEventListener('click', () => {
   records = {
     maxTwistSigned: 0, twistStatusLabel: null, impactKneeFlex: null, maxStride: 0, maxTrunkTilt: 0,
-    maxHeadShift: 0, maxHeadShiftY: 0, maxTopHandH: 0, impactHandH: null,
+    maxHeadShift: 0, maxHeadShiftRatio: 0, maxHeadShiftY: 0, maxTopHandH: 0, impactHandH: null,
     impactShoulderOpen: null, impactShoulderOpenLabel: null, maxInStepCm: 0, inStepDir: "まっすぐ",
     impactKneeValgus: null, impactKneeValgusLabel: null,
     takebackLeadElbow: null, impactBackElbow: null

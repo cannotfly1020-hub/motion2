@@ -180,9 +180,12 @@ function refreshDrawerAdvice() {
     return;
   }
   var entry = snapshotAdviceEntry();
+  if (typeof generateBattingDiagnosisHtml === 'function') {
+    el.innerHTML = generateBattingDiagnosisHtml(entry);
+    return;
+  }
   var text = '';
-  if (typeof generateBattingAICoachAdvice === 'function') text = generateBattingAICoachAdvice(entry);
-  else if (typeof generatePitchingAICoachAdvice === 'function') text = generatePitchingAICoachAdvice(entry);
+  if (typeof generatePitchingAICoachAdvice === 'function') text = generatePitchingAICoachAdvice(entry);
   el.textContent = text || '主要な数値が決まると、ここにワンポイントが出ます。';
 }
 

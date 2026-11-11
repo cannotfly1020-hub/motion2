@@ -1,66 +1,124 @@
 // 打撃バイオメカニクス（関節角度・骨盤/体幹の回旋・ステップ・軌道）
-// トレーナーコメントの文章は trainer/batting_knowledge.js にある。
+// フィジカル診断の文章は trainer/batting_knowledge.js にある。
 
-function formatTrainerNumber(value) {
-  return (typeof value === 'number' && Number.isFinite(value)) ? String(value) : '--';
+function escapeTrainerHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
-function fillTrainerText(text, metrics) {
-  if (typeof text !== 'string') return '';
-  return text.replace(/\{(\+)?([A-Za-z0-9_]+)\}/g, function(_, sign, key) {
-    const value = metrics[key];
-    if (sign === '+') {
-      if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
-      return (value > 0 ? '+' : '') + value;
-    }
-    return formatTrainerNumber(value);
+function trainerNumber(value) {
+  return (typeof value === 'number' && Number.isFinite(value)) ? value : null;
+}
+
+function fillPhysicalText(text, tokens) {
+  return String(text || '').replace(/\{([A-Za-z0-9_]+)\}/g, function(_, key) {
+    return tokens[key] == null ? '' : String(tokens[key]);
   });
 }
 
-function formatTrainerRule(rule, metrics) {
-  const rawTitle = rule.title || '評価';
-  const title = rawTitle.charAt(0) === '【' ? rawTitle : '【' + rawTitle + '】';
-  return title + '\n① ' + fillTrainerText(rule.description, metrics) +
-    '\n② ' + fillTrainerText(rule.reason, metrics) +
-    '\n③ ' + fillTrainerText(rule.exercise, metrics);
-}
+function selectBattingPhysicalFindings(entry) {
+  const copy = (typeof BATTING_PHYSICAL_COPY !== 'undefined') ? BATTING_PHYSICAL_COPY : null;
+  const metrics = (entry && entry.metrics) || {};
+  const empty = { alerts: [], goods: [], notes: [] };
+  if (!copy) return empty;
 
-function renderTrainerKnowledge(rules, config, entry) {
-  const list = Array.isArray(rules) ? rules : [];
-  const safeEntry = entry || {};
-  const metrics = Object.assign({ mode: safeEntry.mode }, safeEntry.metrics || {});
-  const maxNotes = (config && config.maxNotes) || 2;
-  const findings = [];
+  const twist = trainerNumber(metrics.twist);
+  const twistCaptured = metrics.topTwistCaptured === true || (metrics.topTwistCaptured == null && twist !== null && twist !== 0);
+  const knee = trainerNumber(metrics.impactKneeFlex);
+  const kneeLocked = metrics.impactKneeLocked === true && knee !== null;
+  const kneeOut = trainerNumber(metrics.kneeValgus);
+  const kneeOutLocked = metrics.kneeValgusLocked === true && kneeOut !== null;
+  const outward = kneeOutLocked && kneeOut > 10 && String(metrics.kneeValgusLabel || '').indexOf('外') !== -1;
+  const headRatio = trainerNumber(metrics.headShiftRatio);
+  const headCm = trainerNumber(metrics.headShift);
+  const tokens = {
+    twist: twist === null ? '--' : ((twist > 0 ? '+' : '') + twist + '°'),
+    knee: knee === null ? '--' : (knee + '°'),
+    kneeOut: kneeOut === null ? '--' : (kneeOut + '°'),
+    headPct: headRatio === null ? '--' : (Math.round(headRatio * 100) + '%'),
+    headCm: headCm === null ? '' : ('、' + headCm + 'cm'),
+    kneeFlexNote: (kneeLocked && knee > 30) ? ('インパクト時の前足ヒザ屈曲は ' + knee + '°。') : ''
+  };
+
+  const alerts = [];
   const goods = [];
-
-  list.forEach(function(rule) {
-    if (!rule || typeof rule.evaluate !== 'function') return;
-    let matched = false;
-    try {
-      matched = !!rule.evaluate(metrics);
-    } catch (err) {
-      matched = false;
-    }
-    if (!matched) return;
-    const text = formatTrainerRule(rule, metrics);
-    if (rule.severity === 'good') goods.push(text);
-    else findings.push(text);
-  });
-
-  let chosen = findings.slice(0, maxNotes);
-  if (chosen.length === 0 && goods.length > 0) chosen = [goods[0]];
-  if (chosen.length === 0 && config && config.fallback) {
-    chosen = [formatTrainerRule(config.fallback, metrics)];
+  const notes = [];
+  if (twistCaptured && twist !== null) {
+    if (twist < 30) alerts.push('twistShort');
+    else if (twist >= 35) goods.push('twistGood');
+    else notes.push('トップ捻転差 ' + tokens.twist);
   }
+  if (outward || (kneeLocked && knee > 30)) {
+    alerts.push(outward ? 'kneeOut' : 'kneeFlex');
+  } else if (kneeLocked && knee >= 10 && knee <= 25) {
+    goods.push('kneeGood');
+  } else if (kneeLocked) {
+    notes.push('インパクト前足ヒザ屈曲 ' + tokens.knee);
+  }
+  if (headRatio !== null && headRatio >= 0.10) alerts.push('headForward');
+  else if (headRatio !== null && headRatio > 0) notes.push('頭の前方移動 画面幅の ' + tokens.headPct);
 
-  const header = (config && config.header) ? config.header + '\n' : '';
-  return header + chosen.join('\n\n');
+  return { alerts: alerts, goods: goods, notes: notes, tokens: tokens, copy: copy };
+}
+
+function materializePhysicalCard(id, pack) {
+  const source = pack.copy[id];
+  if (!source) return null;
+  const tokens = Object.assign({}, pack.tokens, { detail: pack.notes.join('、') });
+  return {
+    summary: fillPhysicalText(source.summary, tokens),
+    finding: fillPhysicalText(source.finding, tokens),
+    cause: fillPhysicalText(source.cause, tokens),
+    drills: (source.drills || []).map(function(item) { return fillPhysicalText(item, tokens); })
+  };
+}
+
+function collectBattingDiagnosisCards(entry) {
+  const pack = selectBattingPhysicalFindings(entry);
+  if (!pack.copy) return [];
+  const ids = pack.alerts.slice(0, 2);
+  if (ids.length === 0 && pack.goods.length > 0) ids.push.apply(ids, pack.goods.slice(0, 2));
+  if (ids.length === 0 && pack.notes.length > 0) ids.push('clear');
+  if (ids.length === 0) ids.push('waiting');
+  return ids.map(function(id) { return materializePhysicalCard(id, pack); }).filter(Boolean);
+}
+
+function renderBattingDiagnosisHtml(cards) {
+  return cards.map(function(card) {
+    const drills = card.drills.length
+      ? '<ul>' + card.drills.map(function(item) { return '<li>' + escapeTrainerHtml(item) + '</li>'; }).join('') + '</ul>'
+      : '';
+    return '<article class="trainer-diagnosis-card">' +
+      '<div class="diagnosis-header">' +
+        '<span class="diagnosis-badge">🏋️ フィジカル・可動域診断</span>' +
+        '<span class="diagnosis-summary">【要点】' + escapeTrainerHtml(card.summary) + '</span>' +
+      '</div>' +
+      '<div class="diagnosis-body">' +
+        '<p class="diagnosis-finding"><strong>🔍 動作の現れ:</strong> ' + escapeTrainerHtml(card.finding) + '</p>' +
+        '<p class="diagnosis-cause"><strong>🎯 疑われる身体要因:</strong> ' + escapeTrainerHtml(card.cause) + '</p>' +
+        (drills ? '<div class="diagnosis-prescription"><strong>💡 おすすめの身体ケア・補強:</strong>' + drills + '</div>' : '') +
+      '</div></article>';
+  }).join('');
+}
+
+function renderBattingDiagnosisText(cards) {
+  return cards.map(function(card) {
+    const drills = card.drills.map(function(item) { return '・' + item; }).join('\n');
+    return '【🏋️ フィジカル・可動域診断】' + card.summary +
+      '\n動作の現れ: ' + card.finding +
+      '\n疑われる身体要因: ' + card.cause +
+      (drills ? '\nおすすめの身体ケア・補強:\n' + drills : '');
+  }).join('\n\n');
+}
+
+function generateBattingDiagnosisHtml(entry) {
+  return renderBattingDiagnosisHtml(collectBattingDiagnosisCards(entry));
 }
 
 function generateBattingAICoachAdvice(entry) {
-  const rules = (typeof BATTING_TRAINER_RULES !== 'undefined') ? BATTING_TRAINER_RULES : [];
-  const config = (typeof BATTING_TRAINER_CONFIG !== 'undefined') ? BATTING_TRAINER_CONFIG : null;
-  return renderTrainerKnowledge(rules, config, entry);
+  return renderBattingDiagnosisText(collectBattingDiagnosisCards(entry));
 }
 
 function calcJointAngle3D(p1, p2, p3) {
@@ -225,9 +283,13 @@ function applyBattingBiomechanics(landmarks, b) {
 
     if (selectedAngleMode === 'SIDE') {
       c5Val.textContent = `${shiftXCm} cm`;
-      if (shiftXCm > records.maxHeadShift && shiftXCm <= 60) {
-        records.maxHeadShift = shiftXCm;
-        paintHero(c5Max, 'MAX 頭前後', `${shiftXCm} cm`, true);
+      const shiftXNorm = Math.abs(NOSE.x - initialNoseX);
+      if (shiftXCm <= 60 && shiftXCm > 0 && shiftXCm >= records.maxHeadShift) {
+        if (shiftXCm > records.maxHeadShift) {
+          records.maxHeadShift = shiftXCm;
+          paintHero(c5Max, 'MAX 頭前後', `${shiftXCm} cm`, true);
+        }
+        records.maxHeadShiftRatio = Math.round(shiftXNorm * 1000) / 1000;
       }
       c6Val.textContent = `${shiftYCm} cm`;
       if (shiftYCm > records.maxHeadShiftY && shiftYCm <= 50) {

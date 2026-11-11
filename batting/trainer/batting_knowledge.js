@@ -1,261 +1,53 @@
-// 打撃AIトレーナーの知見辞書。文章の追加・修正はこのファイルだけ。
-// 各項目: id / phase / title / description / reason / exercise / evaluate(metrics)
-// metrics.mode は "SIDE"（横向き）または "FRONT"（正面）。
-// {twist} のように指標名を書くと、画面ではその数値に置き換わる。{+twist} は符号付き。
-// severity が "good" の項目は、alert / warning が1件も無いときだけ出る。
-// 書き方の詳細は README_trainer.md。
+// 打撃のフィジカル診断文。閾値の判定は js/math.js。
+// 技術指導ではなく、可動域（ROM）と筋力・安定性の所見だけを書く。
 
-var BATTING_TRAINER_CONFIG = {
-  header: "【🩺 AIトレーナー分析】",
-  maxNotes: 2,
-  fallback: {
-    title: "【動作スクリーニング】",
-    description: "現時点で突出した代償動作は見当たりません。",
-    reason: "主要局面の数値が揃うと、運動連鎖をより正確に評価できます。",
-    exercise: "疲労の有無と、股関節・胸郭の可動域をあわせて確認しましょう。"
+var BATTING_PHYSICAL_COPY = {
+  twistGood: {
+    summary: "捻転差は確保できている",
+    finding: "トップ捻転差は {twist} です。下半身と上半身の十分な捻転差が作れています。",
+    cause: "胸椎の回旋可動域および軸足股関節の内旋可動域が十分に確保され、体幹深層のタメが機能しています。",
+    drills: ["この分離を維持する胸椎回旋のケアを継続", "軸足股関節の内旋可動域を維持"]
+  },
+  twistShort: {
+    summary: "下半身主導のタメが浅い",
+    finding: "トップ捻転差は {twist} で、+30° に届いていません。下半身主導のタメが浅めです。技術的な意識の問題ではなく、胸椎（みぞおちから上）の回旋の硬さ、または軸足股関節の内旋制限によって骨盤と胸が一緒に回ってしまっている可能性が高いです。",
+    cause: "胸椎回旋可動域制限（片側 < 35°）、軸足股関節内旋可動域制限（< 30°）、腹斜筋群の伸張-短縮サイクル（SSC）筋力低下。",
+    drills: ["椅子に座った状態での胸椎オープンブックストレッチ", "軸足の90-90股関節ストレッチ"]
+  },
+  kneeGood: {
+    summary: "前足の壁は機能している",
+    finding: "インパクト時の前足ヒザ屈曲は {knee} です。前足ヒザがブレずに地面反力を受け止め、バットへのエネルギー転送ができています。",
+    cause: "前足の中殿筋と大腿四頭筋が、10°〜25° の屈曲位で地面反力を受け止めています。",
+    drills: ["この踏ん張りを維持する片足支持のケアを継続", "前足股関節の内旋可動域を維持"]
+  },
+  kneeFlex: {
+    summary: "前足ヒザの壁が崩れている",
+    finding: "インパクト時の前足ヒザ屈曲は {knee} で、地面反力を受け止める 10°〜25° を超えています。前足側の中殿筋（お尻の外側の筋肉）の支持力不足、または足首・股関節の硬さを受け止めきれずに衝撃が抜けています（パワーロス）。",
+    cause: "前足中殿筋（骨盤外側支持力）の出力不足、大腿四頭筋（エキセントリック筋力）の耐える力不足、前足股関節の内旋制限（< 30°）。",
+    drills: ["ミニバンドを使ったクラムシェル / 横歩き", "前足片足立ちでの踏ん張りキープ"]
+  },
+  kneeOut: {
+    summary: "前足ヒザが外側へ逃げている",
+    finding: "{kneeFlexNote}インパクトで踏み込み足の壁が崩れ、外側へ逃げています（{kneeOut}）。前足側の中殿筋（お尻の外側の筋肉）の支持力不足、または足首・股関節の硬さを受け止めきれずに衝撃が外へ抜けています（パワーロス）。",
+    cause: "前足中殿筋（骨盤外側支持力）の出力不足、大腿四頭筋（エキセントリック筋力）の耐える力不足、前足股関節の内旋制限（< 30°）。",
+    drills: ["ミニバンドを使ったクラムシェル / 横歩き", "前足片足立ちでの踏ん張りキープ"]
+  },
+  headForward: {
+    summary: "頭が前方へ流れている",
+    finding: "トップからインパクトにかけて頭（目線）が前へ突っ込んでいます（画面幅の {headPct}{headCm}）。軸足の裏もも（ハムストリングス）で体重を受け止め切る支持力と、体幹深層のブレーキング筋力の課題が疑われます。",
+    cause: "体幹深層筋（腹横筋・腹斜筋）の抗伸展スタビリティ不足、軸足ハムストリングス（裏もも）でのエキセントリック制動力不足。",
+    drills: ["ケトルベルやメディシンボールを持ったヒンジ姿勢キープ", "シングルレッグ・デッドリフト"]
+  },
+  clear: {
+    summary: "大きな可動域・安定性の制限は見当たりません",
+    finding: "今回測れた項目は、不足として扱う範囲には入っていません。{detail}",
+    cause: "突出した胸椎・股関節の可動域制限や、前足・体幹の支持力低下は、この測定値からは特定できません。",
+    drills: ["胸椎回旋と股関節内旋の可動域チェックを継続", "前足の片足支持をウォームアップに残す"]
+  },
+  waiting: {
+    summary: "測定待ち",
+    finding: "トップ捻転差、インパクトの前足ヒザ、頭の前方移動が決まると、可動域と安定性の診断を出します。",
+    cause: "まだ診断に使う数値が揃っていません。",
+    drills: []
   }
 };
-
-var BATTING_TRAINER_RULES = [
-  {
-    id: "side_twist_shortage",
-    phase: "Top",
-    title: "【胸郭・股関節連鎖のチェック】",
-    description: "体幹と骨盤の捻転差が小さく（{+twist}°）、腕主導（手打ち）の代償が見られます。",
-    reason: "腰椎への回旋ストレスに注意が必要な状態です。",
-    exercise: "股関節内旋可動域と胸郭の回旋モビリティをチェックしましょう。",
-    severity: "alert",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.twist !== 0 && metrics.twist < 22;
-    }
-  },
-  {
-    id: "side_twist_excess",
-    phase: "Top",
-    title: "【胸郭・股関節の分離過剰】",
-    description: "体幹と骨盤の捻転差が大きく（+{twist}°）、分離が過剰です。",
-    reason: "切り返しで腰椎の回旋ストレスが増え、上肢でタイミングを合わせる代償が起きやすくなります。",
-    exercise: "胸郭回旋の可動域を保ちつつ、股関節から体幹へ返すタイミングを評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.twist > 38;
-    }
-  },
-  {
-    id: "side_head_forward",
-    phase: "Impact",
-    title: "【重心移動・軸足支持】",
-    description: "軸足から前足への重心移動で突っ込みが見られます（頭の前方移動 {headShift}cm）。",
-    reason: "前足のブレーキ力（床反力）が不足している可能性があります。",
-    exercise: "下肢の踏ん張り力と殿筋群の遠心性支持性を評価してください。",
-    severity: "alert",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.headShift > 8;
-    }
-  },
-  {
-    id: "side_lead_knee_collapse",
-    phase: "Impact",
-    title: "【前足の遠心性支持】",
-    description: "インパクトで前膝の屈曲が深く（{impactKneeFlex}°）、ブレーキが抜けています。",
-    reason: "前足の床反力が不足し、体幹が前方へ流れる代償が疑われます。",
-    exercise: "殿筋群の遠心性支持と、片脚での踏ん張りを評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      const flex = metrics.impactKneeFlex;
-      return metrics.mode === "SIDE" && flex !== null && flex !== undefined && flex > 38;
-    }
-  },
-  {
-    id: "side_lead_knee_lock",
-    phase: "Impact",
-    title: "【膝関節の衝撃吸収】",
-    description: "前膝が伸展位に近く（屈曲 {impactKneeFlex}°）、衝撃を関節で受けやすい状態です。",
-    reason: "股関節と足部での力の吸収が不足し、膝前面への圧縮ストレスが増えます。",
-    exercise: "軽度屈曲位での遠心性コントロールと、足関節の可動性を確認しましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      const flex = metrics.impactKneeFlex;
-      return metrics.mode === "SIDE" && flex !== null && flex !== undefined && flex > 0 && flex < 10;
-    }
-  },
-  {
-    id: "side_head_vertical",
-    phase: "Impact",
-    title: "【頭部の垂直安定】",
-    description: "スイング中の頭の上下動が大きく（{headShiftY}cm）、視線の高さが崩れています。",
-    reason: "体幹の伸び上がり、または股関節での沈み込み不足による代償が疑われます。",
-    exercise: "股関節の屈曲可動域と体幹の抗重力安定をチェックしましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.headShiftY > 6;
-    }
-  },
-  {
-    id: "side_stride_short",
-    phase: "Step",
-    title: "【ステップと股関節伸展】",
-    description: "ステップ幅が短く（身長比 {strideRatio}%）、前方への重心移動が不足しています。",
-    reason: "軸足股関節の伸展が出ず、上肢で距離を補う代償が起きやすくなります。",
-    exercise: "股関節伸展可動域と、軸足からの体重移動を評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.strideRatio > 0 && metrics.strideRatio < 38;
-    }
-  },
-  {
-    id: "side_stride_long",
-    phase: "Step",
-    title: "【ステップ幅と骨盤制御】",
-    description: "ステップ幅が広く（身長比 {strideRatio}%）、骨盤の安定が遅れやすい状態です。",
-    reason: "着地後に体幹が遅れ、腰椎や前膝でタイミングを合わせる代償が疑われます。",
-    exercise: "ステップ幅を整え、着地側股関節の安定性を確認しましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.strideRatio > 58;
-    }
-  },
-  {
-    id: "side_lead_elbow_long",
-    phase: "Top",
-    title: "【リード肘のアライメント】",
-    description: "テイクバックで前肘が伸びすぎています（{takebackLeadElbow}°）。",
-    reason: "肩甲帯で軌道を作れず、肘関節への牽引でバットを運ぶ代償が見られます。",
-    exercise: "肘の軽度屈曲を保ち、肩甲骨の後傾と胸郭回旋の連動を確認しましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      const elbow = metrics.takebackLeadElbow;
-      return metrics.mode === "SIDE" && elbow !== null && elbow !== undefined && elbow > 140;
-    }
-  },
-  {
-    id: "side_lead_elbow_short",
-    phase: "Top",
-    title: "【リード肘の可動域】",
-    description: "テイクバックで前肘の屈曲が強く（{takebackLeadElbow}°）、懐が狭くなっています。",
-    reason: "胸郭の回旋不足を肘の屈曲で補っている可能性があります。",
-    exercise: "胸椎回旋と肩関節の水平外転の可動域をチェックしましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      const elbow = metrics.takebackLeadElbow;
-      return metrics.mode === "SIDE" && elbow !== null && elbow !== undefined && elbow > 0 && elbow < 100;
-    }
-  },
-  {
-    id: "side_back_elbow_out",
-    phase: "Impact",
-    title: "【インパクト時の肘位置】",
-    description: "インパクトで後ろ肘が体から離れています（{impactBackElbow}°）。",
-    reason: "体幹の回旋が遅れ、上肢だけでインパクトを作る代償が疑われます。",
-    exercise: "肩甲胸郭関節の安定と、体幹から上肢への力の伝達を評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      const elbow = metrics.impactBackElbow;
-      return metrics.mode === "SIDE" && elbow !== null && elbow !== undefined && elbow > 125;
-    }
-  },
-  {
-    id: "side_chain_clear",
-    phase: "Impact",
-    title: "【良好なキネティックチェーン】",
-    description: "下半身から体幹、上肢へとエネルギーがスムーズに伝達されています。",
-    reason: "過剰な代償動作は見られず、身体への負担が少ない状態です。",
-    exercise: "この効率的なスイング連鎖を、疲労時も崩さないようコンディショニングを継続しましょう。",
-    severity: "good",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.twist >= 22 && metrics.twist <= 38 && (metrics.headShift || 0) <= 8;
-    }
-  },
-  {
-    id: "front_head_lateral",
-    phase: "Impact",
-    title: "【頭部の側方安定】",
-    description: "頭の横ブレが大きく（{headShiftX}cm）、視線の軸が揺れています。",
-    reason: "体幹の側方安定が不足し、頸部や肩でバランスを取る代償が疑われます。",
-    exercise: "体幹の抗側屈と、股関節での片脚支持を評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "FRONT" && metrics.headShiftX > 6;
-    }
-  },
-  {
-    id: "front_head_vertical",
-    phase: "Impact",
-    title: "【頭部の垂直安定】",
-    description: "頭の上下動が大きく（{headShiftY}cm）、視線の高さが崩れています。",
-    reason: "股関節の沈み込み、または体幹の伸び上がりによる代償が疑われます。",
-    exercise: "股関節屈曲の可動域と体幹の抗重力安定をチェックしましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "FRONT" && metrics.headShiftY > 6;
-    }
-  },
-  {
-    id: "front_shoulder_open",
-    phase: "Impact",
-    title: "【肩甲帯の早期回旋】",
-    description: "前肩の開きが大きく（{shoulderOpen}°）、体幹より上肢が先行しています。",
-    reason: "胸郭の回旋タメが抜け、肩関節前面でスイングを作る代償が見られます。",
-    exercise: "胸椎回旋の可動域と、肩甲胸郭関節の安定性を確認しましょう。",
-    severity: "alert",
-    evaluate: function(metrics) {
-      const open = metrics.shoulderOpen;
-      return metrics.mode === "FRONT" && open !== null && open !== undefined && open > 25;
-    }
-  },
-  {
-    id: "front_knee_valgus",
-    phase: "Impact",
-    title: "【前膝のアライメント】",
-    description: "前膝が内側へ崩れています（{kneeValgus}°）。",
-    reason: "股関節外転・外旋の支持が不足し、膝内側への外反ストレスが増えています。",
-    exercise: "殿筋群の安定性と、足部での荷重位置を評価してください。",
-    severity: "alert",
-    evaluate: function(metrics) {
-      const valgus = metrics.kneeValgus;
-      return metrics.mode === "FRONT" && valgus !== null && valgus !== undefined && valgus > 10;
-    }
-  },
-  {
-    id: "front_step_offset",
-    phase: "Step",
-    title: "【ステップ方向と骨盤】",
-    description: "踏み出しが投球線からずれています（{inStep}cm）。",
-    reason: "骨盤の向きが早く変わり、体幹の回旋タイミングがずれる代償が疑われます。",
-    exercise: "軸足股関節の向きと、踏み出し足の接地位置を再評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "FRONT" && metrics.inStep > 8;
-    }
-  },
-  {
-    id: "front_trunk_sidebend",
-    phase: "Impact",
-    title: "【体幹側屈の過大】",
-    description: "スイング軸の側屈が大きく（{trunkTilt}°）、体幹が倒れています。",
-    reason: "腰椎への側屈ストレスが増え、上肢で軌道を合わせる代償が起きやすくなります。",
-    exercise: "体幹の抗側屈と、股関節での荷重支持をチェックしましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "FRONT" && metrics.trunkTilt > 28;
-    }
-  },
-  {
-    id: "front_chain_clear",
-    phase: "Impact",
-    title: "【良好なキネティックチェーン】",
-    description: "下半身から体幹、上肢へとエネルギーがスムーズに伝達されています。",
-    reason: "過剰な代償動作は見られず、身体への負担が少ない状態です。",
-    exercise: "この効率的なスイング連鎖を、疲労時も崩さないようコンディショニングを継続しましょう。",
-    severity: "good",
-    evaluate: function(metrics) {
-      if (metrics.mode !== "FRONT") return false;
-      const open = metrics.shoulderOpen;
-      const valgus = metrics.kneeValgus;
-      const openOk = open === null || open === undefined || open <= 18;
-      const valgusOk = valgus === null || valgus === undefined || valgus <= 6;
-      const measured = metrics.headShiftX > 0 || (open !== null && open !== undefined);
-      return metrics.headShiftX <= 6 && openOk && valgusOk && measured;
-    }
-  }
-];
