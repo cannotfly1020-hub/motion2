@@ -83,6 +83,7 @@ const ICON_SVG = `<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="
 const root = path.resolve(__dirname, '..');
 const resourcesDir = path.join(root, 'resources');
 const iconSvgPath = path.join(resourcesDir, 'icon.svg');
+const iconMasterPath = path.join(resourcesDir, 'icon-master.jpg');
 const iconPngPath = path.join(resourcesDir, 'icon.png');
 const splashPngPath = path.join(resourcesDir, 'splash.png');
 const splashDarkPngPath = path.join(resourcesDir, 'splash-dark.png');
@@ -112,9 +113,13 @@ async function publishIcon(icon) {
 
 async function rasterizeWithSharp() {
   const sharp = require('sharp');
-  const icon = await sharp(Buffer.from(ICON_SVG), { density: 72 })
+  const source = fs.existsSync(iconMasterPath)
+    ? iconMasterPath
+    : Buffer.from(ICON_SVG);
+  const icon = await sharp(source, fs.existsSync(iconMasterPath) ? undefined : { density: 72 })
     .resize(1024, 1024, { fit: 'fill' })
     .flatten({ background })
+    .removeAlpha()
     .png({ compressionLevel: 9 })
     .toBuffer();
   const meta = await sharp(icon).metadata();
