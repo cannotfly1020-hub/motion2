@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-theme="batting">
 <head>
   <link rel="manifest" href="../manifest.json">
-  <meta name="theme-color" content="#10b981">
+  <meta name="theme-color" content="#2563eb">
   <link rel="apple-touch-icon" href="../icon-192.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -126,7 +126,7 @@
 
       <div class="btn-group" style="margin-top: 2px;">
         <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 やり直す</button>
-        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669);">
+        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, var(--primary-accent), var(--primary-accent-strong));">
           🚀 解析スタート！
         </button>
       </div>
@@ -158,7 +158,7 @@
           </div>
           <div class="btn-row drawer-mainbar">
             <button class="btn-ctrl" id="btn-frame-prev" type="button">◀ -1コマ</button>
-            <button class="btn-ctrl" id="btn-play-pause" type="button" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-color: #fff; box-shadow: none;">再生</button>
+            <button class="btn-ctrl" id="btn-play-pause" type="button" style="background: linear-gradient(135deg, var(--primary-accent), var(--primary-accent-strong)); color: #fff; border-color: #fff; box-shadow: none;">再生</button>
             <button class="btn-ctrl" id="btn-frame-next" type="button">+1コマ ▶</button>
             <button class="btn-ctrl btn-decide" id="btn-manual-top" type="button" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; border-color: #fff; box-shadow: none;">◎ トップ決定</button>
             <button class="btn-ctrl btn-decide btn-impact-trigger" id="btn-manual-impact" type="button">💥 インパクト決定</button>
@@ -278,6 +278,7 @@
   <script src="js/batting_pose.js"></script>
   <script src="trainer/batting_knowledge.js"></script>
   <script src="js/math.js"></script>
+  <script src="js/mode.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

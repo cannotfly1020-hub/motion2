@@ -7,15 +7,21 @@ var MotionPlayerCore = {
     this.config = config || {};
     if (document.documentElement) {
       document.documentElement.dataset.motionMode = this.config.mode || '';
+      document.documentElement.dataset.theme = this.config.accentTheme || this.config.mode || '';
     }
     (this.config.keyPoints || []).forEach(function(point) {
       if (!point || !point.buttonId || !point.label) return;
       var button = document.getElementById(point.buttonId);
       if (button) button.textContent = point.label;
     });
+    bootMotionShell();
   },
   applyBiomechanics: function(landmarks, bounds) {
-    var calculator = this.config && this.config.metricsCalculator;
+    var cfg = this.config || {};
+    if (typeof cfg.calculateMetrics === 'function') {
+      return cfg.calculateMetrics(landmarks, bounds && bounds.frameIndex, bounds);
+    }
+    var calculator = cfg.metricsCalculator;
     if (calculator && typeof calculator.apply === 'function') {
       return calculator.apply(landmarks, bounds);
     }
@@ -149,11 +155,21 @@ function updateScanScreenSize() {
   bindCanvasToStage(scanCanvas);
 }
 
+function themeColor(token, fallback) {
+  var raw = getComputedStyle(document.documentElement).getPropertyValue(token);
+  raw = raw ? raw.trim() : '';
+  return raw || fallback;
+}
+
 function scanPaintStyle() {
   var cfg = MotionPlayerCore.config || {};
+  var solid = cfg.scanAccent;
+  var soft = cfg.scanAccentSoft;
+  if (!solid || solid.indexOf('var(') === 0) solid = themeColor('--primary-accent', '#2563eb');
+  if (!soft || soft.indexOf('var(') === 0) soft = themeColor('--badge-bg', 'rgba(37, 99, 235, 0.2)');
   return {
-    soft: cfg.scanAccentSoft || 'rgba(16, 185, 129, 0.4)',
-    solid: cfg.scanAccent || '#10b981',
+    soft: soft,
+    solid: solid,
     centerLine: !!cfg.showScanCenterLine
   };
 }
@@ -626,4 +642,715 @@ function renderLoop() {
   if (typeof startFrameAccuratePlayback === 'function' && !analysisTransportPlaying) {
     startFrameAccuratePlayback();
   }
+}
+
+var videoElement;
+var bufferCanvas;
+var bufferCtx;
+var scanCanvas;
+var scanCtx;
+var outputCanvas;
+var outputCtx;
+var pose = null;
+var isPoseLoaded = false;
+var isProcessing = false;
+var animationFrameId = null;
+var scanModeActive = false;
+var playerName = '選手';
+var userHeightCm = 140;
+var selectedBatSide = 'RIGHT';
+var selectedThrowArm = 'LEFT';
+var videoFileUrl = null;
+var selectedAngleMode = 'SIDE';
+var isSkeletonVisible = true;
+var tuneRuler = { isActive: false, topYNorm: 0.2, bottomYNorm: 0.8, centerXNorm: 0.5 };
+var activeDragHandle = null;
+var dragStartY = 0;
+var snapTop = 0;
+var snapBottom = 0;
+var zoomScale = 1.0;
+var zoomPan = { x: 0, y: 0 };
+var initialPinchDistance = 0;
+var initialZoomScale = 1.0;
+var isPanning = false;
+var panStart = { x: 0, y: 0 };
+var panSnapshot = { x: 0, y: 0 };
+var initialNoseX = null;
+var initialNoseY = null;
+var manualToeOffsetDeg = 0;
+var isDraggingToe = false;
+var toeDragOrigin = { x: 0, y: 0 };
+var smoothToeDeg = 0;
+var prevLeadToeY = null;
+var leadFootFlatStationaryCount = 0;
+var manualReleaseTime = null;
+var lastCalculatedLeadToePt = null;
+var currentCalculatedState = {};
+var records = {};
+var stepViews;
+var stepPills;
+var c1Title, c1Val, c1Max, c2Title, c2Val, c2Max, c3Title, c3Val, c3Max;
+var c4Title, c4Val, c4Max, c5Title, c5Val, c5Max, c6Title, c6Val, c6Max;
+var c7Title, c7Val, c7Max, c8Title, c8Val, c8Max, c9Title, c9Val, c9Max, c10Title, c10Val, c10Max;
+var angleModeBadge, playerTagBadge, scanSeekBar, scanTimeDisp, seekBar, timeDisp, btnPlayPause;
+var zoomBadge, aiLoading, scanLoading, btnScanNextStep, scanGuideText;
+var carteModal, btnCloseCarte, carteHistoryList, playerSelectFilter, btnDeleteAction, toastBox;
+var toastTimeout = null;
+var skipNativePicker = false;
+var pendingCaptureMode = 'SIDE';
+var inputCapture = null;
+var STORAGE_KEY = 'motion_records';
+var shellBound = false;
+
+function cardTriplet(prefix) {
+  return {
+    title: document.getElementById(prefix + '-title'),
+    val: document.getElementById(prefix + '-val'),
+    max: document.getElementById(prefix + '-max')
+  };
+}
+
+function bootMotionShell() {
+  if (shellBound) return;
+  shellBound = true;
+  var cfg = MotionPlayerCore.config || {};
+  STORAGE_KEY = cfg.storageKey || STORAGE_KEY;
+  playerName = cfg.defaultPlayerName || playerName;
+  if (typeof createMotionState === 'function') currentCalculatedState = createMotionState();
+  if (typeof createMotionRecords === 'function') records = createMotionRecords();
+
+  videoElement = document.getElementById('hidden-video');
+  if (typeof installFrameProbe === 'function') installFrameProbe();
+  bufferCanvas = document.getElementById('buffer-canvas');
+  bufferCtx = bufferCanvas.getContext('2d', { willReadFrequently: true });
+  scanCanvas = document.getElementById('scan-canvas');
+  scanCtx = scanCanvas.getContext('2d');
+  outputCanvas = document.getElementById('output-canvas');
+  outputCtx = outputCanvas.getContext('2d');
+
+  stepViews = {
+    1: document.getElementById('view-step1'),
+    2: document.getElementById('view-step2'),
+    3: document.getElementById('view-step3'),
+    4: document.getElementById('view-step4')
+  };
+  stepPills = {
+    1: document.getElementById('step-nav-1'),
+    2: document.getElementById('step-nav-2'),
+    3: document.getElementById('step-nav-3')
+  };
+  var cards = ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10'];
+  cards.forEach(function(name) {
+    var node = cardTriplet(name);
+    if (name === 'c1') { c1Title = node.title; c1Val = node.val; c1Max = node.max; }
+    if (name === 'c2') { c2Title = node.title; c2Val = node.val; c2Max = node.max; }
+    if (name === 'c3') { c3Title = node.title; c3Val = node.val; c3Max = node.max; }
+    if (name === 'c4') { c4Title = node.title; c4Val = node.val; c4Max = node.max; }
+    if (name === 'c5') { c5Title = node.title; c5Val = node.val; c5Max = node.max; }
+    if (name === 'c6') { c6Title = node.title; c6Val = node.val; c6Max = node.max; }
+    if (name === 'c7') { c7Title = node.title; c7Val = node.val; c7Max = node.max; }
+    if (name === 'c8') { c8Title = node.title; c8Val = node.val; c8Max = node.max; }
+    if (name === 'c9') { c9Title = node.title; c9Val = node.val; c9Max = node.max; }
+    if (name === 'c10') { c10Title = node.title; c10Val = node.val; c10Max = node.max; }
+  });
+  angleModeBadge = document.getElementById('angle-mode-badge');
+  playerTagBadge = document.getElementById('player-tag-badge');
+  scanSeekBar = document.getElementById('scan-seek-bar');
+  scanTimeDisp = document.getElementById('scan-time-disp');
+  seekBar = document.getElementById('seek-bar');
+  timeDisp = document.getElementById('time-disp');
+  btnPlayPause = document.getElementById('btn-play-pause');
+  zoomBadge = document.getElementById('zoom-badge');
+  aiLoading = document.getElementById('ai-loading');
+  scanLoading = document.getElementById('scan-loading');
+  btnScanNextStep = document.getElementById('btn-scan-next-step');
+  scanGuideText = document.getElementById('scan-guide-text');
+  carteModal = document.getElementById('carte-modal');
+  btnCloseCarte = document.getElementById('btn-close-carte');
+  carteHistoryList = document.getElementById('carte-history-list');
+  playerSelectFilter = document.getElementById('player-select-filter');
+  btnDeleteAction = document.getElementById('btn-delete-action');
+  toastBox = document.getElementById('toast-box');
+  inputCapture = document.getElementById('video-input-capture');
+
+  var home = document.getElementById('home-link-btn');
+  if (home) home.addEventListener('click', function(e) {
+    e.preventDefault();
+    if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+    if (videoElement) videoElement.pause();
+    window.location.href = '../index.html';
+  });
+
+  var skeletonBtn = document.getElementById('btn-toggle-skeleton');
+  if (skeletonBtn) skeletonBtn.addEventListener('click', function() {
+    isSkeletonVisible = !isSkeletonVisible;
+    if (typeof syncPoseOverlayButtons === 'function') syncPoseOverlayButtons();
+    processSingleFrame();
+  });
+  var hudBtn = document.getElementById('btn-toggle-ai-hud');
+  if (hudBtn) hudBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleAiDebugHud();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'd' && e.key !== 'D') return;
+    var tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    e.preventDefault();
+    toggleAiDebugHud();
+  });
+
+  stepPills[1].addEventListener('click', function() {
+    videoElement.pause();
+    tuneRuler.isActive = false;
+    btnScanNextStep.style.display = 'none';
+    setStep(1);
+  });
+  stepPills[2].addEventListener('click', function() {
+    if (!videoFileUrl) return;
+    videoElement.pause();
+    setStep(2);
+    setTimeout(function() { updateScanScreenSize(); renderScanFrame(); }, 100);
+  });
+  stepPills[3].addEventListener('click', function() {
+    if (!videoFileUrl) return;
+    videoElement.pause();
+    setStep(3);
+  });
+
+  var inputSide = document.getElementById('video-input-side');
+  var inputFront = document.getElementById('video-input-front');
+  inputSide.addEventListener('click', function(e) {
+    this.value = null;
+    if (skipNativePicker) { skipNativePicker = false; return; }
+    if (openVideoLibrary('SIDE', this)) e.preventDefault();
+  });
+  inputFront.addEventListener('click', function(e) {
+    this.value = null;
+    if (skipNativePicker) { skipNativePicker = false; return; }
+    if (openVideoLibrary('FRONT', this)) e.preventDefault();
+  });
+  inputSide.addEventListener('change', function(e) {
+    if (e.target.files && e.target.files[0]) handleVideoLoad(e.target.files[0], 'SIDE');
+  });
+  inputFront.addEventListener('change', function(e) {
+    if (e.target.files && e.target.files[0]) handleVideoLoad(e.target.files[0], 'FRONT');
+  });
+  document.getElementById('btn-capture-side').addEventListener('click', function() { openVideoCapture('SIDE'); });
+  document.getElementById('btn-capture-front').addEventListener('click', function() { openVideoCapture('FRONT'); });
+  if (inputCapture) {
+    inputCapture.addEventListener('click', function() { this.value = null; });
+    inputCapture.addEventListener('change', function(e) {
+      if (e.target.files && e.target.files[0]) handleVideoLoad(e.target.files[0], pendingCaptureMode);
+    });
+  }
+  inputSide.addEventListener('click', function() {
+    if (typeof nativePrepareCapture === 'function') nativePrepareCapture();
+  }, true);
+  inputFront.addEventListener('click', function() {
+    if (typeof nativePrepareCapture === 'function') nativePrepareCapture();
+  }, true);
+
+  scanCanvas.addEventListener('mousedown', onScanPointerDown);
+  scanCanvas.addEventListener('mousemove', onScanPointerMove);
+  window.addEventListener('mouseup', onScanPointerUp);
+  scanCanvas.addEventListener('touchstart', onScanPointerDown, { passive: true });
+  scanCanvas.addEventListener('touchmove', onScanPointerMove, { passive: true });
+  window.addEventListener('touchend', onScanPointerUp);
+  scanSeekBar.addEventListener('input', function() {
+    if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
+    videoElement.currentTime = (scanSeekBar.value / 100) * videoElement.duration;
+    tuneRuler.isActive = false;
+    btnScanNextStep.style.display = 'none';
+    renderScanFrame();
+  });
+  document.getElementById('btn-scan-prev').addEventListener('click', function() {
+    videoElement.currentTime = Math.max(0, videoElement.currentTime - 0.033);
+    tuneRuler.isActive = false;
+    btnScanNextStep.style.display = 'none';
+    renderScanFrame();
+  });
+  document.getElementById('btn-scan-next').addEventListener('click', function() {
+    videoElement.currentTime = Math.min(videoElement.duration || 0, videoElement.currentTime + 0.033);
+    tuneRuler.isActive = false;
+    btnScanNextStep.style.display = 'none';
+    renderScanFrame();
+  });
+  document.getElementById('btn-scan-action').addEventListener('click', async function() {
+    beginAnalysisProgress('scan', '関節座標を計算中...', '画面を閉じずにお待ちください');
+    scanModeActive = true;
+    bufferCanvas.width = videoElement.videoWidth;
+    bufferCanvas.height = videoElement.videoHeight;
+    bufferCtx.drawImage(videoElement, 0, 0, bufferCanvas.width, bufferCanvas.height);
+    try { await pose.send({ image: bufferCanvas }); }
+    catch (err) { console.error('Scan Error:', err); }
+    finally { scanModeActive = false; endAnalysisProgress('scan'); }
+  });
+  btnScanNextStep.addEventListener('click', function() { setStep(3); });
+  document.getElementById('btn-re-scan').addEventListener('click', function() {
+    tuneRuler.isActive = false;
+    btnScanNextStep.style.display = 'none';
+    setStep(2);
+    setTimeout(function() { updateScanScreenSize(); renderScanFrame(); }, 100);
+  });
+  document.getElementById('btn-start-analysis').addEventListener('click', function() {
+    var pName = document.getElementById('player-name-input').value.trim();
+    playerName = pName || (cfg.defaultPlayerName || '選手');
+    var hVal = parseFloat(document.getElementById('height-input').value);
+    userHeightCm = (Number.isFinite(hVal) && hVal >= 80 && hVal <= 220) ? hVal : 140;
+    playerTagBadge.textContent = '👤 ' + playerName + ' (' + userHeightCm + 'cm)';
+    if (typeof onStartAnalysis === 'function') onStartAnalysis();
+    setStep(4);
+    setTimeout(function() {
+      resetWorkspaceDimensions();
+      beginAnalysisProgress('frame', '関節座標を計算中...', '画面を閉じずにお待ちください');
+      Promise.resolve(processSingleFrame()).finally(function() { endAnalysisProgress('frame'); });
+    }, 150);
+  });
+
+  window.addEventListener('resize', syncCanvasToViewport);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', syncCanvasToViewport);
+  outputCanvas.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var next = Math.max(1.0, Math.min(5.0, zoomScale * (e.deltaY < 0 ? 1.15 : 0.85)));
+    if (next === 1.0) zoomPan = { x: 0, y: 0 };
+    zoomScale = next;
+    updateZoomBadge();
+    processSingleFrame();
+  }, { passive: false });
+  outputCanvas.addEventListener('touchstart', onOutputTouchStart, { passive: true });
+  outputCanvas.addEventListener('touchmove', onOutputTouchMove, { passive: true });
+  outputCanvas.addEventListener('touchend', onOutputTouchEnd, { passive: true });
+  outputCanvas.addEventListener('pointerdown', onCanvasPointerDown);
+  outputCanvas.addEventListener('pointermove', onHudPointerMove);
+  document.getElementById('btn-zoom-reset').addEventListener('click', function() {
+    zoomScale = 1.0;
+    zoomPan = { x: 0, y: 0 };
+    if (typeof onZoomReset === 'function') onZoomReset();
+    updateZoomBadge();
+    processSingleFrame();
+  });
+  document.getElementById('btn-save-record').addEventListener('click', saveCurrentRecord);
+  document.getElementById('btn-open-carte').addEventListener('click', openCarteModal);
+  document.getElementById('btn-open-carte-top').addEventListener('click', openCarteModal);
+  btnCloseCarte.addEventListener('click', closeCarteModal);
+  playerSelectFilter.addEventListener('change', function() { renderCarteList(false); });
+  btnDeleteAction.addEventListener('click', deleteFilteredCartes);
+  document.getElementById('btn-export-csv').addEventListener('click', exportCarteCsv);
+  videoElement.addEventListener('play', updatePlayState);
+  videoElement.addEventListener('pause', updatePlayState);
+  videoElement.addEventListener('ended', updatePlayState);
+  videoElement.addEventListener('seeked', function() {
+    if (typeof probingFrameRate !== 'undefined' && probingFrameRate) return;
+    if (typeof frameSeekLoopActive !== 'undefined' && frameSeekLoopActive) return;
+    if (stepViews[2].classList.contains('active')) { paintScanPreview(); return; }
+    if (stepViews[4].classList.contains('active')) processSingleFrame();
+  });
+  btnPlayPause.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
+    if (typeof analysisTransportPlaying !== 'undefined' && analysisTransportPlaying) {
+      stopFrameAccuratePlayback();
+      videoElement.pause();
+      return;
+    }
+    if (!videoElement.paused) { videoElement.pause(); return; }
+    startFrameAccuratePlayback();
+  });
+  seekBar.addEventListener('input', function() {
+    if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
+    if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+    videoElement.pause();
+    videoElement.currentTime = (seekBar.value / 100) * videoElement.duration;
+    updateTimeUI();
+  });
+  document.getElementById('btn-frame-prev').addEventListener('click', function(e) {
+    e.stopPropagation();
+    stepFrame(-1);
+  });
+  document.getElementById('btn-frame-next').addEventListener('click', function(e) {
+    e.stopPropagation();
+    stepFrame(1);
+  });
+  document.getElementById('btn-reset-max').addEventListener('click', function() {
+    if (typeof resetMotionRecords === 'function') records = resetMotionRecords();
+    if (typeof onResetAnalysis === 'function') onResetAnalysis();
+    if (typeof clearGhostCache === 'function') clearGhostCache();
+    if (typeof updateDrawerKeyBadge === 'function') updateDrawerKeyBadge();
+    if (typeof showWaitingHeroes === 'function') showWaitingHeroes();
+  });
+  document.getElementById('btn-re-select').addEventListener('click', function() {
+    videoElement.pause();
+    tuneRuler.isActive = false;
+    btnScanNextStep.style.display = 'none';
+    zoomScale = 1.0;
+    zoomPan = { x: 0, y: 0 };
+    if (typeof onReselectVideo === 'function') onReselectVideo();
+    if (typeof clearGhostCache === 'function') clearGhostCache();
+    updateZoomBadge();
+    setStep(1);
+  });
+  if (typeof bindModeExtras === 'function') bindModeExtras();
+}
+
+function showToast(text) {
+  if (!toastBox) { alert(text); return; }
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastBox.textContent = text;
+  toastBox.classList.add('show');
+  toastTimeout = setTimeout(function() { toastBox.classList.remove('show'); }, 2500);
+}
+
+function paintHero(el, tag, value, locked) {
+  if (!el) return;
+  var safeTag = String(tag).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  var safeVal = String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  el.innerHTML = '<span class="phase-tag">' + safeTag + '</span><span class="phase-num">' + safeVal + '</span>';
+  el.classList.toggle('is-locked', !!locked);
+}
+
+function updateAiHudButton() {
+  var btn = document.getElementById('btn-toggle-ai-hud');
+  if (!btn) return;
+  btn.textContent = showAiDebugHud ? '🤖 AI認識ステータス' : '🤖 AI認識ステータス（非表示）';
+  btn.classList.toggle('is-off', !showAiDebugHud);
+}
+
+function toggleAiDebugHud() {
+  showAiDebugHud = !showAiDebugHud;
+  updateAiHudButton();
+  drawAiDiagnosticsHUD(outputCtx);
+}
+
+function setStep(stepNum) {
+  if (stepNum !== 4 && typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+  Object.keys(stepViews).forEach(function(s) { stepViews[s].classList.remove('active'); });
+  if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
+  Object.keys(stepPills).forEach(function(s) { stepPills[s].classList.remove('active'); });
+  if (stepNum <= 3 && stepPills[stepNum]) stepPills[stepNum].classList.add('active');
+  else if (stepNum === 4 && stepPills[3]) stepPills[3].classList.add('active');
+  if (typeof drawAiDiagnosticsHUD === 'function') drawAiDiagnosticsHUD();
+}
+
+function openVideoCapture(angleMode) {
+  var ready = (typeof nativePrepareCapture === 'function') ? nativePrepareCapture() : Promise.resolve();
+  Promise.resolve(ready).then(function() {
+    if (typeof nativeRecordVideo === 'function' && typeof nativePlatform === 'function' && nativePlatform()) {
+      return nativeRecordVideo().then(function(src) {
+        if (src) { openMeasurementVideo(src, angleMode); return; }
+        pendingCaptureMode = angleMode;
+        if (inputCapture) inputCapture.click();
+      });
+    }
+    pendingCaptureMode = angleMode;
+    if (inputCapture) inputCapture.click();
+  });
+}
+
+function openVideoLibrary(angleMode, input) {
+  if (!(typeof nativePickVideo === 'function' && typeof nativePlatform === 'function' && nativePlatform())) return false;
+  nativePickVideo().then(function(src) {
+    if (src) openMeasurementVideo(src, angleMode);
+    else if (input) { skipNativePicker = true; input.click(); }
+  });
+  return true;
+}
+
+function getCanvasPoint(evt, canvas) {
+  var rect = canvas.getBoundingClientRect();
+  var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+  var clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+  return {
+    x: (clientX - rect.left) * (canvas.width / rect.width),
+    y: (clientY - rect.top) * (canvas.height / rect.height)
+  };
+}
+
+function onScanPointerDown(e) {
+  if (!tuneRuler.isActive) return;
+  var pt = getCanvasPoint(e, scanCanvas);
+  var b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
+  var topY = b.y + tuneRuler.topYNorm * b.h;
+  var bottomY = b.y + tuneRuler.bottomYNorm * b.h;
+  var centerX = b.x + tuneRuler.centerXNorm * b.w;
+  if (Math.abs(pt.y - topY) <= 30 && Math.abs(pt.x - centerX) <= 65) activeDragHandle = 'top';
+  else if (Math.abs(pt.y - bottomY) <= 30 && Math.abs(pt.x - centerX) <= 65) activeDragHandle = 'bottom';
+  else if (pt.y > topY && pt.y < bottomY && Math.abs(pt.x - centerX) <= 40) activeDragHandle = 'both';
+  dragStartY = pt.y;
+  snapTop = tuneRuler.topYNorm;
+  snapBottom = tuneRuler.bottomYNorm;
+}
+
+function onScanPointerMove(e) {
+  if (!activeDragHandle || !tuneRuler.isActive) return;
+  var pt = getCanvasPoint(e, scanCanvas);
+  var b = getAspectFitBounds(videoElement.videoWidth, videoElement.videoHeight, scanCanvas.width, scanCanvas.height);
+  var dNormY = (pt.y - dragStartY) / b.h;
+  if (activeDragHandle === 'top') tuneRuler.topYNorm = Math.min(tuneRuler.bottomYNorm - 0.1, Math.max(0.01, snapTop + dNormY));
+  else if (activeDragHandle === 'bottom') tuneRuler.bottomYNorm = Math.max(tuneRuler.topYNorm + 0.1, Math.min(0.99, snapBottom + dNormY));
+  else if (activeDragHandle === 'both') {
+    var heightNorm = snapBottom - snapTop;
+    var newTop = Math.max(0.01, Math.min(0.99 - heightNorm, snapTop + dNormY));
+    tuneRuler.topYNorm = newTop;
+    tuneRuler.bottomYNorm = newTop + heightNorm;
+  }
+  renderScanFrame();
+}
+
+function onScanPointerUp() { activeDragHandle = null; }
+
+function syncCanvasToViewport() {
+  if (stepViews[4].classList.contains('active')) {
+    resetWorkspaceDimensions();
+    processSingleFrame();
+  } else if (stepViews[2].classList.contains('active')) {
+    updateScanScreenSize();
+    renderScanFrame();
+  }
+}
+
+function updateZoomBadge() {
+  if (zoomBadge) zoomBadge.textContent = '🔍 ' + zoomScale.toFixed(1) + 'x (ピンチ可)';
+}
+
+function getCanvasTouchPos(e) {
+  var rect = outputCanvas.getBoundingClientRect();
+  var clientX = e.clientX;
+  var clientY = e.clientY;
+  if (e.touches && e.touches.length > 0) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+  else if (e.changedTouches && e.changedTouches.length > 0) { clientX = e.changedTouches[0].clientX; clientY = e.changedTouches[0].clientY; }
+  return {
+    x: (clientX - rect.left) * (outputCanvas.width / (rect.width || 1)),
+    y: (clientY - rect.top) * (outputCanvas.height / (rect.height || 1))
+  };
+}
+
+function isPointOnAiHud(e) {
+  if (typeof showAiDebugHud !== 'undefined' && !showAiDebugHud) return false;
+  if (typeof hitTestAiHud !== 'function') return false;
+  return hitTestAiHud(getCanvasTouchPos(e), outputCanvas.width);
+}
+
+function onOutputTouchStart(e) {
+  if (e.touches.length === 1 && isPointOnAiHud(e)) return;
+  if (typeof onCanvasTouchStart === 'function' && onCanvasTouchStart(e)) return;
+  if (e.touches.length === 2) {
+    initialPinchDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    initialZoomScale = zoomScale;
+  } else if (e.touches.length === 1 && zoomScale > 1.0) {
+    isPanning = true;
+    panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    panSnapshot = { x: zoomPan.x, y: zoomPan.y };
+  }
+}
+
+function onOutputTouchMove(e) {
+  if (e.touches.length === 2 && initialPinchDistance > 0) {
+    var dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    zoomScale = Math.max(1.0, Math.min(5.0, initialZoomScale * (dist / initialPinchDistance)));
+    if (zoomScale === 1.0) zoomPan = { x: 0, y: 0 };
+    updateZoomBadge();
+    processSingleFrame();
+  } else if (e.touches.length === 1) {
+    if (typeof onCanvasTouchMove === 'function' && onCanvasTouchMove(e)) return;
+    if (isPanning && zoomScale > 1.0) {
+      zoomPan.x = panSnapshot.x + (e.touches[0].clientX - panStart.x);
+      zoomPan.y = panSnapshot.y + (e.touches[0].clientY - panStart.y);
+      processSingleFrame();
+    }
+  }
+}
+
+function onOutputTouchEnd(e) {
+  if (e.touches.length < 2) initialPinchDistance = 0;
+  if (e.touches.length === 0) {
+    isPanning = false;
+    isDraggingToe = false;
+  }
+}
+
+function onCanvasPointerDown(e) {
+  if (typeof e.button === 'number' && e.button !== 0) return;
+  if (!isPointOnAiHud(e)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof isHudCollapsed !== 'undefined') isHudCollapsed = !isHudCollapsed;
+  if (typeof renderFrameOnly === 'function') renderFrameOnly();
+}
+
+function onHudPointerMove(e) {
+  if (e.pointerType === 'mouse') outputCanvas.style.cursor = isPointOnAiHud(e) ? 'pointer' : '';
+}
+
+function getSavedRecords() {
+  try {
+    var data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCurrentRecord() {
+  var allRecords = getSavedRecords();
+  var now = new Date();
+  var adviceEntry = snapshotAdviceEntry();
+  var cfg = MotionPlayerCore.config || {};
+  var entry = {
+    id: Date.now(),
+    date: now.getFullYear() + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/' + String(now.getDate()).padStart(2, '0'),
+    time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
+    playerName: playerName,
+    height: userHeightCm,
+    mode: adviceEntry.mode,
+    feelGrade: cfg.defaultFeel || '',
+    bodyCondition: cfg.defaultBody || '',
+    playerNote: '',
+    metrics: adviceEntry.metrics
+  };
+  if (typeof decorateSavedRecord === 'function') decorateSavedRecord(entry);
+  allRecords.unshift(entry);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+    if (typeof nativeHapticSuccess === 'function') nativeHapticSuccess();
+    var savedText = (typeof cfg.savedMessage === 'function')
+      ? cfg.savedMessage(playerName)
+      : (cfg.savedMessage || ('✅ ' + playerName + '君の測定データをカルテに保存しました！'));
+    notifyUser(savedText);
+  } catch (err) {
+    notifyUser('⚠️ 保存容量がいっぱいです');
+  }
+}
+
+function openCarteModal() {
+  renderCarteList(true);
+  carteModal.style.display = 'flex';
+}
+
+function closeCarteModal() { carteModal.style.display = 'none'; }
+
+MotionPlayerCore.bindCarteInteractions = function() {
+  carteHistoryList.querySelectorAll('.choice-chip').forEach(function(chip) {
+    chip.addEventListener('click', function(e) {
+      var parent = e.currentTarget.parentElement;
+      var type = parent.getAttribute('data-type');
+      var groupKey = parent.getAttribute('data-group');
+      var val = e.currentTarget.getAttribute('data-val');
+      parent.querySelectorAll('.choice-chip').forEach(function(c) { c.classList.remove('active'); });
+      e.currentTarget.classList.add('active');
+      var allRecs = getSavedRecords();
+      allRecs.forEach(function(item) {
+        if (item.playerName + '_' + item.date === groupKey) {
+          if (type === 'feel') item.feelGrade = val;
+          if (type === 'body') item.bodyCondition = val;
+        }
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
+    });
+  });
+  carteHistoryList.querySelectorAll('.player-textarea').forEach(function(textarea) {
+    textarea.addEventListener('input', function(e) {
+      var groupKey = e.currentTarget.getAttribute('data-group');
+      var allRecs = getSavedRecords();
+      allRecs.forEach(function(item) {
+        if (item.playerName + '_' + item.date === groupKey) item.playerNote = e.currentTarget.value;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecs));
+    });
+  });
+  carteHistoryList.querySelectorAll('.btn-share-line').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      shareRecordToLine(e.currentTarget.getAttribute('data-group'));
+    });
+  });
+  carteHistoryList.querySelectorAll('.btn-item-delete').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      var groupKey = e.currentTarget.getAttribute('data-group');
+      if (typeof deleteCarteGroup === 'function') {
+        deleteCarteGroup(groupKey);
+        return;
+      }
+      var allRecords = getSavedRecords().filter(function(r) { return r.playerName + '_' + r.date !== groupKey; });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+      notifyUser('🗑️ カルテを1件削除しました');
+      renderCarteList(false);
+    });
+  });
+};
+
+function notifyUser(text) {
+  var cfg = MotionPlayerCore.config || {};
+  if (cfg.notify === 'alert' || !toastBox) alert(text);
+  else showToast(text);
+}
+
+function deleteFilteredCartes() {
+  var selectedFilter = playerSelectFilter.value;
+  var allRecords = getSavedRecords();
+  if (allRecords.length === 0) return;
+  var cfg = MotionPlayerCore.config || {};
+  if (selectedFilter === 'ALL') {
+    if (cfg.confirmBulkDelete && !confirm('⚠️ 【注意】すべての選手のカルテデータを完全に初期化しますか？')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    if (!cfg.confirmBulkDelete) notifyUser('⚠️ 全カルテを初期化しました');
+  } else {
+    if (cfg.confirmBulkDelete && !confirm('👤 ' + selectedFilter + ' 選手のすべての測定データを削除しますか？')) return;
+    allRecords = allRecords.filter(function(r) { return r.playerName !== selectedFilter; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allRecords));
+    if (!cfg.confirmBulkDelete) notifyUser('👤 ' + selectedFilter + ' 選手のデータを削除しました');
+  }
+  renderCarteList(false);
+}
+
+function exportCarteCsv() {
+  var allRecords = getSavedRecords();
+  if (allRecords.length === 0 || typeof buildCsvDocument !== 'function') {
+    notifyUser('保存されたデータがありません');
+    return;
+  }
+  var csv = buildCsvDocument(allRecords);
+  if (!csv) { notifyUser('保存されたデータがありません'); return; }
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  var cfg = MotionPlayerCore.config || {};
+  link.href = url;
+  link.download = (cfg.csvPrefix || 'karte') + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function updatePlayState() {
+  if (typeof probingFrameRate !== 'undefined' && probingFrameRate) return;
+  if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+  var cfg = MotionPlayerCore.config || {};
+  var playing = (typeof analysisTransportPlaying !== 'undefined' && analysisTransportPlaying) || !videoElement.paused;
+  if (!playing) {
+    btnPlayPause.textContent = '再生';
+    btnPlayPause.style.background = cfg.playIdleGradient || 'linear-gradient(135deg, var(--primary-accent), var(--primary-accent-strong))';
+    if (aiDiagnostics.status !== 'ERROR') aiDiagnostics.status = 'IDLE';
+    if (showAiDebugHud && !scanModeActive && outputCanvas.width > 0) drawAiDiagnosticsHUD(outputCtx);
+  } else {
+    btnPlayPause.textContent = '停止';
+    btnPlayPause.style.background = cfg.playActiveGradient || 'linear-gradient(135deg, #0284c7, #0369a1)';
+  }
+}
+
+function updateTimeUI() {
+  if (!Number.isFinite(videoElement.duration) || videoElement.duration === 0) return;
+  seekBar.value = (videoElement.currentTime / videoElement.duration) * 100;
+  timeDisp.textContent = videoElement.currentTime.toFixed(2) + ' / ' + videoElement.duration.toFixed(2);
+  if (typeof updateReleaseMarker === 'function') updateReleaseMarker();
+}
+
+function stepFrame(direction) {
+  if (typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+  videoElement.pause();
+  var step = (typeof analysisFrameDuration === 'number' && analysisFrameDuration > 0) ? analysisFrameDuration : 0.033;
+  var next = videoElement.currentTime + direction * step;
+  videoElement.currentTime = direction < 0 ? Math.max(0, next) : Math.min(videoElement.duration || 0, next);
+  updateTimeUI();
 }

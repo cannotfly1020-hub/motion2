@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-theme="pitching">
 <head>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 
   <link rel="manifest" href="../manifest.json">
-  <meta name="theme-color" content="#38bdf8">
+  <meta name="theme-color" content="#059669">
   <link rel="apple-touch-icon" href="../icon-192.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -133,7 +133,7 @@
 
       <div class="btn-group" style="margin-top: 2px;">
         <button class="btn btn-secondary" id="btn-re-scan" style="flex: 1;">🔄 やり直す</button>
-        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 2px 0 #047857;">
+        <button class="btn" id="btn-start-analysis" style="flex: 1.5; background: linear-gradient(135deg, var(--primary-accent), var(--primary-accent-strong)); box-shadow: 0 2px 0 var(--primary-ink);">
           🚀 解析スタート！
         </button>
       </div>
@@ -171,7 +171,7 @@
             </div>
             <div class="btn-row drawer-mainbar">
               <button class="btn-ctrl" id="btn-frame-prev" type="button">◀ -1コマ</button>
-              <button class="btn-ctrl" id="btn-play-pause" type="button" style="background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border-color: #fff; box-shadow: none;">再生</button>
+              <button class="btn-ctrl" id="btn-play-pause" type="button" style="background: linear-gradient(135deg, var(--primary-accent), var(--primary-accent-strong)); color: #fff; border-color: #fff; box-shadow: none;">再生</button>
               <button class="btn-ctrl" id="btn-frame-next" type="button">+1コマ ▶</button>
               <button class="btn-ctrl btn-decide btn-fc-trigger" id="btn-manual-fc" type="button">👟 べた足決定</button>
               <button class="btn-ctrl btn-decide btn-release-trigger" id="btn-set-release" type="button">🎯 リリース決定</button>
@@ -261,6 +261,8 @@
     </div>
   </div>
 
+  <div id="toast-box" class="toast-msg"></div>
+
   <video id="hidden-video" playsinline webkit-playsinline preload="auto" muted></video>
   <canvas id="buffer-canvas" style="display: none;"></canvas>
 
@@ -272,6 +274,7 @@
   <script src="js/pitching_pose.js"></script>
   <script src="trainer/pitching_knowledge.js"></script>
   <script src="js/math.js"></script>
+  <script src="js/mode.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

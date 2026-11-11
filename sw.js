@@ -1,4 +1,4 @@
-const CACHE_NAME = 'baseball-ai-v17';
+const CACHE_NAME = 'baseball-ai-v18';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
@@ -25,12 +25,14 @@ const STATIC_ASSETS = [
   './batting/js/batting_pose.js',
   './batting/trainer/batting_knowledge.js',
   './batting/js/math.js',
+  './batting/js/mode.js',
   './batting/js/app.js',
   './pitching/index.html',
   './pitching/css/style.css',
   './pitching/js/pitching_pose.js',
   './pitching/trainer/pitching_knowledge.js',
   './pitching/js/math.js',
+  './pitching/js/mode.js',
   './pitching/js/app.js'
 ];
 
