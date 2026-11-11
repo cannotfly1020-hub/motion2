@@ -296,7 +296,7 @@
 }
 
 .drawer-utilities {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .drawer-actions .btn-ctrl {
@@ -314,4 +314,79 @@
 
 #view-step4 .btn-ai-hud {
   display: none;
+}
+
+.video-top-left-controls,
+.video-top-right-controls {
+  position: absolute;
+  z-index: 12;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.video-top-left-controls {
+  top: 8px;
+  left: 8px;
+}
+
+.video-top-right-controls {
+  top: 8px;
+  right: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.video-top-left-controls > *,
+.video-top-right-controls > * {
+  pointer-events: auto;
+}
+
+.video-top-left-controls .btn-ctrl {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.video-top-right-controls .angle-mode-badge,
+.video-top-right-controls .ghost-toggle {
+  position: static;
+  top: auto;
+  right: auto;
+}
+
+#view-step4 .zoom-badge {
+  top: auto;
+  left: auto;
+  right: 8px;
+  bottom: calc(var(--drawer-peek) + 8px);
+}
+
+.drawer-body .ai-status-hud {
+  position: static;
+  top: auto;
+  left: auto;
+  right: auto;
+  z-index: auto;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  margin-top: 4px;
+  overflow: visible;
+}
+
+.drawer-body .ai-status-hud .hud-collapsed-line {
+  display: none;
+}
+
+.drawer-body .ai-status-hud .hud-body,
+.drawer-body .ai-status-hud.is-collapsed .hud-body {
+  display: block;
 }

@@ -259,6 +259,8 @@ function getAiHudBox(canvasWidth) {
 }
 
 function hitTestAiHud(pos, canvasWidth) {
+  const hud = document.getElementById('ai-status-hud');
+  if (hud && hud.closest('.drawer-body')) return false;
   if (typeof showAiDebugHud !== 'undefined' && !showAiDebugHud) return false;
   if (!pos) return false;
   const box = getAiHudBox(canvasWidth);
@@ -277,7 +279,7 @@ function ensureAiStatusHud(el) {
   el.innerHTML =
     '<div class="hud-collapsed-line" data-k="collapsed"></div>' +
     '<div class="hud-body">' +
-      '<div class="hud-head"><span class="hud-title">🤖 AI認識ステータス</span><span class="hud-muted">▲ 閉じる</span></div>' +
+      '<div class="hud-head"><span class="hud-title">🤖 AI認識詳細</span></div>' +
       '<div>状態: <b data-k="status"></b></div>' +
       '<div>処理速度: <b data-k="speed"></b></div>' +
       '<div>3D空間認識: <b data-k="world"></b></div>' +
@@ -286,6 +288,7 @@ function ensureAiStatusHud(el) {
       '<div>体幹捻転差: <b data-k="torsion"></b></div>' +
     '</div>';
   el.addEventListener('pointerdown', function(e) {
+    if (el.closest('.drawer-body')) return;
     e.preventDefault();
     e.stopPropagation();
     isHudCollapsed = !isHudCollapsed;
@@ -308,7 +311,8 @@ function drawAiDiagnosticsHUD() {
   const latency = diag ? Math.round(diag.latencyMs) : 0;
   const fps = diag ? Math.round(diag.fps) : 0;
   el.hidden = false;
-  el.classList.toggle('is-collapsed', !!isHudCollapsed);
+  const inDrawer = !!el.closest('.drawer-body');
+  el.classList.toggle('is-collapsed', !inDrawer && !!isHudCollapsed);
   const collapsed = el.querySelector('[data-k="collapsed"]');
   collapsed.textContent = '▼ AIステータス';
   let statusText = '一時停止中 (待機)';

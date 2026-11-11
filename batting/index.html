@@ -135,15 +135,19 @@
     <section id="view-step4" class="view-section">
       <div class="screen-wrapper" id="main-screen-wrapper">
         <canvas id="output-canvas"></canvas>
-        <div id="ai-status-hud" class="ai-status-hud is-collapsed" hidden></div>
+        <div class="video-top-left-controls">
+          <button class="btn-ctrl" id="btn-toggle-skeleton" type="button">🦴 骨格: ON</button>
+        </div>
+        <div class="video-top-right-controls">
+          <div class="angle-mode-badge" id="angle-mode-badge">横向き解析 🏏</div>
+          <button type="button" id="btn-ghost-toggle" class="ghost-toggle">👻 残像: ON</button>
+        </div>
         <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
-        <div class="angle-mode-badge" id="angle-mode-badge">横向き解析 🏏</div>
         <div class="player-tag-badge" id="player-tag-badge">👤 バッター1 (140cm)</div>
         <div class="loading-overlay" id="ai-loading" style="display: none;">
           <div class="spinner"></div>
           <div style="font-size: 0.75rem; color: #059669; font-weight: 900;">⚡ AI同期中...</div>
         </div>
-        <button type="button" id="btn-ghost-toggle" class="ghost-toggle">👻 残像: ON</button>
       </div>
 
       <div id="drawer-sheet" class="frosted-drawer is-collapsed" data-state="collapsed">
@@ -229,10 +233,10 @@
             <button class="btn-ctrl btn-secondary" id="btn-re-select" type="button">🔄 動画選択</button>
           </div>
           <div class="drawer-actions drawer-utilities">
-            <button class="btn-ctrl" id="btn-toggle-skeleton" type="button">🦴 骨格: ON</button>
             <button class="btn-ctrl" id="btn-zoom-reset" type="button">🔍 ズーム</button>
             <button class="btn-ctrl" id="btn-reset-max" type="button">↺ リセット</button>
           </div>
+          <div id="ai-status-hud" class="ai-status-hud" hidden></div>
         </div>
       </div>
     </section>
