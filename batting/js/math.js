@@ -122,17 +122,8 @@ function generateBattingAICoachAdvice(entry) {
 }
 
 function calcJointAngle3D(p1, p2, p3) {
-  if (!p1 || !p2 || !p3) return NaN;
-  const v1 = { x: p1.x - p2.x, y: p1.y - p2.y, z: (p1.z || 0) - (p2.z || 0) };
-  const v2 = { x: p3.x - p2.x, y: p3.y - p2.y, z: (p3.z || 0) - (p2.z || 0) };
-
-  const mag1 = Math.hypot(v1.x, v1.y, v1.z);
-  const mag2 = Math.hypot(v2.x, v2.y, v2.z);
-  if (mag1 < 1e-6 || mag2 < 1e-6) return NaN;
-
-  const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-  const cosVal = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
-  return (Math.acos(cosVal) * 180.0) / Math.PI;
+  const angle = calculateJointAngle(p1, p2, p3);
+  return angle == null ? NaN : angle;
 }
 
 function applyBattingBiomechanics(landmarks, b) {
@@ -188,10 +179,14 @@ function applyBattingBiomechanics(landmarks, b) {
     const shoulderDx = (frontShoulder.x - backShoulder.x);
     const shoulderDz = ((frontShoulder.z || 0) - (backShoulder.z || 0));
 
-    const hipRot = Math.atan2(hipDz, hipDx) * (180.0 / Math.PI);
-    const shoulderRot = Math.atan2(shoulderDz, shoulderDx) * (180.0 / Math.PI);
-
-    let signedTwist = isRightBatter ? (hipRot - shoulderRot) : (shoulderRot - hipRot);
+    const hipLeadsShoulder = calculateTorsionAngle(
+      { x: shoulderDx, y: shoulderDz },
+      { x: hipDx, y: hipDz }
+    );
+    if (hipLeadsShoulder == null) {
+      /* 肩か骨盤が点に潰れている */
+    } else {
+    let signedTwist = isRightBatter ? hipLeadsShoulder : -hipLeadsShoulder;
     if (signedTwist > 180) signedTwist -= 360;
     if (signedTwist < -180) signedTwist += 360;
     
@@ -220,6 +215,7 @@ function applyBattingBiomechanics(landmarks, b) {
           if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(1, false);
         }
       }
+    }
     }
   }
 
@@ -283,13 +279,16 @@ function applyBattingBiomechanics(landmarks, b) {
 
     if (selectedAngleMode === 'SIDE') {
       c5Val.textContent = `${shiftXCm} cm`;
-      const shiftXNorm = Math.abs(NOSE.x - initialNoseX);
+      const shiftXNorm = calculateSegmentDisplacement(
+        { x: NOSE.x, y: initialNoseY },
+        { x: initialNoseX, y: initialNoseY }
+      );
       if (shiftXCm <= 60 && shiftXCm > 0 && shiftXCm >= records.maxHeadShift) {
         if (shiftXCm > records.maxHeadShift) {
           records.maxHeadShift = shiftXCm;
           paintHero(c5Max, 'MAX 頭前後', `${shiftXCm} cm`, true);
         }
-        records.maxHeadShiftRatio = Math.round(shiftXNorm * 1000) / 1000;
+        if (shiftXNorm != null) records.maxHeadShiftRatio = Math.round(shiftXNorm * 1000) / 1000;
       }
       c6Val.textContent = `${shiftYCm} cm`;
       if (shiftYCm > records.maxHeadShiftY && shiftYCm <= 50) {

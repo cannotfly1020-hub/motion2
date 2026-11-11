@@ -145,17 +145,8 @@ function getSegmentAngle3D(p1, p2) {
 }
 
 function calcJointAngle3D(p1, p2, p3) {
-  if (!p1 || !p2 || !p3) return NaN;
-  const v1 = { x: p1.x - p2.x, y: p1.y - p2.y, z: (p1.z || 0) - (p2.z || 0) };
-  const v2 = { x: p3.x - p2.x, y: p3.y - p2.y, z: (p3.z || 0) - (p2.z || 0) };
-
-  const mag1 = Math.hypot(v1.x, v1.y, v1.z);
-  const mag2 = Math.hypot(v2.x, v2.y, v2.z);
-  if (mag1 < 1e-6 || mag2 < 1e-6) return NaN;
-
-  const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-  const cosVal = Math.max(-1.0, Math.min(1.0, dot / (mag1 * mag2)));
-  return (Math.acos(cosVal) * 180.0) / Math.PI;
+  const angle = calculateJointAngle(p1, p2, p3);
+  return angle == null ? NaN : angle;
 }
 
 function calcTrueMER(shoulderL, shoulderR, hipL, hipR, elbow, wrist) {
@@ -319,12 +310,12 @@ function applyPitchingBiomechanics(landmarks, b) {
     }
 
     if (L_SHOULDER && R_SHOULDER && L_HIP && R_HIP) {
-      const shoulderAngle = getSegmentAngle3D(L_SHOULDER, R_SHOULDER);
-      const hipAngle = getSegmentAngle3D(L_HIP, R_HIP);
-      if (Number.isFinite(shoulderAngle) && Number.isFinite(hipAngle)) {
-        let diff = Math.abs(shoulderAngle - hipAngle);
-        if (diff > 180) diff = 360 - diff;
-        const roundedTwist = Math.round(diff);
+      const twist = calculateTorsionAngle(
+        { x: R_SHOULDER.x - L_SHOULDER.x, y: R_SHOULDER.y - L_SHOULDER.y },
+        { x: R_HIP.x - L_HIP.x, y: R_HIP.y - L_HIP.y }
+      );
+      if (twist != null) {
+        const roundedTwist = Math.round(Math.abs(twist));
         if (roundedTwist <= 65) {
           c3Val.textContent = `${roundedTwist}°`;
           if (roundedTwist > records.maxTwist && roundedTwist >= 5) {

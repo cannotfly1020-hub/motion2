@@ -1,13 +1,15 @@
-const CACHE_NAME = 'baseball-ai-v16';
+const CACHE_NAME = 'baseball-ai-v17';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
   './css/common.css',
+  './native/biomechanics_math.js',
   './native/motion_ui.js',
   './native/pose_pipeline.js',
   './native/bridge.js',
+  './native/motion_player_core.js',
   './libs/mediapipe/pose.js',
   './libs/mediapipe/pose_solution_packed_assets_loader.js',
   './libs/mediapipe/pose_solution_packed_assets.data',
@@ -23,16 +25,12 @@ const STATIC_ASSETS = [
   './batting/js/batting_pose.js',
   './batting/trainer/batting_knowledge.js',
   './batting/js/math.js',
-  './batting/js/mediapipe.js',
-  './batting/js/render.js',
   './batting/js/app.js',
   './pitching/index.html',
   './pitching/css/style.css',
   './pitching/js/pitching_pose.js',
   './pitching/trainer/pitching_knowledge.js',
   './pitching/js/math.js',
-  './pitching/js/mediapipe.js',
-  './pitching/js/render.js',
   './pitching/js/app.js'
 ];
 

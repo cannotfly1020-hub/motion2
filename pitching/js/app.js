@@ -434,59 +434,6 @@ stepPills[3].addEventListener('click', () => {
   }
 });
 
-function paintScanPreview() {
-  if (!stepViews[2].classList.contains('active')) return;
-  updateScanScreenSize();
-  renderScanFrame();
-}
-
-function armScanPreview(src) {
-  if (typeof startMeasurementVideo !== 'function') {
-    endAnalysisProgress('video');
-    return;
-  }
-  startMeasurementVideo(videoElement, src, function() {
-    paintScanPreview();
-    if (typeof videoElement.requestVideoFrameCallback === 'function') {
-      videoElement.requestVideoFrameCallback(function() { paintScanPreview(); });
-    }
-  });
-}
-
-function handleVideoLoad(file, angleMode) {
-  if (!file) return;
-  if (videoFileUrl) {
-    URL.revokeObjectURL(videoFileUrl);
-    videoFileUrl = null;
-  }
-  videoFileUrl = URL.createObjectURL(file);
-  openMeasurementVideo(videoFileUrl, angleMode);
-}
-
-function openMeasurementVideo(src, angleMode) {
-  selectedAngleMode = angleMode;
-  updateCardLabels();
-  setStep(2);
-  beginAnalysisProgress('video', '動画を読み込んでいます...', '画面を閉じずにお待ちください');
-  if (typeof clearGhostCache === 'function') clearGhostCache();
-  try {
-    armScanPreview(src);
-  } catch (err) {
-    console.error('[VideoLoad] open failed:', err);
-    endAnalysisProgress('video');
-    alert('動画の読み込みに失敗しました。別の動画を選択してください。');
-  }
-
-  try {
-    var pending = initMediaPipe();
-    Promise.resolve(pending)
-      .catch(err => console.warn('[VideoLoad] MediaPipe init error:', err))
-      .finally(() => paintScanPreview());
-  } catch (err) {
-    console.error('[VideoLoad] MediaPipe init error:', err);
-    if (typeof endAnalysisProgress === 'function') endAnalysisProgress('model');
-  }
-}
 
 const inputSide = document.getElementById('video-input-side');
 const inputFront = document.getElementById('video-input-front');
@@ -1329,7 +1276,7 @@ function updatePlayState() {
   var playing = (typeof analysisTransportPlaying !== 'undefined' && analysisTransportPlaying) || !videoElement.paused;
   if (!playing) {
     btnPlayPause.textContent = "再生";
-    btnPlayPause.style.background = "linear-gradient(135deg, #ff9f43, #ff5252)";
+    btnPlayPause.style.background = (MotionPlayerCore.config && MotionPlayerCore.config.playIdleGradient) || "linear-gradient(135deg, #ff9f43, #ff5252)";
     if (aiDiagnostics.status !== 'ERROR') aiDiagnostics.status = 'IDLE';
     if (showAiDebugHud && !scanModeActive && outputCanvas.width > 0) {
       drawAiDiagnosticsHUD(outputCtx);
@@ -1458,4 +1405,31 @@ document.getElementById('btn-re-select').addEventListener('click', () => {
   if (typeof clearGhostCache === 'function') clearGhostCache();
   updateZoomBadge();
   setStep(1);
+});
+
+MotionPlayerCore.init({
+  mode: 'pitching',
+  keyPoints: [
+    { id: 'footContact', buttonId: 'btn-manual-fc', label: '👟 べた足決定', color: 'rgba(59, 130, 246, 0.5)' },
+    { id: 'release', buttonId: 'btn-set-release', label: '🎯 リリース決定', color: 'rgba(249, 115, 22, 0.6)' }
+  ],
+  primaryBadgeKey: 'footContact',
+  playIdleGradient: 'linear-gradient(135deg, #ff9f43, #ff5252)',
+  scanAccent: '#38bdf8',
+  scanAccentSoft: 'rgba(56, 189, 248, 0.4)',
+  showScanCenterLine: true,
+  scanGuideHtml: '🎯 <b>AIが検知したよ！</b> ズレがあれば<b>丸いハンドルを上下にドラッグ</b>して頭と足元にピッタリ合わせてね！',
+  metricsCalculator: { apply: applyPitchingBiomechanics },
+  diagnosticRules: {
+    html: generatePitchingDiagnosisHtml,
+    text: generatePitchingAICoachAdvice
+  },
+  badgeText: function() {
+    if (selectedAngleMode === 'FRONT') {
+      var toe = records.fcToeAngle;
+      return (toe == null) ? '🎯 接地時開き --' : ('🎯 接地時開き ' + toe + '°');
+    }
+    var knee = records.ffKneeFlex;
+    return (knee == null) ? '🎯 接地ヒザ --' : ('🎯 接地ヒザ ' + knee + '°');
+  }
 });

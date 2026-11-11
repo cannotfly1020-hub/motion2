@@ -185,6 +185,10 @@ function redrawPoseOverlay() {
 function updateDrawerKeyBadge() {
   var el = document.getElementById('drawer-key-badge');
   if (!el || typeof records === 'undefined') return;
+  if (typeof MotionPlayerCore !== 'undefined' && MotionPlayerCore.config && typeof MotionPlayerCore.config.badgeText === 'function') {
+    el.textContent = MotionPlayerCore.config.badgeText();
+    return;
+  }
   if (typeof selectedBatSide !== 'undefined') {
     var twist = records.maxTwistSigned;
     el.textContent = twist ? ('🔥 TOP捻転差 ' + (twist > 0 ? '+' : '') + twist + '°') : '🔥 TOP捻転差 --';
@@ -207,6 +211,11 @@ function refreshDrawerAdvice() {
     return;
   }
   var entry = snapshotAdviceEntry();
+  var rules = (typeof MotionPlayerCore !== 'undefined' && MotionPlayerCore.config) ? MotionPlayerCore.config.diagnosticRules : null;
+  if (rules && typeof rules.html === 'function') {
+    el.innerHTML = rules.html(entry);
+    return;
+  }
   if (typeof generateBattingDiagnosisHtml === 'function') {
     el.innerHTML = generateBattingDiagnosisHtml(entry);
     return;
