@@ -4,7 +4,7 @@
   "description": "",
   "main": "sw.js",
   "scripts": {
-    "test": "node tests/biomechanics_math.test.js",
+    "test": "node tests/biomechanics_math.test.js && node tests/pose_memory_guard.test.js",
     "sync:web": "node scripts/sync-web.mjs",
     "sync:ios": "npm run sync:web && npx cap sync ios",
     "open:ios": "npx cap open ios"

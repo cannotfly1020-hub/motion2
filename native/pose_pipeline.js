@@ -6,12 +6,17 @@ var POSE_INPUT_MAX_EDGE = 640;
 var poseStride = 2;
 var poseCalmCount = 0;
 var poseApplyMetrics = true;
+var POSE_CACHE_FRAME_CAP = 240;
+var POSE_LONG_VIDEO_NOTICE_SECONDS = 10;
+var POSE_LONG_VIDEO_NOTICE = '長尺動画を検出しました。スイング（投球）動作を中心に最適化して読み込みます';
 var poseCache = {
   videoId: null,
   totalFrames: 0,
-  landmarksByFrame: {},
-  metricsByFrame: {},
-  isFullyScanned: false
+  landmarksByFrame: Object.create(null),
+  metricsByFrame: Object.create(null),
+  visitedByFrame: Object.create(null),
+  isFullyScanned: false,
+  longVideoNotified: false
 };
 var cachePlaybackFrame = 0;
 var poseInferPrev = null;
@@ -123,6 +128,7 @@ function startMeasurementVideo(video, src, onReady) {
       console.warn('[VideoLoad] Initial seek failed:', err);
     }
     endAnalysisProgress('video');
+    noteLongVideoMemoryGuard();
     if (typeof onReady === 'function') {
       try {
         onReady();
@@ -166,6 +172,9 @@ function startMeasurementVideo(video, src, onReady) {
   console.log('[VideoLoad] set src', src);
   bindPoseCache(src);
   if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+  try {
+    video.pause();
+  } catch (err) { /* 前の動画が止まっていれば何もしない */ }
   try {
     video.src = src;
     video.load();
@@ -249,8 +258,9 @@ function reportPlaybackProgress() {
   var duration = videoElement.duration;
   var step = analysisFrameDuration > 0 ? analysisFrameDuration : (1 / 30);
   if (!Number.isFinite(duration) || duration <= 0) return;
-  var total = Math.max(1, Math.round(duration / step));
-  var index = Math.floor((videoElement.currentTime || 0) / step) + 1;
+  var total = poseCacheSlots();
+  if (total <= 0) total = Math.max(1, Math.round(duration / step));
+  var index = poseCacheIndexForNative(poseFrameIndex(videoElement.currentTime)) + 1;
   if (index < 1) index = 1;
   if (index > total) index = total;
   var pct = Math.round((index / total) * 100);
@@ -274,7 +284,9 @@ function stopFrameAccuratePlayback() {
   if (typeof videoElement !== 'undefined' && videoElement && !videoElement.paused) {
     try { videoElement.pause(); } catch (err) { /* すでに停止 */ }
   }
-  if (typeof updatePlayState === 'function') updatePlayState();
+  if (typeof updatePlayState === 'function') {
+    try { updatePlayState(); } catch (err) { console.warn('[PoseCache] play state update skipped', err); }
+  }
 }
 
 function yieldToUi() {
@@ -284,12 +296,20 @@ function yieldToUi() {
 }
 
 function copyLandmarks(landmarks) {
-  if (typeof clonePoseLandmarks === 'function') return clonePoseLandmarks(landmarks);
   if (!landmarks || landmarks.length < 33) return null;
   var copy = new Array(33);
   for (var i = 0; i < 33; i++) {
     var point = landmarks[i];
-    copy[i] = point ? { x: point.x, y: point.y, z: point.z || 0, visibility: point.visibility } : null;
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      copy[i] = null;
+      continue;
+    }
+    copy[i] = {
+      x: point.x,
+      y: point.y,
+      z: Number.isFinite(point.z) ? point.z : 0,
+      visibility: Number.isFinite(point.visibility) ? point.visibility : 0
+    };
   }
   return copy;
 }
@@ -298,25 +318,83 @@ function emptyPoseCache(videoId) {
   return {
     videoId: videoId || null,
     totalFrames: 0,
-    landmarksByFrame: {},
-    metricsByFrame: {},
-    visitedByFrame: {},
-    isFullyScanned: false
+    landmarksByFrame: Object.create(null),
+    metricsByFrame: Object.create(null),
+    visitedByFrame: Object.create(null),
+    isFullyScanned: false,
+    longVideoNotified: false
   };
 }
 
-function resetPoseCache() {
+function clearAnalysisCanvases() {
+  var canvases = [
+    [typeof bufferCanvas !== 'undefined' ? bufferCanvas : null, typeof bufferCtx !== 'undefined' ? bufferCtx : null],
+    [typeof scanCanvas !== 'undefined' ? scanCanvas : null, typeof scanCtx !== 'undefined' ? scanCtx : null],
+    [typeof outputCanvas !== 'undefined' ? outputCanvas : null, typeof outputCtx !== 'undefined' ? outputCtx : null]
+  ];
+  for (var i = 0; i < canvases.length; i++) {
+    var canvas = canvases[i][0];
+    var ctx = canvases[i][1];
+    if (!canvas || !ctx) continue;
+    ctx.clearRect(0, 0, canvas.width || 0, canvas.height || 0);
+  }
+  if (typeof bufferCanvas !== 'undefined' && bufferCanvas) {
+    bufferCanvas.width = 2;
+    bufferCanvas.height = 2;
+  }
+}
+
+function clearPoseMemorySafely() {
   if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+  poseInferPrev = null;
+  poseInferLast = null;
+  if (typeof lastPoseLandmarks !== 'undefined') lastPoseLandmarks = null;
+  if (window.poseCache) {
+    var oldFrames = window.poseCache.landmarksByFrame;
+    var oldMetrics = window.poseCache.metricsByFrame;
+    var oldVisited = window.poseCache.visitedByFrame;
+    if (oldFrames) {
+      for (var frameKey in oldFrames) delete oldFrames[frameKey];
+    }
+    if (oldMetrics) {
+      for (var metricKey in oldMetrics) delete oldMetrics[metricKey];
+    }
+    if (oldVisited) {
+      for (var visitKey in oldVisited) delete oldVisited[visitKey];
+    }
+    window.poseCache.landmarksByFrame = Object.create(null);
+    window.poseCache.metricsByFrame = Object.create(null);
+    window.poseCache.visitedByFrame = null;
+    window.poseCache.isFullyScanned = false;
+    window.poseCache = null;
+  }
+  clearAnalysisCanvases();
+  poseCache = emptyPoseCache(null);
+  window.poseCache = poseCache;
+}
+
+function resetPoseCache() {
   if (typeof videoElement !== 'undefined' && videoElement && !videoElement.paused) {
     try { videoElement.pause(); } catch (err) { /* すでに停止 */ }
   }
-  poseCache = emptyPoseCache(null);
+  clearPoseMemorySafely();
 }
 
 function bindPoseCache(videoId) {
   var id = videoId || '';
-  if (poseCache.videoId === id && id) return;
-  poseCache = emptyPoseCache(id || null);
+  if (poseCache && poseCache.videoId === id && id) return;
+  clearPoseMemorySafely();
+  if (poseCache) poseCache.videoId = id || null;
+}
+
+function noteLongVideoMemoryGuard() {
+  if (typeof videoElement === 'undefined' || !videoElement || !poseCache) return;
+  var duration = videoElement.duration;
+  if (!Number.isFinite(duration) || duration < POSE_LONG_VIDEO_NOTICE_SECONDS) return;
+  if (poseCache.longVideoNotified) return;
+  poseCache.longVideoNotified = true;
+  if (typeof showToast === 'function') showToast(POSE_LONG_VIDEO_NOTICE, 4200);
+  else if (typeof notifyUser === 'function') notifyUser(POSE_LONG_VIDEO_NOTICE);
 }
 
 function poseFrameStep() {
@@ -337,6 +415,59 @@ function poseFrameIndex(time) {
   if (index < 0) index = 0;
   if (count > 0 && index > count - 1) index = count - 1;
   return index;
+}
+
+function poseMemoryStride() {
+  var total = poseFrameCount();
+  if (total <= POSE_CACHE_FRAME_CAP) return 1;
+  return Math.ceil(total / POSE_CACHE_FRAME_CAP);
+}
+
+function poseCacheSlots() {
+  var total = poseFrameCount();
+  if (total <= 0) return 0;
+  return Math.min(POSE_CACHE_FRAME_CAP, Math.ceil(total / poseMemoryStride()));
+}
+
+function poseScanTimeStep() {
+  return poseFrameStep() * poseMemoryStride();
+}
+
+function poseCacheIndexForNative(nativeIndex) {
+  var stride = poseMemoryStride();
+  var slot = Math.floor((nativeIndex || 0) / stride);
+  if (slot < 0) slot = 0;
+  var slots = poseCacheSlots();
+  var limit = slots > 0 ? slots : POSE_CACHE_FRAME_CAP;
+  if (slot >= limit) slot = limit - 1;
+  return slot;
+}
+
+function poseCacheEntryCount() {
+  if (!poseCache || !poseCache.landmarksByFrame) return 0;
+  var count = 0;
+  for (var key in poseCache.landmarksByFrame) {
+    if (Object.prototype.hasOwnProperty.call(poseCache.landmarksByFrame, key)) count += 1;
+  }
+  return count;
+}
+
+function enforcePoseCacheCap() {
+  if (!poseCache || !poseCache.landmarksByFrame) return;
+  var slots = poseCacheSlots();
+  var limit = slots > 0 ? slots : POSE_CACHE_FRAME_CAP;
+  var frames = poseCache.landmarksByFrame;
+  var metrics = poseCache.metricsByFrame;
+  var visited = poseCache.visitedByFrame;
+  for (var key in frames) {
+    if (!Object.prototype.hasOwnProperty.call(frames, key)) continue;
+    var index = Number(key);
+    if (!Number.isFinite(index) || index < 0 || index >= limit) {
+      delete frames[key];
+      if (metrics) delete metrics[key];
+      if (visited) delete visited[key];
+    }
+  }
 }
 
 function snapshotPoseMetrics() {
@@ -372,30 +503,38 @@ function restorePoseMetrics(snapshot) {
 }
 
 function markPoseFrameVisited() {
-  if (!videoElement) return;
-  var index = poseFrameIndex(videoElement.currentTime);
-  if (!poseCache.visitedByFrame) poseCache.visitedByFrame = {};
-  poseCache.visitedByFrame[index] = true;
+  if (!videoElement || !poseCache) return;
+  var slot = poseCacheIndexForNative(poseFrameIndex(videoElement.currentTime));
+  if (!poseCache.visitedByFrame) poseCache.visitedByFrame = Object.create(null);
+  poseCache.visitedByFrame[slot] = true;
+  enforcePoseCacheCap();
 }
 
 function storePoseSample(landmarks, options) {
-  if (!videoElement) return;
-  markPoseFrameVisited();
-  if (!landmarks) return;
-  var index = poseFrameIndex(videoElement.currentTime);
+  if (!videoElement || !poseCache) return;
+  var slot = poseCacheIndexForNative(poseFrameIndex(videoElement.currentTime));
+  if (!poseCache.visitedByFrame) poseCache.visitedByFrame = Object.create(null);
+  poseCache.visitedByFrame[slot] = true;
+  if (!landmarks) {
+    enforcePoseCacheCap();
+    return;
+  }
   var copy = copyLandmarks(landmarks);
   if (!copy) return;
+  if (!poseCache.landmarksByFrame) poseCache.landmarksByFrame = Object.create(null);
+  if (!poseCache.metricsByFrame) poseCache.metricsByFrame = Object.create(null);
   var fillOnly = options && options.fillOnly;
   var writeMetrics = options && options.writeMetrics;
   if (fillOnly) {
-    if (!poseCache.landmarksByFrame[index]) poseCache.landmarksByFrame[index] = copy;
-    if (!poseCache.metricsByFrame[index]) poseCache.metricsByFrame[index] = snapshotPoseMetrics();
+    if (!poseCache.landmarksByFrame[slot]) poseCache.landmarksByFrame[slot] = copy;
+    if (!poseCache.metricsByFrame[slot]) poseCache.metricsByFrame[slot] = snapshotPoseMetrics();
   } else {
-    poseCache.landmarksByFrame[index] = copy;
-    if (writeMetrics) poseCache.metricsByFrame[index] = snapshotPoseMetrics();
+    poseCache.landmarksByFrame[slot] = copy;
+    if (writeMetrics) poseCache.metricsByFrame[slot] = snapshotPoseMetrics();
   }
-  var total = poseFrameCount();
-  if (total > poseCache.totalFrames) poseCache.totalFrames = total;
+  var slots = poseCacheSlots();
+  if (slots > poseCache.totalFrames) poseCache.totalFrames = slots;
+  enforcePoseCacheCap();
 }
 
 function storeCurrentPose(measured) {
@@ -403,7 +542,8 @@ function storeCurrentPose(measured) {
 }
 
 function firstMissingPoseFrame() {
-  var total = poseFrameCount();
+  var total = poseCacheSlots();
+  if (!poseCache) return -1;
   for (var i = 0; i < total; i++) {
     var seen = poseCache.landmarksByFrame[i] || (poseCache.visitedByFrame && poseCache.visitedByFrame[i]);
     if (!seen) return i;
@@ -412,8 +552,10 @@ function firstMissingPoseFrame() {
 }
 
 function markPoseCacheComplete() {
-  var total = poseFrameCount();
+  if (!poseCache) return;
+  var total = poseCacheSlots();
   poseCache.totalFrames = total;
+  enforcePoseCacheCap();
   if (total <= 0) {
     poseCache.isFullyScanned = false;
     return;
@@ -427,7 +569,7 @@ function markPoseCacheComplete() {
     }
   }
   poseCache.isFullyScanned = true;
-  console.log('[PoseCache] full scan cached', total);
+  console.log('[PoseCache] full scan cached', total, 'stride', poseMemoryStride(), 'kept', poseCacheEntryCount());
 }
 
 function renderCachedPose(index) {
@@ -450,7 +592,7 @@ function renderCachedPose(index) {
 function takeCachedPoseFrame() {
   if (typeof scanModeActive !== 'undefined' && scanModeActive) return false;
   if (!videoElement || !videoElement.videoWidth) return false;
-  var index = poseFrameIndex(videoElement.currentTime);
+  var index = poseCacheIndexForNative(poseFrameIndex(videoElement.currentTime));
   var cached = poseCache.landmarksByFrame[index];
   if (!cached) {
     if (poseCache.visitedByFrame && poseCache.visitedByFrame[index]) {
@@ -564,7 +706,7 @@ function startCachePlayback() {
   function paint() {
     if (generation !== frameSeekGeneration) return;
     if (!videoElement.paused && !videoElement.ended) sawPlaying = true;
-    renderCachedPose(poseFrameIndex(videoElement.currentTime));
+    renderCachedPose(poseCacheIndexForNative(poseFrameIndex(videoElement.currentTime)));
     if (typeof updateTimeUI === 'function') updateTimeUI();
     if (videoElement.ended || videoElement.currentTime >= duration - 0.001) {
       stopFrameAccuratePlayback();
@@ -593,7 +735,7 @@ function startCachePlayback() {
     cachePlaybackFrame = requestAnimationFrame(paint);
   }
 
-  if (videoElement.currentTime >= duration - poseFrameStep()) {
+  if (videoElement.currentTime >= duration - poseScanTimeStep()) {
     waitForSeeked(0).then(beginPlay);
     return true;
   }
@@ -611,11 +753,13 @@ function startFrameAccuratePlayback() {
     return;
   }
 
+  noteLongVideoMemoryGuard();
   var missing = firstMissingPoseFrame();
-  var here = poseFrameIndex(videoElement.currentTime);
-  var hereSeen = !!(poseCache.landmarksByFrame[here] || (poseCache.visitedByFrame && poseCache.visitedByFrame[here]));
-  var missingTime = missing * poseFrameStep();
-  if (missing >= 0 && Math.abs((videoElement.currentTime || 0) - missingTime) > poseFrameStep() * 0.4 && (hereSeen || videoElement.currentTime >= duration - poseFrameStep())) {
+  var here = poseCacheIndexForNative(poseFrameIndex(videoElement.currentTime));
+  var hereSeen = !!(poseCache && (poseCache.landmarksByFrame[here] || (poseCache.visitedByFrame && poseCache.visitedByFrame[here])));
+  var sampleStep = poseScanTimeStep();
+  var missingTime = missing * sampleStep;
+  if (missing >= 0 && Math.abs((videoElement.currentTime || 0) - missingTime) > sampleStep * 0.4 && (hereSeen || videoElement.currentTime >= duration - sampleStep)) {
     var token = frameSeekGeneration;
     frameSeekLoopActive = true;
     waitForSeeked(missingTime).then(function() {
@@ -624,7 +768,7 @@ function startFrameAccuratePlayback() {
         return;
       }
       frameSeekLoopActive = false;
-      if (Math.abs((videoElement.currentTime || 0) - missingTime) > poseFrameStep()) return;
+      if (Math.abs((videoElement.currentTime || 0) - missingTime) > sampleStep) return;
       startFrameAccuratePlayback();
     });
     return;
@@ -641,9 +785,7 @@ function startFrameAccuratePlayback() {
   if (typeof updatePlayState === 'function') updatePlayState();
   reportPlaybackProgress();
 
-  var step = analysisFrameDuration;
-  if (!(step > 0)) step = 1 / 30;
-  step = Math.min(1 / 24, Math.max(1 / 240, step));
+  var step = poseScanTimeStep();
   var stalls = 0;
 
   function finish(completed) {
@@ -661,8 +803,10 @@ function startFrameAccuratePlayback() {
 
   function runInference(applyMetrics) {
     poseApplyMetrics = applyMetrics !== false;
-    var pending = (typeof processSingleFrame === 'function') ? processSingleFrame() : null;
-    return Promise.resolve(pending).then(yieldToUi, yieldToUi).then(function() {
+    return yieldToUi().then(function() {
+      var pending = (typeof processSingleFrame === 'function') ? processSingleFrame() : null;
+      return Promise.resolve(pending).then(yieldToUi, yieldToUi);
+    }).then(function() {
       poseApplyMetrics = true;
     });
   }
@@ -746,7 +890,7 @@ function startFrameAccuratePlayback() {
     var timeA = videoElement.currentTime;
     var land0 = poseInferPrev || poseInferLast;
     var landA = poseInferLast;
-    var stride = landA ? poseStride : 1;
+    var stride = poseMemoryStride() > 1 ? 1 : (landA ? poseStride : 1);
     if (stride < 1) stride = 1;
     var target = Math.min(duration, timeA + stride * step);
     waitForSeeked(target).then(function() {
@@ -765,9 +909,9 @@ function startFrameAccuratePlayback() {
       runInference(false).then(function() {
         if (!alive()) return;
         var landB = rememberInference(landA);
-        var alreadyMeasured = !!poseCache.metricsByFrame[poseFrameIndex(timeB)];
+        var alreadyMeasured = !!poseCache.metricsByFrame[poseCacheIndexForNative(poseFrameIndex(timeB))];
         var motion = notePoseMotion(landA, landB, spanned);
-        if (motion > 0.02 && spanned > 1 && landA && landB && !alreadyMeasured) {
+        if (poseMemoryStride() === 1 && motion > 0.02 && spanned > 1 && landA && landB && !alreadyMeasured) {
           poseStride = 1;
           denseRescan(timeA, timeB, continueScan);
           return;
@@ -824,6 +968,7 @@ function probeAnalysisFrameDuration() {
       samples.sort(function(a, b) { return a - b; });
       var mid = samples[Math.floor(samples.length / 2)];
       analysisFrameDuration = Math.min(1 / 24, Math.max(1 / 240, mid));
+      noteLongVideoMemoryGuard();
       restore();
       return;
     }

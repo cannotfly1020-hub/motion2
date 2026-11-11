@@ -994,12 +994,13 @@ function bootMotionShell() {
   if (typeof bindModeExtras === 'function') bindModeExtras();
 }
 
-function showToast(text) {
+function showToast(text, duration) {
   if (!toastBox) { alert(text); return; }
   if (toastTimeout) clearTimeout(toastTimeout);
   toastBox.textContent = text;
   toastBox.classList.add('show');
-  toastTimeout = setTimeout(function() { toastBox.classList.remove('show'); }, 2500);
+  var ms = (typeof duration === 'number' && duration > 0) ? duration : 2500;
+  toastTimeout = setTimeout(function() { toastBox.classList.remove('show'); }, ms);
 }
 
 function paintHero(el, tag, value, locked) {
@@ -1324,6 +1325,7 @@ function exportCarteCsv() {
 
 function updatePlayState() {
   if (typeof probingFrameRate !== 'undefined' && probingFrameRate) return;
+  if (typeof videoElement === 'undefined' || !videoElement || !btnPlayPause) return;
   if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
   var cfg = MotionPlayerCore.config || {};
   var playing = (typeof analysisTransportPlaying !== 'undefined' && analysisTransportPlaying) || !videoElement.paused;

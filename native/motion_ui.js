@@ -69,7 +69,9 @@ function rememberPoseLandmarks(landmarks) {
 function captureGhostLandmarks(slot, manual) {
   var source = lastPoseLandmarks;
   if (manual && typeof poseFrameIndex === 'function' && typeof videoElement !== 'undefined' && videoElement && typeof poseCache !== 'undefined' && poseCache.landmarksByFrame) {
-    var cached = poseCache.landmarksByFrame[poseFrameIndex(videoElement.currentTime)];
+    var nativeIndex = poseFrameIndex(videoElement.currentTime);
+    var slot = (typeof poseCacheIndexForNative === 'function') ? poseCacheIndexForNative(nativeIndex) : nativeIndex;
+    var cached = poseCache.landmarksByFrame[slot];
     if (cached) source = cached;
   }
   var copy = clonePoseLandmarks(source);
