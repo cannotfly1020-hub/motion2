@@ -972,6 +972,12 @@ function bootMotionShell() {
   document.getElementById('btn-save-record').addEventListener('click', saveCurrentRecord);
   document.getElementById('btn-open-carte').addEventListener('click', openCarteModal);
   document.getElementById('btn-open-carte-top').addEventListener('click', openCarteModal);
+  var setupGuide = document.getElementById('btn-setup-guide');
+  if (setupGuide) {
+    setupGuide.addEventListener('click', function() {
+      showToast(setupGuide.getAttribute('data-tip') || '真横から三脚等で固定して撮影すると、最も高い計測精度が得られます。', 4200);
+    });
+  }
   btnCloseCarte.addEventListener('click', closeCarteModal);
   playerSelectFilter.addEventListener('change', function() { renderCarteList(false); });
   btnDeleteAction.addEventListener('click', deleteFilteredCartes);
@@ -1073,9 +1079,14 @@ function setStep(stepNum) {
   if (stepNum !== 4 && typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
   Object.keys(stepViews).forEach(function(s) { stepViews[s].classList.remove('active'); });
   if (stepViews[stepNum]) stepViews[stepNum].classList.add('active');
-  Object.keys(stepPills).forEach(function(s) { stepPills[s].classList.remove('active'); });
-  if (stepNum <= 3 && stepPills[stepNum]) stepPills[stepNum].classList.add('active');
-  else if (stepNum === 4 && stepPills[3]) stepPills[3].classList.add('active');
+  var marker = stepNum >= 3 ? 3 : stepNum;
+  Object.keys(stepPills).forEach(function(s) {
+    var pill = stepPills[s];
+    if (!pill) return;
+    var index = Number(s);
+    pill.classList.toggle('active', index === marker);
+    pill.classList.toggle('is-done', index < marker);
+  });
   if (typeof drawAiDiagnosticsHUD === 'function') drawAiDiagnosticsHUD();
 }
 

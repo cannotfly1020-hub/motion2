@@ -15,82 +15,73 @@
 </head>
 <body>
 
-  <header>
+  <header class="setup-header">
     <div class="header-bar">
-      <a href="../index.html" class="btn-nav-home" id="home-link-btn" title="ホームへ戻る">← ホームへ戻る</a>
-      <h1>💥 打撃AIバイオメカニクス ⚾</h1>
-      <span class="btn-nav-home header-balance" aria-hidden="true">← ホームへ戻る</span>
+      <a href="../index.html" class="btn-nav-home" id="home-link-btn" title="ホームへ戻る"><span aria-hidden="true">‹</span> ホーム</a>
+      <h1>打撃バイオメカニクス</h1>
+      <button type="button" class="header-guide" id="btn-setup-guide" data-tip="真横から三脚等で固定して撮影すると、最も高い計測精度が得られます。">ガイド</button>
     </div>
-    <div class="steps-nav">
-      <div id="step-nav-1" class="step-pill active">1. どうが選択</div>
-      <div id="step-nav-2" class="step-pill">2. 姿勢スキャン</div>
-      <div id="step-nav-3" class="step-pill">3. 選手情報</div>
-    </div>
+    <nav class="step-track" aria-label="進行">
+      <div id="step-nav-1" class="step-pill active"><span class="step-index">1</span><span class="step-label">動画選択</span></div>
+      <div id="step-nav-2" class="step-pill"><span class="step-index">2</span><span class="step-label">AI姿勢スキャン</span></div>
+      <div id="step-nav-3" class="step-pill"><span class="step-index">3</span><span class="step-label">動作分析</span></div>
+    </nav>
   </header>
 
   <main class="app-container">
 
     <section id="view-step1" class="view-section active">
-      <div class="top-mode-grid">
-        <label for="video-input-side" class="mode-card mode-card-side" id="label-side-video">
-          <div class="mode-card-icon">🏏</div>
-          <div class="mode-card-info">
-            <div class="mode-card-title">横向き（側方）動画を解析</div>
-            <div class="mode-card-desc">捻転差（タメ）・前足ヒザの壁・ステップ幅・肘角度</div>
+      <div class="setup-board">
+        <article class="setup-card setup-card-main">
+          <div class="setup-card-head">
+            <h2>横向き（側面）動画を解析</h2>
+            <span class="setup-badge">推奨</span>
           </div>
-          <input type="file" id="video-input-side" accept="video/*" style="display: none;">
-        </label>
-
-        <label for="video-input-front" class="mode-card mode-card-front" id="label-front-video">
-          <div class="mode-card-icon">🎯</div>
-          <div class="mode-card-info">
-            <div class="mode-card-title">正面（投手側）動画を解析</div>
-            <div class="mode-card-desc">目線ブレ（頭部動揺）・前肩の開き（タメ）・前ヒザの踏ん張り</div>
+          <p>捻転差・前足の壁・ステップ幅・肘の高さを精密測定</p>
+          <div class="setup-actions">
+            <label class="setup-btn" for="video-input-side">📁 アルバムから選択</label>
+            <button type="button" class="setup-btn setup-btn-solid" id="btn-capture-side">🎥 カメラで今すぐ撮影</button>
           </div>
-          <input type="file" id="video-input-front" accept="video/*" style="display: none;">
-        </label>
+        </article>
+        <article class="setup-card setup-card-sub">
+          <div class="setup-card-head">
+            <h2>正面・斜め解析</h2>
+          </div>
+          <p>目線ブレ・前肩の開き・前ヒザの踏ん張りを測定</p>
+          <div class="setup-actions">
+            <label class="setup-btn" for="video-input-front">📁 選択</label>
+            <button type="button" class="setup-btn" id="btn-capture-front">🎥 撮影</button>
+          </div>
+        </article>
+        <p class="setup-info">💡 真横から三脚等で固定して撮影すると、最も高い計測精度が得られます。</p>
+        <button class="btn-carte-banner" id="btn-open-carte-top" type="button">📋 保存した選手カルテ・履歴を見る</button>
       </div>
-
-      <div class="capture-row">
-        <button type="button" class="btn" id="btn-capture-side">横向きを撮影</button>
-        <button type="button" class="btn" id="btn-capture-front">正面を撮影</button>
-        <input type="file" id="video-input-capture" accept="video/*" capture="environment" hidden>
-      </div>
-
-      <div class="top-tips-box">
-        💡 <b>きれいに測るコツ:</b> バットを構えてから振り切るまで、頭から足元まで全身が収まる動画を使ってね！
-      </div>
-
-      <button class="btn-carte-banner" id="btn-open-carte-top">
-        <span>🏆</span>
-        <span>保存した選手カルテ・測定履歴を見る</span>
-      </button>
+      <input type="file" id="video-input-side" accept="video/*" hidden>
+      <input type="file" id="video-input-front" accept="video/*" hidden>
+      <input type="file" id="video-input-capture" accept="video/*" capture="environment" hidden>
     </section>
 
     <section id="view-step2" class="view-section">
-      <div class="guidance-box" id="scan-guide-text">
-        🧍 <b>まっすぐ立っている瞬間</b>でバーを止めて「① AI自動スキャン」を押してね！
-      </div>
-
-      <div class="screen-wrapper" id="scan-screen-wrapper">
-        <canvas id="scan-canvas"></canvas>
-        <div class="loading-overlay" id="scan-loading" style="display: none;">
-          <div class="spinner"></div>
-          <div style="font-size: 0.75rem; color: #059669; font-weight: 900;">🚀 AIがからだを探しているよ...</div>
+      <div class="setup-board setup-scan">
+        <p class="guidance-box" id="scan-guide-text">直立のコマで頭と足元を合わせます。</p>
+        <div class="screen-wrapper" id="scan-screen-wrapper">
+          <canvas id="scan-canvas"></canvas>
+          <div class="loading-overlay" id="scan-loading" style="display: none;">
+            <div class="scan-pulse" aria-hidden="true"></div>
+            <p>AI骨格スキャンを実行中...</p>
+          </div>
         </div>
+        <div class="seek-container">
+          <input type="range" id="scan-seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
+          <span class="time-disp" id="scan-time-disp">0.00 / 0.00</span>
+        </div>
+        <div class="setup-scan-actions">
+          <button class="setup-btn" id="btn-scan-prev" type="button">◀ -1コマ</button>
+          <button class="setup-btn setup-btn-solid" id="btn-scan-action" type="button">スキャン</button>
+          <button class="setup-btn" id="btn-scan-next" type="button">+1コマ ▶</button>
+        </div>
+        <button class="setup-btn setup-btn-solid" id="btn-scan-next-step" type="button" style="display: none;">この姿勢で次へ</button>
       </div>
-
-      <div class="seek-container">
-        <input type="range" id="scan-seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
-        <span class="time-disp" id="scan-time-disp">0.00 / 0.00</span>
-      </div>
-
-      <div class="btn-group">
-        <button class="btn btn-ctrl" id="btn-scan-prev">◀ -1コマ</button>
-        <button class="btn btn-scan" id="btn-scan-action">📏 ① AI自動スキャン</button>
-        <button class="btn btn-ctrl" id="btn-scan-next">+1コマ ▶</button>
-      </div>
-      <button class="btn btn-action-next" id="btn-scan-next-step" style="display: none;">🎯 ② これで決定して次へ！</button>
     </section>
 
     <section id="view-step3" class="view-section">
@@ -261,9 +252,11 @@
 
   <div id="analysis-progress" class="analysis-progress" role="status" aria-live="polite" aria-hidden="true">
     <div class="analysis-progress-card">
-      <div class="analysis-spinner" aria-hidden="true"><span class="analysis-spinner-seam"></span></div>
-      <p id="analysis-progress-title" class="analysis-progress-title">AI骨格スキャン中... 画面を閉じずにお待ちください</p>
-      <p id="analysis-progress-detail" class="analysis-progress-detail"></p>
+      <div class="scan-pulse" aria-hidden="true"></div>
+      <p id="analysis-progress-title" class="analysis-progress-title">AI骨格スキャンを実行中...</p>
+      <div class="scan-meter" id="analysis-progress-meter"><span id="analysis-progress-bar"></span></div>
+      <p id="analysis-progress-count" class="analysis-progress-count"></p>
+      <p id="analysis-progress-detail" class="analysis-progress-detail">長尺動画の場合は動作区間を最適化して読み込みます</p>
     </div>
   </div>
 

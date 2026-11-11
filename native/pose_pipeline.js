@@ -209,6 +209,9 @@ function renderAnalysisProgress() {
   if (!root) return;
   var titleEl = document.getElementById('analysis-progress-title');
   var detailEl = document.getElementById('analysis-progress-detail');
+  var countEl = document.getElementById('analysis-progress-count');
+  var bar = document.getElementById('analysis-progress-bar');
+  var meter = document.getElementById('analysis-progress-meter');
   var job = analysisProgressStack.length ? analysisProgressStack[analysisProgressStack.length - 1] : null;
   if (!job) {
     root.classList.remove('is-visible');
@@ -218,13 +221,22 @@ function renderAnalysisProgress() {
   }
   if (titleEl && titleEl.textContent !== job.title) titleEl.textContent = job.title;
   if (detailEl && detailEl.textContent !== (job.detail || '')) detailEl.textContent = job.detail || '';
+  if (countEl) countEl.textContent = job.count || '';
+  if (meter) meter.classList.toggle('is-indeterminate', !(job.pct >= 0));
+  if (bar) bar.style.width = (job.pct >= 0) ? (job.pct + '%') : '';
   root.classList.add('is-visible');
   root.setAttribute('aria-hidden', 'false');
   setAnalysisControlsBusy(true);
 }
 
-function beginAnalysisProgress(key, title, detail) {
-  var next = { key: key, title: title, detail: detail || '' };
+function beginAnalysisProgress(key, title, detail, meter) {
+  var next = {
+    key: key,
+    title: title,
+    detail: detail || '',
+    pct: meter && Number.isFinite(meter.pct) ? meter.pct : -1,
+    count: meter && meter.count ? meter.count : ''
+  };
   var index = -1;
   for (var i = 0; i < analysisProgressStack.length; i++) {
     if (analysisProgressStack[i].key === key) {
@@ -267,8 +279,9 @@ function reportPlaybackProgress() {
   if (pct > 100) pct = 100;
   beginAnalysisProgress(
     'playback',
-    'AI骨格スキャン中... 画面を閉じずにお待ちください',
-    '解析進捗: ' + pct + '%（' + index + ' / ' + total + '）'
+    'AI骨格スキャンを実行中...',
+    '長尺動画の場合は動作区間を最適化して読み込みます',
+    { pct: pct, count: index + ' / ' + total }
   );
 }
 
