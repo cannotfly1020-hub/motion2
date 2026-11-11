@@ -18,14 +18,24 @@ var MotionPlayerCore = {
   },
   applyBiomechanics: function(landmarks, bounds) {
     var cfg = this.config || {};
-    if (typeof cfg.calculateMetrics === 'function') {
-      return cfg.calculateMetrics(landmarks, bounds && bounds.frameIndex, bounds);
+    var sample = landmarks;
+    calibrationDrawLandmarks = landmarks || null;
+    if (sample && typeof correctCameraRollLandmarks === 'function' && Math.abs(cameraRollDeg || 0) >= 0.05) {
+      var center = (typeof calibrationPelvisCenter === 'function') ? calibrationPelvisCenter(sample) : { x: 0.5, y: 0.5 };
+      sample = correctCameraRollLandmarks(sample, cameraRollDeg, center);
     }
-    var calculator = cfg.metricsCalculator;
-    if (calculator && typeof calculator.apply === 'function') {
-      return calculator.apply(landmarks, bounds);
+    try {
+      if (typeof cfg.calculateMetrics === 'function') {
+        return cfg.calculateMetrics(sample, bounds && bounds.frameIndex, bounds);
+      }
+      var calculator = cfg.metricsCalculator;
+      if (calculator && typeof calculator.apply === 'function') {
+        return calculator.apply(sample, bounds);
+      }
+      return null;
+    } finally {
+      calibrationDrawLandmarks = null;
     }
-    return null;
   }
 };
 
@@ -54,11 +64,16 @@ function handleVideoLoad(file, angleMode) {
     URL.revokeObjectURL(videoFileUrl);
     videoFileUrl = null;
   }
+  noteCalibrationIdentity(file);
+  calibrationIdentityPinned = true;
   videoFileUrl = URL.createObjectURL(file);
   openMeasurementVideo(videoFileUrl, angleMode);
 }
 
 function openMeasurementVideo(src, angleMode) {
+  if (!calibrationIdentityPinned) noteCalibrationIdentity(src);
+  calibrationIdentityPinned = false;
+  restoreCameraCalibration();
   selectedAngleMode = angleMode;
   updateCardLabels();
   setStep(2);
@@ -597,9 +612,12 @@ function onPoseResults(results) {
       const R_HEEL = landmarks[30] || landmarks[28];
       if (NOSE && L_HEEL && R_HEEL) {
         tuneRuler.isActive = true;
-        tuneRuler.topYNorm = Math.max(0.02, NOSE.y - 0.08);
-        tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
-        tuneRuler.centerXNorm = NOSE.x;
+        if (!calibrationStatureTouched && !calibrationRulerSeeded) {
+          tuneRuler.topYNorm = Math.max(0.02, NOSE.y - 0.08);
+          tuneRuler.bottomYNorm = Math.min(0.98, Math.max(L_HEEL.y, R_HEEL.y));
+          tuneRuler.centerXNorm = NOSE.x;
+          calibrationRulerSeeded = true;
+        }
         btnScanNextStep.style.display = 'block';
         var guide = MotionPlayerCore.config && MotionPlayerCore.config.scanGuideHtml;
         scanGuideText.innerHTML = guide || '🎯 <b>AIが検知したよ！</b> ズレがあれば<b>丸いハンドルを上下にドラッグ</b>して合わせてね！';
@@ -693,6 +711,17 @@ var autoImpactFrame = null;
 var autoFootContactFrame = null;
 var autoReleaseFrame = null;
 var keyframeSnapLock = null;
+var cameraRollDeg = 0;
+var statureScaleAdjust = 1;
+var calibrationAutoStatureNorm = 0;
+var calibrationStatureTouched = false;
+var calibrationRulerSeeded = false;
+var calibrationSessions = Object.create(null);
+var calibrationVideoIdentity = '';
+var calibrationIdentityPinned = false;
+var captureAngleWarnedFor = '';
+var calibrationDrawLandmarks = null;
+var calibrationDragEnd = null;
 var lastCalculatedLeadToePt = null;
 var currentCalculatedState = {};
 var records = {};
@@ -1007,6 +1036,7 @@ function bootMotionShell() {
   });
   if (typeof bindModeExtras === 'function') bindModeExtras();
   ensureKeyframePins();
+  ensureCalibrationControls();
 }
 
 function showToast(text, duration) {
@@ -1111,6 +1141,8 @@ function onScanPointerMove(e) {
     tuneRuler.topYNorm = newTop;
     tuneRuler.bottomYNorm = newTop + heightNorm;
   }
+  calibrationStatureTouched = true;
+  rememberCameraCalibration();
   renderScanFrame();
 }
 
@@ -1219,6 +1251,9 @@ function saveCurrentRecord() {
     time: String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
     playerName: playerName,
     height: userHeightCm,
+    cameraRollDeg: Math.round((cameraRollDeg || 0) * 10) / 10,
+    statureScale: statureScaleAdjust || 1,
+    calibrationLabel: calibrationMetadataLabel(),
     mode: adviceEntry.mode,
     feelGrade: cfg.defaultFeel || '',
     bodyCondition: cfg.defaultBody || '',
@@ -1407,8 +1442,7 @@ function onPoseCacheComplete() {
     console.warn('[Keyframe] detection failed', err);
     detected = null;
   }
-  if (!detected) return;
-  if (battingKeyframeMode()) {
+  if (detected && battingKeyframeMode()) {
     autoTopFrame = detected.top;
     autoImpactFrame = detected.impact;
     if (typeof ghost1Locked === 'undefined' || !ghost1Locked) {
@@ -1419,7 +1453,7 @@ function onPoseCacheComplete() {
       impactFrame = detected.impact;
       placeGhostFromFrame(2, detected.impact);
     }
-  } else {
+  } else if (detected) {
     autoFootContactFrame = detected.footContact;
     autoReleaseFrame = detected.release;
     if (typeof ghost1Locked === 'undefined' || !ghost1Locked) {
@@ -1431,6 +1465,7 @@ function onPoseCacheComplete() {
       placeGhostFromFrame(2, detected.release);
     }
   }
+  applyAutoCalibration();
   refreshKeyframePins();
   if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
 }
@@ -1575,4 +1610,294 @@ function refreshKeyframePins() {
       secondPin.style.left = percent + '%';
     }
   }
+}
+
+function activeStatureNorm() {
+  var span = tuneRuler.bottomYNorm - tuneRuler.topYNorm;
+  if (!(span > 0.1)) span = (calibrationAutoStatureNorm > 0.1) ? calibrationAutoStatureNorm : 0.75;
+  var scale = (Number.isFinite(statureScaleAdjust) && statureScaleAdjust > 0) ? statureScaleAdjust : 1;
+  var tuned = span * scale;
+  if (tuned < 0.15) tuned = 0.15;
+  if (tuned > 0.98) tuned = 0.98;
+  return tuned;
+}
+
+function noteCalibrationIdentity(fileOrSrc) {
+  if (fileOrSrc && typeof fileOrSrc === 'object' && fileOrSrc.name) {
+    calibrationVideoIdentity = [fileOrSrc.name, fileOrSrc.size || 0, fileOrSrc.lastModified || 0].join(':');
+    return;
+  }
+  calibrationVideoIdentity = String(fileOrSrc || '');
+}
+
+function rememberCameraCalibration() {
+  if (!calibrationVideoIdentity) return;
+  calibrationSessions[calibrationVideoIdentity] = {
+    rollDeg: cameraRollDeg || 0,
+    scale: statureScaleAdjust || 1,
+    top: tuneRuler.topYNorm,
+    bottom: tuneRuler.bottomYNorm,
+    centerX: tuneRuler.centerXNorm,
+    touched: calibrationStatureTouched,
+    seeded: calibrationRulerSeeded,
+    auto: calibrationAutoStatureNorm || 0
+  };
+}
+
+function restoreCameraCalibration() {
+  var saved = calibrationVideoIdentity ? calibrationSessions[calibrationVideoIdentity] : null;
+  if (!saved) {
+    cameraRollDeg = 0;
+    statureScaleAdjust = 1;
+    calibrationStatureTouched = false;
+    calibrationRulerSeeded = false;
+    calibrationAutoStatureNorm = 0;
+    tuneRuler.topYNorm = 0.2;
+    tuneRuler.bottomYNorm = 0.8;
+    tuneRuler.centerXNorm = 0.5;
+  } else {
+    cameraRollDeg = clampRollDegrees(saved.rollDeg);
+    statureScaleAdjust = (Number.isFinite(saved.scale) && saved.scale > 0) ? saved.scale : 1;
+    calibrationStatureTouched = !!saved.touched;
+    calibrationRulerSeeded = !!saved.seeded || calibrationStatureTouched;
+    calibrationAutoStatureNorm = saved.auto || 0;
+    if (Number.isFinite(saved.top)) tuneRuler.topYNorm = saved.top;
+    if (Number.isFinite(saved.bottom)) tuneRuler.bottomYNorm = saved.bottom;
+    if (Number.isFinite(saved.centerX)) tuneRuler.centerXNorm = saved.centerX;
+  }
+  syncCalibrationControls();
+}
+
+function clampRollDegrees(value) {
+  var degrees = Number(value);
+  if (!Number.isFinite(degrees)) degrees = 0;
+  degrees = Math.round(degrees * 10) / 10;
+  if (degrees > 15) degrees = 15;
+  if (degrees < -15) degrees = -15;
+  return degrees;
+}
+
+function formatRollDegrees(value) {
+  var degrees = Math.round((Number(value) || 0) * 10) / 10;
+  var body = Math.abs(degrees).toFixed(1);
+  if (degrees > 0) return '+' + body;
+  if (degrees < 0) return '-' + body;
+  return '0.0';
+}
+
+function calibrationMetadataLabel() {
+  var text = formatRollDegrees(cameraRollDeg);
+  if (Math.abs(cameraRollDeg || 0) < 0.05) return '📐 水平補正: 0.0°';
+  return '📐 水平補正: ' + text + '° 適用済み';
+}
+
+function calibrationRecordHtml(record) {
+  if (!record || !record.calibrationLabel) return '';
+  return '<div class="calibration-meta">' + record.calibrationLabel + '</div>';
+}
+
+function setCameraRoll(degrees) {
+  cameraRollDeg = clampRollDegrees(degrees);
+  rememberCameraCalibration();
+  syncCalibrationControls();
+  if (!scanModeActive && typeof processSingleFrame === 'function') processSingleFrame();
+}
+
+function setStatureScale(percent) {
+  var value = Number(percent);
+  if (!Number.isFinite(value)) value = 100;
+  if (value < 80) value = 80;
+  if (value > 120) value = 120;
+  statureScaleAdjust = Math.round(value) / 100;
+  calibrationStatureTouched = true;
+  rememberCameraCalibration();
+  syncCalibrationControls();
+  if (!scanModeActive && typeof processSingleFrame === 'function') processSingleFrame();
+}
+
+function applyAutoCalibration() {
+  if (typeof poseCache === 'undefined' || !poseCache || !poseCache.landmarksByFrame) return;
+  var counted = (typeof poseCacheSlots === 'function') ? poseCacheSlots() : 0;
+  var count = counted > 0 ? counted : (poseCache.totalFrames || 0);
+  var upright = null;
+  try {
+    if (typeof estimateUprightStature === 'function') upright = estimateUprightStature(poseCache.landmarksByFrame, count);
+  } catch (err) {
+    upright = null;
+  }
+  if (upright && !calibrationStatureTouched && upright.bottom > upright.top + 0.1) {
+    calibrationAutoStatureNorm = upright.normalized;
+    tuneRuler.topYNorm = Math.max(0.01, Math.min(0.89, upright.top));
+    tuneRuler.bottomYNorm = Math.max(tuneRuler.topYNorm + 0.1, Math.min(0.99, upright.bottom));
+    calibrationRulerSeeded = true;
+  }
+  var sampleIndex = upright ? upright.frameIndex : 0;
+  var sample = poseCache.landmarksByFrame[sampleIndex] || poseCache.landmarksByFrame[0];
+  maybeWarnCaptureAngle(sample);
+  rememberCameraCalibration();
+}
+
+function maybeWarnCaptureAngle(landmarks) {
+  if (!landmarks || typeof assessCaptureAngle !== 'function') return;
+  var key = calibrationVideoIdentity || videoFileUrl || '';
+  if (!key || captureAngleWarnedFor === key) return;
+  var verdict = null;
+  try { verdict = assessCaptureAngle(landmarks); } catch (err) { verdict = null; }
+  if (!verdict) return;
+  captureAngleWarnedFor = key;
+  if (!verdict.oblique) return;
+  showToast('ℹ️ やや斜めからの撮影です。真横（90°）から撮影すると最も正確な可動域を計測できます。', 5200);
+}
+
+function calibrationPointerNorm(event) {
+  if (!outputCanvas) return null;
+  var point = event.touches ? event.touches[0] : event;
+  var rect = outputCanvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  var px = (point.clientX - rect.left) * (outputCanvas.clientWidth / rect.width);
+  var py = (point.clientY - rect.top) * (outputCanvas.clientHeight / rect.height);
+  var srcW = videoElement && videoElement.videoWidth ? videoElement.videoWidth : outputCanvas.clientWidth;
+  var srcH = videoElement && videoElement.videoHeight ? videoElement.videoHeight : outputCanvas.clientHeight;
+  var bounds = getAspectFitBounds(srcW, srcH, outputCanvas.clientWidth, outputCanvas.clientHeight);
+  if (!bounds.w || !bounds.h) return null;
+  return { x: (px - bounds.x) / bounds.w, y: (py - bounds.y) / bounds.h };
+}
+
+function layoutCalibrationGuide() {
+  var layer = document.getElementById('calibration-layer');
+  if (!layer || layer.hidden || !outputCanvas) return;
+  var rectW = outputCanvas.clientWidth || outputCanvas.width;
+  var rectH = outputCanvas.clientHeight || outputCanvas.height;
+  var srcW = videoElement && videoElement.videoWidth ? videoElement.videoWidth : rectW;
+  var srcH = videoElement && videoElement.videoHeight ? videoElement.videoHeight : rectH;
+  var bounds = getAspectFitBounds(srcW, srcH, rectW, rectH);
+  var slope = Math.tan((cameraRollDeg || 0) * Math.PI / 180);
+  var y0 = 0.5 + (0.12 - 0.5) * slope;
+  var y1 = 0.5 + (0.88 - 0.5) * slope;
+  var px0 = bounds.x + 0.12 * bounds.w;
+  var py0 = bounds.y + y0 * bounds.h;
+  var px1 = bounds.x + 0.88 * bounds.w;
+  var py1 = bounds.y + y1 * bounds.h;
+  var left = layer.querySelector('.calibration-handle[data-end="left"]');
+  var right = layer.querySelector('.calibration-handle[data-end="right"]');
+  var line = layer.querySelector('.calibration-line');
+  if (left) { left.style.left = px0 + 'px'; left.style.top = py0 + 'px'; }
+  if (right) { right.style.left = px1 + 'px'; right.style.top = py1 + 'px'; }
+  if (line) {
+    var dx = px1 - px0;
+    var dy = py1 - py0;
+    var length = Math.hypot(dx, dy);
+    line.style.left = ((px0 + px1) / 2 - length / 2) + 'px';
+    line.style.top = ((py0 + py1) / 2) + 'px';
+    line.style.width = length + 'px';
+    line.style.transform = 'rotate(' + (Math.atan2(dy, dx) * 180 / Math.PI) + 'deg)';
+  }
+}
+
+function syncCalibrationControls() {
+  var roll = document.getElementById('calibration-roll');
+  var rollOut = document.getElementById('calibration-roll-readout');
+  var scale = document.getElementById('calibration-stature');
+  var scaleOut = document.getElementById('calibration-scale-readout');
+  var button = document.getElementById('btn-camera-calibration');
+  if (roll) roll.value = String(cameraRollDeg || 0);
+  if (rollOut) rollOut.textContent = formatRollDegrees(cameraRollDeg) + '°';
+  var percent = Math.round((statureScaleAdjust || 1) * 100);
+  if (scale) scale.value = String(percent);
+  if (scaleOut) scaleOut.textContent = percent + '%';
+  if (button) {
+    button.textContent = Math.abs(cameraRollDeg || 0) >= 0.05
+      ? ('📐 ' + formatRollDegrees(cameraRollDeg) + '°')
+      : '📐 水平補正';
+  }
+  layoutCalibrationGuide();
+}
+
+function closeCalibrationGuide() {
+  var layer = document.getElementById('calibration-layer');
+  if (layer) layer.hidden = true;
+  calibrationDragEnd = null;
+  rememberCameraCalibration();
+  syncCalibrationControls();
+}
+
+function toggleCalibrationGuide() {
+  var layer = document.getElementById('calibration-layer');
+  if (!layer) return;
+  if (!layer.hidden) {
+    closeCalibrationGuide();
+    return;
+  }
+  layer.hidden = false;
+  syncCalibrationControls();
+}
+
+function onCalibrationPointerMove(event) {
+  if (!calibrationDragEnd) return;
+  var norm = calibrationPointerNorm(event);
+  if (!norm) return;
+  var anchorX = calibrationDragEnd === 'left' ? 0.12 : 0.88;
+  var dx = anchorX - 0.5;
+  var degrees = Math.abs(dx) < 1e-4 ? 0 : Math.atan((norm.y - 0.5) / dx) * 180 / Math.PI;
+  setCameraRoll(degrees);
+}
+
+function onCalibrationPointerEnd() {
+  calibrationDragEnd = null;
+}
+
+function ensureCalibrationControls() {
+  var host = document.querySelector('#view-step4 .video-top-left-controls');
+  var stage = document.querySelector('#view-step4 .screen-wrapper');
+  if (host && !document.getElementById('btn-camera-calibration')) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn-ctrl';
+    button.id = 'btn-camera-calibration';
+    button.textContent = '📐 水平補正';
+    button.addEventListener('click', toggleCalibrationGuide);
+    host.appendChild(button);
+  }
+  if (stage && !document.getElementById('calibration-layer')) {
+    var layer = document.createElement('div');
+    layer.id = 'calibration-layer';
+    layer.className = 'calibration-layer';
+    layer.hidden = true;
+    layer.innerHTML = ''
+      + '<div class="calibration-horizon">'
+      + '<span class="calibration-line"></span>'
+      + '<span class="calibration-handle" data-end="left"></span>'
+      + '<span class="calibration-handle" data-end="right"></span>'
+      + '</div>'
+      + '<div class="calibration-sheet">'
+      + '<label>傾き <output id="calibration-roll-readout">0.0°</output>'
+      + '<input id="calibration-roll" type="range" min="-15" max="15" step="0.1" value="0" aria-label="水平補正の角度">'
+      + '<label>身長スケール <output id="calibration-scale-readout">100%</output>'
+      + '<input id="calibration-stature" type="range" min="80" max="120" step="1" value="100" aria-label="身長スケール">'
+      + '<button type="button" id="calibration-done" class="btn-ctrl">完了</button>'
+      + '</div>';
+    stage.appendChild(layer);
+    layer.querySelectorAll('.calibration-handle').forEach(function(handle) {
+      handle.addEventListener('pointerdown', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        calibrationDragEnd = handle.getAttribute('data-end');
+        if (handle.setPointerCapture) handle.setPointerCapture(event.pointerId);
+      });
+    });
+    var roll = layer.querySelector('#calibration-roll');
+    var stature = layer.querySelector('#calibration-stature');
+    var done = layer.querySelector('#calibration-done');
+    if (roll) roll.addEventListener('input', function() { setCameraRoll(roll.value); });
+    if (stature) stature.addEventListener('input', function() { setStatureScale(stature.value); });
+    if (done) done.addEventListener('click', closeCalibrationGuide);
+  }
+  if (!ensureCalibrationControls.bound) {
+    ensureCalibrationControls.bound = true;
+    document.addEventListener('pointermove', onCalibrationPointerMove);
+    document.addEventListener('pointerup', onCalibrationPointerEnd);
+    document.addEventListener('pointercancel', onCalibrationPointerEnd);
+    window.addEventListener('resize', layoutCalibrationGuide);
+  }
+  syncCalibrationControls();
 }

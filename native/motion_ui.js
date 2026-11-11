@@ -63,7 +63,9 @@ function clonePoseLandmarks(landmarks) {
 }
 
 function rememberPoseLandmarks(landmarks) {
-  lastPoseLandmarks = clonePoseLandmarks(landmarks);
+  var source = landmarks;
+  if (typeof calibrationDrawLandmarks !== 'undefined' && calibrationDrawLandmarks) source = calibrationDrawLandmarks;
+  lastPoseLandmarks = clonePoseLandmarks(source);
 }
 
 function captureGhostLandmarks(slot, manual) {
@@ -298,7 +300,26 @@ function setupDrawerSwipe(drawerElement) {
 function exportAnalysisImage() {
   var canvas = document.getElementById('output-canvas');
   if (!canvas || !canvas.width) return;
-  canvas.toBlob(function(blob) {
+  var board = document.createElement('canvas');
+  board.width = canvas.width;
+  board.height = canvas.height;
+  var ctx = board.getContext('2d');
+  if (!ctx) return;
+  ctx.drawImage(canvas, 0, 0);
+  if (typeof calibrationMetadataLabel === 'function') {
+    var label = calibrationMetadataLabel();
+    var fontPx = Math.max(14, Math.round(canvas.width / 48));
+    ctx.font = 'bold ' + fontPx + 'px sans-serif';
+    var pad = Math.round(fontPx * 0.6);
+    var width = ctx.measureText(label).width + pad * 2;
+    var boxH = fontPx + pad;
+    var boxY = canvas.height - boxH - pad;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+    ctx.fillRect(pad, boxY, width, boxH);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(label, pad * 2, boxY + fontPx);
+  }
+  board.toBlob(function(blob) {
     if (!blob) return;
     var file = new File([blob], 'motion-frame.png', { type: 'image/png' });
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {

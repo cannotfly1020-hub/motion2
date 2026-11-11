@@ -214,7 +214,7 @@ function applyPitchingBiomechanics(landmarks, b) {
   const L_FOOT_INDEX = landmarks[31];
   const R_FOOT_INDEX = landmarks[32];
 
-  const normalizedStatureHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.1 ? (tuneRuler.bottomYNorm - tuneRuler.topYNorm) : 0.75;
+  const normalizedStatureHeight = (typeof activeStatureNorm === 'function') ? activeStatureNorm() : ((tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.1 ? (tuneRuler.bottomYNorm - tuneRuler.topYNorm) : 0.75);
   const activePxPerCm = (normalizedStatureHeight * b.h) / userHeightCm;
 
   const isRightHanded = (selectedThrowArm === 'RIGHT');
@@ -285,13 +285,13 @@ function applyPitchingBiomechanics(landmarks, b) {
 
   if (selectedAngleMode === 'SIDE') {
     if (Number.isFinite(currentStrideCm)) {
-      const strideCm = Math.round(currentStrideCm);
+      const strideCm = Math.round(currentStrideCm * 10) / 10;
       if (strideCm >= 15 && strideCm <= Math.round(userHeightCm * 1.15)) {
-        const strideRatio = Math.round((strideCm / userHeightCm) * 100);
-        c1Val.textContent = `${strideCm} cm`;
+        const strideRatio = Math.round((strideCm / userHeightCm) * 1000) / 10;
+        c1Val.textContent = `${strideCm.toFixed(1)} cm / 身長比 ${strideRatio.toFixed(1)}%`;
         if (strideCm > records.maxStride) {
           records.maxStride = strideCm;
-          paintHero(c1Max, 'MAX ステップ', `${strideCm}cm (${strideRatio}%)`, true);
+          paintHero(c1Max, 'MAX ステップ', `${strideCm.toFixed(1)}cm (${strideRatio.toFixed(1)}%)`, true);
         }
       }
     }

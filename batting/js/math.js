@@ -143,7 +143,7 @@ function applyBattingBiomechanics(landmarks, b) {
   const L_HEEL = landmarks[29];
   const R_HEEL = landmarks[30];
 
-  const normalizedStatureHeight = (tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.1 ? (tuneRuler.bottomYNorm - tuneRuler.topYNorm) : 0.75;
+  const normalizedStatureHeight = (typeof activeStatureNorm === 'function') ? activeStatureNorm() : ((tuneRuler.bottomYNorm - tuneRuler.topYNorm) > 0.1 ? (tuneRuler.bottomYNorm - tuneRuler.topYNorm) : 0.75);
   const activePxPerCm = (normalizedStatureHeight * b.h) / userHeightCm;
 
   const isRightBatter = (selectedBatSide === 'RIGHT');
@@ -271,14 +271,14 @@ function applyBattingBiomechanics(landmarks, b) {
   if (NOSE && initialNoseX !== null) {
     const shiftXPx = Math.abs((NOSE.x - initialNoseX) * b.w);
     const shiftYPx = Math.abs((NOSE.y - initialNoseY) * b.h);
-    const shiftXCm = Math.round(shiftXPx / activePxPerCm);
+    const shiftXCm = Math.round((shiftXPx / activePxPerCm) * 10) / 10;
     const shiftYCm = Math.round(shiftYPx / activePxPerCm);
 
     currentCalculatedState.headShiftCm = shiftXCm;
     currentCalculatedState.headShiftYCm = shiftYCm;
 
     if (selectedAngleMode === 'SIDE') {
-      c5Val.textContent = `${shiftXCm} cm`;
+      c5Val.textContent = `${shiftXCm.toFixed(1)} cm`;
       const shiftXNorm = calculateSegmentDisplacement(
         { x: NOSE.x, y: initialNoseY },
         { x: initialNoseX, y: initialNoseY }
@@ -286,7 +286,7 @@ function applyBattingBiomechanics(landmarks, b) {
       if (shiftXCm <= 60 && shiftXCm > 0 && shiftXCm >= records.maxHeadShift) {
         if (shiftXCm > records.maxHeadShift) {
           records.maxHeadShift = shiftXCm;
-          paintHero(c5Max, 'MAX 頭前後', `${shiftXCm} cm`, true);
+          paintHero(c5Max, 'MAX 頭前後', `${shiftXCm.toFixed(1)} cm`, true);
         }
         if (shiftXNorm != null) records.maxHeadShiftRatio = Math.round(shiftXNorm * 1000) / 1000;
       }

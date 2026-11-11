@@ -116,6 +116,13 @@ check('検出できない動画の第2候補は50〜65%', fallbackKeys.impact, 5
 const safeKeys = context.detectPitchingKeyframes(undefined, Number.NaN, true);
 check('壊れた入力でもキーフレームは数値', Number.isFinite(safeKeys.footContact) && Number.isFinite(safeKeys.release), true);
 
+const roll = 10 * Math.PI / 180;
+const restored = context.correctRollCoordinate(Math.cos(roll), Math.sin(roll), 10, 0, 0);
+check('10°傾いた水平ベクトルのxは1に戻る', restored.x, 1);
+check('10°傾いた水平ベクトルのyは0に戻る', restored.y, 0);
+check('70pxは身長175cm・350pxで35cm', context.pixelsToCentimeters(70, 350, 175), 35);
+check('身長未指定のスケールは175cm', context.pixelsToCentimeters(50, 100), 87.5);
+
 let failed = 0;
 cases.forEach(function(item) {
   if (item.pass) {

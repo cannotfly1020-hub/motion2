@@ -310,3 +310,178 @@ function detectPitchingKeyframes(landmarksByFrame, frameCount, isRightHanded) {
     return { footContact: fallback.first, release: fallback.second };
   }
 }
+
+function correctRollCoordinate(x, y, thetaDeg, centerX, centerY) {
+  var theta = -(Number(thetaDeg) || 0) * Math.PI / 180;
+  var cos = Math.cos(theta);
+  var sin = Math.sin(theta);
+  var cx = Number.isFinite(centerX) ? centerX : 0;
+  var cy = Number.isFinite(centerY) ? centerY : 0;
+  var dx = (Number(x) || 0) - cx;
+  var dy = (Number(y) || 0) - cy;
+  return {
+    x: dx * cos - dy * sin + cx,
+    y: dx * sin + dy * cos + cy
+  };
+}
+
+function calibrationPelvisCenter(landmarks) {
+  var left = landmarks && landmarks[23];
+  var right = landmarks && landmarks[24];
+  if (left && right && Number.isFinite(left.x) && Number.isFinite(left.y) && Number.isFinite(right.x) && Number.isFinite(right.y)) {
+    return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
+  }
+  return { x: 0.5, y: 0.5 };
+}
+
+function correctCameraRollPoint(point, thetaDeg, center) {
+  if (!point || typeof point !== 'object' || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return point;
+  var cx = center && Number.isFinite(center.x) ? center.x : 0.5;
+  var cy = center && Number.isFinite(center.y) ? center.y : 0.5;
+  var rotated = correctRollCoordinate(point.x, point.y, thetaDeg, cx, cy);
+  return { x: rotated.x, y: rotated.y, z: point.z, visibility: point.visibility };
+}
+
+function correctCameraRollLandmarks(landmarks, thetaDeg, center) {
+  if (!landmarks || typeof landmarks.length !== 'number') return landmarks;
+  if (!Number.isFinite(thetaDeg) || Math.abs(thetaDeg) < 1e-6) return landmarks;
+  var origin = center || calibrationPelvisCenter(landmarks);
+  var copy = new Array(landmarks.length);
+  for (var i = 0; i < landmarks.length; i++) {
+    var point = landmarks[i];
+    copy[i] = (point && typeof point === 'object') ? correctCameraRollPoint(point, thetaDeg, origin) : point;
+  }
+  return copy;
+}
+
+function measureStatureSpan(landmarks, frameHeightPx) {
+  try {
+    if (!landmarks) return null;
+    var heightPx = Number(frameHeightPx);
+    if (!Number.isFinite(heightPx) || heightPx <= 0) heightPx = 1;
+    var headIndexes = [0, 2, 5];
+    var headY = null;
+    for (var h = 0; h < headIndexes.length; h++) {
+      var head = keyframeLandmark(landmarks, headIndexes[h]);
+      if (!head) continue;
+      if (headY == null || head.y < headY) headY = head.y;
+    }
+    var ankleIndexes = [27, 28];
+    var ankleY = null;
+    for (var a = 0; a < ankleIndexes.length; a++) {
+      var ankle = keyframeLandmark(landmarks, ankleIndexes[a]);
+      if (!ankle) continue;
+      if (ankleY == null || ankle.y > ankleY) ankleY = ankle.y;
+    }
+    if (headY == null || ankleY == null || !(ankleY > headY)) return null;
+    return {
+      pixels: (ankleY - headY) * heightPx,
+      top: headY,
+      bottom: ankleY,
+      normalized: ankleY - headY
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+function measureStaturePixels(landmarks, frameHeightPx) {
+  var span = measureStatureSpan(landmarks, frameHeightPx);
+  return span ? span.pixels : null;
+}
+
+function pixelsToCentimeters(pixelDistance, staturePixels, heightCm) {
+  try {
+    var pixels = Number(pixelDistance);
+    var stature = Number(staturePixels);
+    var height = Number(heightCm);
+    if (!Number.isFinite(height) || height <= 0) height = 175;
+    if (!Number.isFinite(pixels) || !Number.isFinite(stature) || !(stature > 0)) return null;
+    return pixels * (height / stature);
+  } catch (err) {
+    return null;
+  }
+}
+
+function estimateUprightStature(landmarksByFrame, frameCount) {
+  try {
+    var count = Math.floor(frameCount);
+    if (!(count > 0) || !landmarksByFrame) return null;
+    var best = null;
+    var bestScore = -Infinity;
+    var fallback = null;
+    var fallbackScore = -Infinity;
+    for (var i = 0; i < count; i++) {
+      var frame = keyframeFrameAt(landmarksByFrame, i);
+      var span = measureStatureSpan(frame, 1);
+      if (!span || !(span.normalized > 0.2) || span.normalized > 0.98) continue;
+      var kneeL = calculateJointAngle(frame[23], frame[25], frame[27]);
+      var kneeR = calculateJointAngle(frame[24], frame[26], frame[28]);
+      var knee = Math.max(kneeL == null ? 0 : kneeL, kneeR == null ? 0 : kneeR);
+      var trunk = 90;
+      var leftShoulder = keyframeLandmark(frame, 11);
+      var rightShoulder = keyframeLandmark(frame, 12);
+      var leftHip = keyframeLandmark(frame, 23);
+      var rightHip = keyframeLandmark(frame, 24);
+      if (leftShoulder && rightShoulder && leftHip && rightHip) {
+        var shoulderX = (leftShoulder.x + rightShoulder.x) / 2;
+        var shoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+        var hipX = (leftHip.x + rightHip.x) / 2;
+        var hipY = (leftHip.y + rightHip.y) / 2;
+        trunk = Math.abs(Math.atan2(shoulderX - hipX, hipY - shoulderY) * 180 / Math.PI);
+      }
+      var score = knee - trunk;
+      var sample = { top: span.top, bottom: span.bottom, normalized: span.normalized, frameIndex: i };
+      if (score > fallbackScore) {
+        fallbackScore = score;
+        fallback = sample;
+      }
+      if (knee >= 150 && trunk <= 25 && score > bestScore) {
+        bestScore = score;
+        best = sample;
+      }
+    }
+    return best || fallback;
+  } catch (err) {
+    return null;
+  }
+}
+
+function captureLineDeviation(pointA, pointB) {
+  if (!pointA || !pointB) return null;
+  if (!Number.isFinite(pointA.x) || !Number.isFinite(pointA.y) || !Number.isFinite(pointB.x) || !Number.isFinite(pointB.y)) return null;
+  var dx = pointB.x - pointA.x;
+  var dy = pointB.y - pointA.y;
+  var dz = (Number.isFinite(pointB.z) ? pointB.z : 0) - (Number.isFinite(pointA.z) ? pointA.z : 0);
+  var image = Math.hypot(dx, dy);
+  var spatial = Math.hypot(image, dz);
+  if (spatial < 1e-4) return null;
+  if (Math.abs(dz) < 0.015) return null;
+  return Math.asin(Math.max(0, Math.min(1, image / spatial))) * 180 / Math.PI;
+}
+
+function assessCaptureAngle(landmarks) {
+  try {
+    if (!landmarks) return { oblique: false, deviationDeg: 0 };
+    var shoulder = captureLineDeviation(landmarks[11], landmarks[12]);
+    var hip = captureLineDeviation(landmarks[23], landmarks[24]);
+    if (shoulder != null && hip != null) {
+      var deviation = (shoulder + hip) / 2;
+      return { oblique: deviation > 15, deviationDeg: deviation };
+    }
+    var leftShoulder = landmarks[11];
+    var rightShoulder = landmarks[12];
+    var leftHip = landmarks[23];
+    var rightHip = landmarks[24];
+    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return { oblique: false, deviationDeg: 0 };
+    var shoulderWidth = Math.hypot(rightShoulder.x - leftShoulder.x, rightShoulder.y - leftShoulder.y);
+    var hipWidth = Math.hypot(rightHip.x - leftHip.x, rightHip.y - leftHip.y);
+    var torso = Math.abs(((leftHip.y + rightHip.y) / 2) - ((leftShoulder.y + rightShoulder.y) / 2));
+    if (!(torso > 0.05)) return { oblique: false, deviationDeg: 0 };
+    var openness = ((shoulderWidth + hipWidth) / 2) / torso;
+    var flatDeviation = Math.asin(Math.max(0, Math.min(1, openness / 0.85))) * 180 / Math.PI;
+    return { oblique: flatDeviation > 15, deviationDeg: flatDeviation };
+  } catch (err) {
+    return { oblique: false, deviationDeg: 0 };
+  }
+}

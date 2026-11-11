@@ -106,7 +106,9 @@ function shareRecordToLine(groupKey) {
 
   let text = `💥 【打撃バイオメカニクス 選手レポート】 ⚾\n`;
   text += `👤 選手名: ${first.playerName} 選手 (${first.height}cm / ${first.batSide === 'RIGHT' ? '右打ち' : '左打ち'})\n`;
-  text += `📅 測定日: ${first.date}\n\n`;
+  text += `📅 測定日: ${first.date}\n`;
+  if (first.calibrationLabel) text += first.calibrationLabel + '\n';
+  text += '\n';
 
   if (sideRec) {
     const isLeft = (first.batSide === 'LEFT');
@@ -233,6 +235,7 @@ function renderCarteList(isInitialOpen) {
           <button class="btn-item-delete" data-group="${key}">🗑️</button>
         </div>
       </div>
+      ${typeof calibrationRecordHtml === 'function' ? calibrationRecordHtml(first) : ''}
 
       <div class="history-unified-grid">
         <div class="metric-section-block">
