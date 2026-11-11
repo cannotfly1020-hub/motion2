@@ -7,7 +7,7 @@ const www = join(root, 'www');
 rmSync(www, { recursive: true, force: true });
 mkdirSync(www, { recursive: true });
 
-for (const file of ['index.html', 'manifest.json', 'sw.js', 'icon-192.png', 'icon-512.png']) {
+for (const file of ['index.html', 'manifest.json', 'sw.js', 'privacy.html', 'icon-192.png', 'icon-512.png']) {
   const src = join(root, file);
   if (existsSync(src)) cpSync(src, join(www, file));
 }

@@ -40,6 +40,7 @@ function guideSheetMarkup() {
     + '      <section class="guide-panel" data-guide-panel="notice" hidden>'
     + '        <h3>免責事項・ご利用にあたって</h3>'
     + '        <article class="guide-tip"><span class="guide-tip-icon" aria-hidden="true">🛡️</span><div><strong>医療行為ではありません</strong><p class="guide-disclaimer">本アプリが提供するバイオメカニクス解析およびAIトレーナーの診断・推奨ドリルは、動作改善やコンディショニングの補助を目的としたものであり、医学的診断や怪我の治療を保証するものではありません。強い痛みや違和感がある場合は、直ちに運動を中止し専門の医師や理学療法士にご相談ください。</p></div></article>'
+    + '        <a class="guide-privacy" id="guide-privacy" href="https://cannotfly1020-hub.github.io/motion2/privacy.html" target="_blank" rel="noopener noreferrer">📄 プライバシーポリシー全文を見る</a>'
     + '      </section>'
     + '    </div>'
     + '  </div>'
@@ -56,6 +57,8 @@ function ensureGuideSheet() {
     if (event.target === guideSheetRoot) closeGuideSheet();
   });
   guideSheetRoot.querySelector('#guide-close').addEventListener('click', closeGuideSheet);
+  var privacyLink = guideSheetRoot.querySelector('#guide-privacy');
+  if (privacyLink) privacyLink.addEventListener('click', openPrivacyPolicy);
   var tabs = guideSheetRoot.querySelectorAll('[data-guide-tab]');
   for (var i = 0; i < tabs.length; i++) {
     tabs[i].addEventListener('click', function(event) {
@@ -83,6 +86,18 @@ function selectGuideTab(name) {
   }
   var body = guideSheetRoot.querySelector('.guide-body');
   if (body) body.scrollTop = 0;
+}
+
+function openPrivacyPolicy(event) {
+  var url = 'https://cannotfly1020-hub.github.io/motion2/privacy.html';
+  var browser = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
+  if (browser && typeof browser.open === 'function') {
+    if (event) event.preventDefault();
+    browser.open({ url: url });
+    return;
+  }
+  if (event) event.preventDefault();
+  window.open(url, '_blank', 'noopener');
 }
 
 function openGuideSheet() {
