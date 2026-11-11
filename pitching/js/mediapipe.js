@@ -119,6 +119,9 @@ function initMediaPipe() {
 }
 
 function processSingleFrame() {
+  if (typeof takeCachedPoseFrame === 'function' && takeCachedPoseFrame()) {
+    return Promise.resolve();
+  }
   if (!isPoseLoaded || isProcessing || !videoElement.videoWidth) {
     renderFrameOnly();
     return Promise.resolve();
@@ -186,12 +189,17 @@ function onPoseResults(results) {
         paintLiveSkeleton(outputCtx, results.poseLandmarks, b.x, b.y, b.w, b.h);
       }
     }
+    if (results.poseLandmarks && typeof storeCurrentPose === 'function') storeCurrentPose(false);
+    else if (typeof markPoseFrameVisited === 'function') markPoseFrameVisited();
     endAnalysisCanvas();
     return;
   }
 
   if (results.poseLandmarks) {
     applyPitchingBiomechanics(results.poseLandmarks, b);
+    if (typeof storeCurrentPose === 'function') storeCurrentPose(true);
+  } else if (typeof markPoseFrameVisited === 'function') {
+    markPoseFrameVisited();
   }
 
   endAnalysisCanvas();

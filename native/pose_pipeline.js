@@ -6,6 +6,14 @@ var POSE_INPUT_MAX_EDGE = 640;
 var poseStride = 2;
 var poseCalmCount = 0;
 var poseApplyMetrics = true;
+var poseCache = {
+  videoId: null,
+  totalFrames: 0,
+  landmarksByFrame: {},
+  metricsByFrame: {},
+  isFullyScanned: false
+};
+var cachePlaybackFrame = 0;
 var poseInferPrev = null;
 var poseInferLast = null;
 var POSE_MOTION_JOINTS = [11, 12, 15, 16, 23, 24, 25, 26, 27, 28];
@@ -156,6 +164,8 @@ function startMeasurementVideo(video, src, onReady) {
   video.addEventListener('canplay', onCanPlay);
   video.addEventListener('error', onError);
   console.log('[VideoLoad] set src', src);
+  bindPoseCache(src);
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
   try {
     video.src = src;
     video.load();
@@ -254,9 +264,16 @@ function reportPlaybackProgress() {
 
 function stopFrameAccuratePlayback() {
   frameSeekGeneration += 1;
+  if (cachePlaybackFrame) {
+    cancelAnimationFrame(cachePlaybackFrame);
+    cachePlaybackFrame = 0;
+  }
   analysisTransportPlaying = false;
   frameSeekLoopActive = false;
   endAnalysisProgress('playback');
+  if (typeof videoElement !== 'undefined' && videoElement && !videoElement.paused) {
+    try { videoElement.pause(); } catch (err) { /* すでに停止 */ }
+  }
   if (typeof updatePlayState === 'function') updatePlayState();
 }
 
@@ -275,6 +292,180 @@ function copyLandmarks(landmarks) {
     copy[i] = point ? { x: point.x, y: point.y, z: point.z || 0, visibility: point.visibility } : null;
   }
   return copy;
+}
+
+function emptyPoseCache(videoId) {
+  return {
+    videoId: videoId || null,
+    totalFrames: 0,
+    landmarksByFrame: {},
+    metricsByFrame: {},
+    visitedByFrame: {},
+    isFullyScanned: false
+  };
+}
+
+function resetPoseCache() {
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+  if (typeof videoElement !== 'undefined' && videoElement && !videoElement.paused) {
+    try { videoElement.pause(); } catch (err) { /* すでに停止 */ }
+  }
+  poseCache = emptyPoseCache(null);
+}
+
+function bindPoseCache(videoId) {
+  var id = videoId || '';
+  if (poseCache.videoId === id && id) return;
+  poseCache = emptyPoseCache(id || null);
+}
+
+function poseFrameStep() {
+  var step = analysisFrameDuration;
+  if (!(step > 0)) step = 1 / 30;
+  return Math.min(1 / 24, Math.max(1 / 240, step));
+}
+
+function poseFrameCount() {
+  var duration = videoElement && videoElement.duration;
+  if (!Number.isFinite(duration) || duration <= 0) return 0;
+  return Math.max(1, Math.round(duration / poseFrameStep()));
+}
+
+function poseFrameIndex(time) {
+  var count = poseFrameCount();
+  var index = Math.round((time || 0) / poseFrameStep());
+  if (index < 0) index = 0;
+  if (count > 0 && index > count - 1) index = count - 1;
+  return index;
+}
+
+function snapshotPoseMetrics() {
+  var state = {};
+  if (typeof currentCalculatedState === 'object' && currentCalculatedState) {
+    for (var key in currentCalculatedState) {
+      if (Object.prototype.hasOwnProperty.call(currentCalculatedState, key)) state[key] = currentCalculatedState[key];
+    }
+  }
+  var texts = {};
+  for (var i = 1; i <= 10; i++) {
+    var el = document.getElementById('c' + i + '-val');
+    if (el) texts['c' + i] = el.textContent;
+  }
+  return { state: state, texts: texts };
+}
+
+function restorePoseMetrics(snapshot) {
+  if (!snapshot) return;
+  if (snapshot.state && typeof currentCalculatedState === 'object' && currentCalculatedState) {
+    for (var key in snapshot.state) {
+      if (Object.prototype.hasOwnProperty.call(snapshot.state, key)) currentCalculatedState[key] = snapshot.state[key];
+    }
+  }
+  if (snapshot.texts) {
+    for (var n = 1; n <= 10; n++) {
+      var label = snapshot.texts['c' + n];
+      var node = document.getElementById('c' + n + '-val');
+      if (node && label != null) node.textContent = label;
+    }
+  }
+  if (typeof updateDrawerKeyBadge === 'function') updateDrawerKeyBadge();
+}
+
+function markPoseFrameVisited() {
+  if (!videoElement) return;
+  var index = poseFrameIndex(videoElement.currentTime);
+  if (!poseCache.visitedByFrame) poseCache.visitedByFrame = {};
+  poseCache.visitedByFrame[index] = true;
+}
+
+function storePoseSample(landmarks, options) {
+  if (!videoElement) return;
+  markPoseFrameVisited();
+  if (!landmarks) return;
+  var index = poseFrameIndex(videoElement.currentTime);
+  var copy = copyLandmarks(landmarks);
+  if (!copy) return;
+  var fillOnly = options && options.fillOnly;
+  var writeMetrics = options && options.writeMetrics;
+  if (fillOnly) {
+    if (!poseCache.landmarksByFrame[index]) poseCache.landmarksByFrame[index] = copy;
+    if (!poseCache.metricsByFrame[index]) poseCache.metricsByFrame[index] = snapshotPoseMetrics();
+  } else {
+    poseCache.landmarksByFrame[index] = copy;
+    if (writeMetrics) poseCache.metricsByFrame[index] = snapshotPoseMetrics();
+  }
+  var total = poseFrameCount();
+  if (total > poseCache.totalFrames) poseCache.totalFrames = total;
+}
+
+function storeCurrentPose(measured) {
+  storePoseSample(lastPoseLandmarks, { writeMetrics: !!measured });
+}
+
+function firstMissingPoseFrame() {
+  var total = poseFrameCount();
+  for (var i = 0; i < total; i++) {
+    var seen = poseCache.landmarksByFrame[i] || (poseCache.visitedByFrame && poseCache.visitedByFrame[i]);
+    if (!seen) return i;
+  }
+  return -1;
+}
+
+function markPoseCacheComplete() {
+  var total = poseFrameCount();
+  poseCache.totalFrames = total;
+  if (total <= 0) {
+    poseCache.isFullyScanned = false;
+    return;
+  }
+  for (var i = 0; i < total; i++) {
+    var seen = poseCache.landmarksByFrame[i] || (poseCache.visitedByFrame && poseCache.visitedByFrame[i]);
+    if (!seen) {
+      poseCache.isFullyScanned = false;
+      console.warn('[PoseCache] missing frame', i, 'of', total);
+      return;
+    }
+  }
+  poseCache.isFullyScanned = true;
+  console.log('[PoseCache] full scan cached', total);
+}
+
+function renderCachedPose(index) {
+  var landmarks = poseCache.landmarksByFrame[index];
+  if (!landmarks) return false;
+  if (typeof rememberPoseLandmarks === 'function') rememberPoseLandmarks(landmarks);
+  var metrics = poseCache.metricsByFrame[index];
+  if (metrics) restorePoseMetrics(metrics);
+  if (typeof beginAnalysisCanvas !== 'function') return true;
+  var bounds = beginAnalysisCanvas();
+  if (!bounds) return true;
+  if (typeof paintGhostSkeletons === 'function') paintGhostSkeletons(outputCtx, bounds.x, bounds.y, bounds.w, bounds.h);
+  if ((typeof isSkeletonVisible === 'undefined' || isSkeletonVisible) && typeof paintLiveSkeleton === 'function') {
+    paintLiveSkeleton(outputCtx, landmarks, bounds.x, bounds.y, bounds.w, bounds.h);
+  }
+  if (typeof endAnalysisCanvas === 'function') endAnalysisCanvas();
+  return true;
+}
+
+function takeCachedPoseFrame() {
+  if (typeof scanModeActive !== 'undefined' && scanModeActive) return false;
+  if (!videoElement || !videoElement.videoWidth) return false;
+  var index = poseFrameIndex(videoElement.currentTime);
+  var cached = poseCache.landmarksByFrame[index];
+  if (!cached) {
+    if (poseCache.visitedByFrame && poseCache.visitedByFrame[index]) {
+      if (typeof renderFrameOnly === 'function') renderFrameOnly();
+      return true;
+    }
+    return false;
+  }
+  var wantMetrics = typeof poseApplyMetrics === 'undefined' || poseApplyMetrics;
+  if (wantMetrics && !poseCache.metricsByFrame[index]) {
+    applyStoredPose(cached);
+    return true;
+  }
+  renderCachedPose(index);
+  return true;
 }
 
 function maxJointMotion(fromPose, toPose) {
@@ -325,6 +516,7 @@ function applyStoredPose(landmarks) {
     console.warn('[PoseScan] metrics failed:', err);
   }
   if (typeof endAnalysisCanvas === 'function') endAnalysisCanvas();
+  storePoseSample(landmarks, { writeMetrics: true });
 }
 
 function drawBlendedPose(landmarks) {
@@ -337,6 +529,7 @@ function drawBlendedPose(landmarks) {
     paintLiveSkeleton(outputCtx, landmarks, bounds.x, bounds.y, bounds.w, bounds.h);
   }
   if (typeof endAnalysisCanvas === 'function') endAnalysisCanvas();
+  storePoseSample(landmarks, { fillOnly: true });
 }
 
 function notePoseMotion(fromPose, toPose, framesSpanned) {
@@ -355,11 +548,87 @@ function notePoseMotion(fromPose, toPose, framesSpanned) {
   return perFrame;
 }
 
+function startCachePlayback() {
+  if (!videoElement || !poseCache.isFullyScanned) return false;
+  if (analysisTransportPlaying) return true;
+  var duration = videoElement.duration;
+  if (!Number.isFinite(duration) || duration <= 0) return false;
+
+  var generation = ++frameSeekGeneration;
+  analysisTransportPlaying = true;
+  frameSeekLoopActive = true;
+  if (typeof updatePlayState === 'function') updatePlayState();
+  console.log('[PoseCache] playback from cache', poseCache.totalFrames);
+
+  var sawPlaying = false;
+  function paint() {
+    if (generation !== frameSeekGeneration) return;
+    if (!videoElement.paused && !videoElement.ended) sawPlaying = true;
+    renderCachedPose(poseFrameIndex(videoElement.currentTime));
+    if (typeof updateTimeUI === 'function') updateTimeUI();
+    if (videoElement.ended || videoElement.currentTime >= duration - 0.001) {
+      stopFrameAccuratePlayback();
+      return;
+    }
+    if (sawPlaying && videoElement.paused) {
+      stopFrameAccuratePlayback();
+      return;
+    }
+    cachePlaybackFrame = requestAnimationFrame(paint);
+  }
+
+  function beginPlay() {
+    if (generation !== frameSeekGeneration) return;
+    var started = videoElement.play();
+    if (started && typeof started.then === 'function') {
+      started.then(function() {
+        if (generation !== frameSeekGeneration) return;
+        cachePlaybackFrame = requestAnimationFrame(paint);
+      }).catch(function(err) {
+        console.warn('[PoseCache] play failed:', err);
+        if (generation === frameSeekGeneration) stopFrameAccuratePlayback();
+      });
+      return;
+    }
+    cachePlaybackFrame = requestAnimationFrame(paint);
+  }
+
+  if (videoElement.currentTime >= duration - poseFrameStep()) {
+    waitForSeeked(0).then(beginPlay);
+    return true;
+  }
+  beginPlay();
+  return true;
+}
+
 function startFrameAccuratePlayback() {
   if (!videoElement || !videoElement.videoWidth) return;
   if (analysisTransportPlaying) return;
   var duration = videoElement.duration;
   if (!Number.isFinite(duration) || duration <= 0) return;
+  if (poseCache.isFullyScanned) {
+    startCachePlayback();
+    return;
+  }
+
+  var missing = firstMissingPoseFrame();
+  var here = poseFrameIndex(videoElement.currentTime);
+  var hereSeen = !!(poseCache.landmarksByFrame[here] || (poseCache.visitedByFrame && poseCache.visitedByFrame[here]));
+  var missingTime = missing * poseFrameStep();
+  if (missing >= 0 && Math.abs((videoElement.currentTime || 0) - missingTime) > poseFrameStep() * 0.4 && (hereSeen || videoElement.currentTime >= duration - poseFrameStep())) {
+    var token = frameSeekGeneration;
+    frameSeekLoopActive = true;
+    waitForSeeked(missingTime).then(function() {
+      if (token !== frameSeekGeneration) {
+        frameSeekLoopActive = false;
+        return;
+      }
+      frameSeekLoopActive = false;
+      if (Math.abs((videoElement.currentTime || 0) - missingTime) > poseFrameStep()) return;
+      startFrameAccuratePlayback();
+    });
+    return;
+  }
 
   var generation = ++frameSeekGeneration;
   analysisTransportPlaying = true;
@@ -377,11 +646,12 @@ function startFrameAccuratePlayback() {
   step = Math.min(1 / 24, Math.max(1 / 240, step));
   var stalls = 0;
 
-  function finish() {
+  function finish(completed) {
     if (generation !== frameSeekGeneration) return;
     analysisTransportPlaying = false;
     frameSeekLoopActive = false;
     endAnalysisProgress('playback');
+    if (completed) markPoseCacheComplete();
     if (typeof updatePlayState === 'function') updatePlayState();
   }
 
@@ -470,7 +740,7 @@ function startFrameAccuratePlayback() {
   function tick() {
     if (!alive()) return;
     if (videoElement.currentTime >= duration - step * 0.25) {
-      finish();
+      finish(true);
       return;
     }
     var timeA = videoElement.currentTime;
@@ -495,13 +765,14 @@ function startFrameAccuratePlayback() {
       runInference(false).then(function() {
         if (!alive()) return;
         var landB = rememberInference(landA);
+        var alreadyMeasured = !!poseCache.metricsByFrame[poseFrameIndex(timeB)];
         var motion = notePoseMotion(landA, landB, spanned);
-        if (motion > 0.02 && spanned > 1 && landA && landB) {
+        if (motion > 0.02 && spanned > 1 && landA && landB && !alreadyMeasured) {
           poseStride = 1;
           denseRescan(timeA, timeB, continueScan);
           return;
         }
-        if (landB) applyStoredPose(landB);
+        if (landB && !alreadyMeasured) applyStoredPose(landB);
         if (spanned > 1 && landA && landB) {
           fillGaps(timeA, timeB, land0 || landA, landA, landB, continueScan);
           return;

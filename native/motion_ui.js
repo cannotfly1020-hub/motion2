@@ -67,7 +67,12 @@ function rememberPoseLandmarks(landmarks) {
 }
 
 function captureGhostLandmarks(slot, manual) {
-  var copy = clonePoseLandmarks(lastPoseLandmarks);
+  var source = lastPoseLandmarks;
+  if (manual && typeof poseFrameIndex === 'function' && typeof videoElement !== 'undefined' && videoElement && typeof poseCache !== 'undefined' && poseCache.landmarksByFrame) {
+    var cached = poseCache.landmarksByFrame[poseFrameIndex(videoElement.currentTime)];
+    if (cached) source = cached;
+  }
+  var copy = clonePoseLandmarks(source);
   if (!copy) return;
   if (slot === 1) {
     if (ghost1Locked && !manual) return;
@@ -94,6 +99,7 @@ function clearGhostCache() {
   peakLiftKneeY = null;
   ghost1Locked = false;
   ghost2Locked = false;
+  if (typeof resetPoseCache === 'function') resetPoseCache();
 }
 
 function drawSkeleton(ctx, landmarks, colorStyle, isGhost, ox, oy, bw, bh) {

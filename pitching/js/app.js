@@ -879,6 +879,8 @@ document.getElementById('btn-zoom-reset').addEventListener('click', () => {
 });
 
 document.getElementById('btn-manual-fc').addEventListener('click', () => {
+  if (typeof stopFrameAccuratePlayback === 'function') stopFrameAccuratePlayback();
+  videoElement.pause();
   if (typeof nativeHaptic === 'function') nativeHaptic('LIGHT');
   if (selectedAngleMode === 'FRONT') {
     records.fcToeAngle = currentCalculatedState.displayToeAngle;
