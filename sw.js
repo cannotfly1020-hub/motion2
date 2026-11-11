@@ -1,4 +1,4 @@
-const CACHE_NAME = 'baseball-ai-v15';
+const CACHE_NAME = 'baseball-ai-v16';
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
@@ -17,6 +17,7 @@ const STATIC_ASSETS = [
   './libs/mediapipe/pose_solution_simd_wasm_bin.wasm',
   './libs/mediapipe/pose_web.binarypb',
   './libs/mediapipe/pose_landmark_heavy.tflite',
+  './libs/mediapipe/pose_landmark_full.tflite',
   './batting/index.html',
   './batting/css/style.css',
   './batting/js/batting_pose.js',

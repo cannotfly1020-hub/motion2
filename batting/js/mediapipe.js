@@ -92,12 +92,12 @@ function initMediaPipe() {
     });
 
     pose.setOptions({
-      modelComplexity: 2,
+      modelComplexity: 1,
       smoothLandmarks: true,
       enableSegmentation: false,
       smoothSegmentation: false,
-      minDetectionConfidence: 0.15,
-      minTrackingConfidence: 0.15
+      minDetectionConfidence: 0.65,
+      minTrackingConfidence: 0.65
     });
 
     pose.onResults(onPoseResults);
@@ -173,6 +173,20 @@ function onPoseResults(results) {
   const b = beginAnalysisCanvas();
   if (!b) {
     drawAiDiagnosticsHUD(outputCtx);
+    return;
+  }
+
+  if (typeof poseApplyMetrics !== 'undefined' && !poseApplyMetrics) {
+    if (results.poseLandmarks && typeof rememberPoseLandmarks === 'function') {
+      rememberPoseLandmarks(results.poseLandmarks);
+    }
+    if (results.poseLandmarks && typeof paintGhostSkeletons === 'function') {
+      paintGhostSkeletons(outputCtx, b.x, b.y, b.w, b.h);
+      if ((typeof isSkeletonVisible === 'undefined' || isSkeletonVisible) && typeof paintLiveSkeleton === 'function') {
+        paintLiveSkeleton(outputCtx, results.poseLandmarks, b.x, b.y, b.w, b.h);
+      }
+    }
+    endAnalysisCanvas();
     return;
   }
 
