@@ -710,24 +710,35 @@ grid-template-columns: 1fr 1.2fr 1fr;
 display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  height: 44px;
   min-height: 44px;
-  padding: 8px;
+  padding: 0 10px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
   font-size: 0.75rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1;
   text-align: center;
-  white-space: normal;
+  white-space: nowrap;
   cursor: pointer;
   touch-action: manipulation;
+}
+.setup-btn:not(.setup-btn-solid):hover,
+.setup-btn:not(.setup-btn-solid):active {
+background: #f8fafc;
 }
 .setup-btn-solid {
 background: var(--primary-accent);
   border-color: transparent;
-  color: #fff;
+  color: #ffffff;
+}
+.setup-btn-solid:hover,
+.setup-btn-solid:active {
+background: var(--primary-accent);
+  color: #ffffff;
 }
 .setup-btn:active,
 .btn:active,
