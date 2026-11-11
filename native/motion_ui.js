@@ -159,7 +159,7 @@ function updateDrawerKeyBadge() {
   }
   if (typeof selectedAngleMode !== 'undefined' && selectedAngleMode === 'FRONT') {
     var toe = records.fcToeAngle;
-    el.textContent = (toe == null) ? '🎯 接地つま先 --' : ('🎯 接地つま先 ' + toe + '°');
+    el.textContent = (toe == null) ? '🎯 接地時開き --' : ('🎯 接地時開き ' + toe + '°');
     return;
   }
   var knee = records.ffKneeFlex;
@@ -193,6 +193,7 @@ function setupDrawerSwipe(drawerElement) {
   var handle = drawerElement.querySelector('.drawer-handle');
   var startY = 0;
   var tracking = false;
+  var suppressClick = false;
 
   function pointY(event) {
     if (event.touches && event.touches.length) return event.touches[0].clientY;
@@ -200,12 +201,18 @@ function setupDrawerSwipe(drawerElement) {
     return event.clientY;
   }
 
-  function onHandleClick() {
+  function onHandleClick(event) {
+    if (suppressClick) {
+      suppressClick = false;
+      event.preventDefault();
+      return;
+    }
     setDrawerExpanded(drawerElement, !drawerElement.classList.contains('is-expanded'));
   }
 
   function onStart(event) {
-    if (event.target.closest('#drawer-body, input, button, a, select, textarea')) {
+    var onGrip = event.target.closest('.drawer-grip');
+    if (!onGrip && event.target.closest('#drawer-body, input, button, a, select, textarea')) {
       tracking = false;
       return;
     }
@@ -217,8 +224,10 @@ function setupDrawerSwipe(drawerElement) {
     if (!tracking) return;
     tracking = false;
     var delta = startY - pointY(event);
-    if (delta > 36) setDrawerExpanded(drawerElement, true);
-    else if (delta < -36) setDrawerExpanded(drawerElement, false);
+    if (Math.abs(delta) > 36) {
+      suppressClick = true;
+      setDrawerExpanded(drawerElement, delta > 0);
+    }
   }
 
   if (handle) handle.addEventListener('click', onHandleClick);

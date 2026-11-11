@@ -200,10 +200,10 @@ function updateReleaseButton() {
   const clearBtn = document.getElementById('btn-clear-release');
   if (!setBtn || !clearBtn) return;
   if (manualReleaseTime == null) {
-    setBtn.textContent = '💥リリース';
+    setBtn.textContent = '🎯 リリース決定';
     clearBtn.hidden = true;
   } else {
-    setBtn.textContent = '💥更新';
+    setBtn.textContent = '🎯 更新';
     clearBtn.hidden = false;
   }
 }
@@ -262,6 +262,8 @@ function applyManualRelease() {
   }
   updateReleaseButton();
   updateReleaseMarker();
+  if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(2, true);
+  if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
 }
 
 function clearManualRelease() {
@@ -277,6 +279,8 @@ function clearManualRelease() {
   }
   updateReleaseButton();
   updateReleaseMarker();
+  ghostLandmarksKey2 = null;
+  ghost2Locked = false;
   if (stepViews[4].classList.contains('active')) {
     processSingleFrame();
   }
@@ -892,7 +896,7 @@ document.getElementById('btn-manual-fc').addEventListener('click', () => {
     records.ffKneeFlex = currentCalculatedState.kneeFlexAngle;
     paintSideKneeHero();
   }
-  if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(2, true);
+  if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(1, true);
   if (typeof updateDrawerKeyBadge === 'function') updateDrawerKeyBadge();
   if (typeof redrawPoseOverlay === 'function') redrawPoseOverlay();
 });

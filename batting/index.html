@@ -147,25 +147,25 @@
       </div>
 
       <div id="drawer-sheet" class="frosted-drawer is-collapsed" data-state="collapsed">
-        <button type="button" class="drawer-handle" id="drawer-handle" aria-label="シートを開閉"><span></span></button>
         <div class="drawer-peek">
           <div class="seek-container">
             <input type="range" id="seek-bar" class="seek-bar" value="0" min="0" max="100" step="0.001">
             <span class="time-disp" id="time-disp">0.00 / 0.00</span>
           </div>
-          <div class="btn-row btn-row-transport">
-            <button class="btn-ctrl" id="btn-frame-prev">-1コマ</button>
-            <button class="btn-ctrl" id="btn-play-pause" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-color: #fff; box-shadow: none;">再生</button>
-            <button class="btn-ctrl" id="btn-frame-next">+1コマ</button>
+          <div class="btn-row drawer-mainbar">
+            <button class="btn-ctrl" id="btn-frame-prev" type="button">◀ -1コマ</button>
+            <button class="btn-ctrl" id="btn-play-pause" type="button" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border-color: #fff; box-shadow: none;">再生</button>
+            <button class="btn-ctrl" id="btn-frame-next" type="button">+1コマ ▶</button>
+            <button class="btn-ctrl btn-decide" id="btn-manual-top" type="button" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; border-color: #fff; box-shadow: none;">◎ トップ決定</button>
+            <button class="btn-ctrl btn-decide btn-impact-trigger" id="btn-manual-impact" type="button">💥 インパクト決定</button>
           </div>
-          <div id="drawer-key-badge" class="drawer-key-badge">🔥 TOP捻転差 --</div>
+          <div class="drawer-grip">
+            <button type="button" class="drawer-handle" id="drawer-handle" aria-label="シートを開閉"><span></span></button>
+            <div id="drawer-key-badge" class="drawer-key-badge">🔥 TOP捻転差 --</div>
+          </div>
           <button class="btn-ctrl btn-ai-hud" id="btn-toggle-ai-hud" type="button">🤖 AI認識ステータス</button>
         </div>
         <div class="drawer-body" id="drawer-body">
-          <div class="btn-row btn-row-decide">
-            <button class="btn-ctrl" id="btn-manual-top" style="background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; border-color: #fff; box-shadow: none;">◎トップ</button>
-            <button class="btn-ctrl btn-impact-trigger" id="btn-manual-impact">💥インパクト</button>
-          </div>
       <div class="dashboard">
         <div class="card">
           <div class="card-title" id="c1-title">🔄 捻転差 (下半身先行度)</div>
@@ -224,10 +224,12 @@
             <p id="drawer-advice-text">主要な数値が決まると、ここにワンポイントが出ます。</p>
           </section>
           <div class="drawer-actions">
-            <button class="btn-ctrl btn-save-trigger" id="btn-save-record" type="button">💾 保存</button>
-            <button class="btn-ctrl" id="btn-open-carte" type="button">📋 カルテ</button>
-            <button class="btn-ctrl" id="btn-export-frame" type="button">🖼 書き出し</button>
-            <button class="btn-ctrl btn-secondary" id="btn-re-select" type="button">📁 選択</button>
+            <button class="btn-ctrl btn-save-trigger" id="btn-save-record" type="button">💾 カルテ保存</button>
+            <button class="btn-ctrl" id="btn-open-carte" type="button">📋 カルテ一覧</button>
+            <button class="btn-ctrl" id="btn-export-frame" type="button">📤 書き出し</button>
+            <button class="btn-ctrl btn-secondary" id="btn-re-select" type="button">🔄 動画選択</button>
+          </div>
+          <div class="drawer-actions drawer-utilities">
             <button class="btn-ctrl" id="btn-toggle-skeleton" type="button">🦴 骨格</button>
             <button class="btn-ctrl" id="btn-zoom-reset" type="button">🔍 ズーム</button>
             <button class="btn-ctrl" id="btn-reset-max" type="button">↺ リセット</button>

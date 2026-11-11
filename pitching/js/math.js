@@ -206,7 +206,7 @@ function applyPitchingBiomechanics(landmarks, b) {
           leadFootFlatStationaryCount++;
           if (leadFootFlatStationaryCount === 2) {
             isKinematicFF = true;
-            if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(2, false);
+            if (typeof captureGhostLandmarks === 'function') captureGhostLandmarks(1, false);
           }
         } else {
           leadFootFlatStationaryCount = 0;
@@ -442,9 +442,6 @@ function applyPitchingBiomechanics(landmarks, b) {
     }
   }
 
-  if (leadKnee && leadHip && records.ffKneeFlex == null && leadKnee.y < leadHip.y - 0.02) {
-    if (typeof noteLegLiftPeak === 'function') noteLegLiftPeak(leadKnee.y);
-  }
   if (typeof updateDrawerKeyBadge === 'function') updateDrawerKeyBadge();
   if (isSkeletonVisible) {
     drawPrecisionSkeleton(landmarks, b.x, b.y, b.w, b.h, isSouthpaw, isRightHanded);
