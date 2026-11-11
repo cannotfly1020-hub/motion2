@@ -1,181 +1,89 @@
-// 投球AIトレーナーの知見辞書。文章の追加・修正はこのファイルだけ。
-// 各項目: id / phase / title / description / reason / exercise / evaluate(metrics)
-// metrics.mode は "SIDE"（横向き）または "FRONT"（正面）。
-// {mer} のように指標名を書くと、画面ではその数値に置き換わる。
-// severity が "good" の項目は、alert / warning が1件も無いときだけ出る。
-// 書き方の詳細は README_trainer.md。
+// 投球のフィジカル診断文。閾値の判定は js/math.js。
+// 技術指導ではなく、可動域（ROM）と筋力・安定性の所見だけを書く。
 
-var PITCHING_TRAINER_CONFIG = {
-  header: "【🩺 AIトレーナー（肩肘・運動連鎖チェック）】",
-  maxNotes: 2,
-  fallback: {
-    title: "【動作スクリーニング】",
-    description: "現時点で突出した肩肘への代償は見当たりません。",
-    reason: "MER・接地・リリースの数値が揃うと、運動連鎖をより正確に評価できます。",
-    exercise: "登板後の肩甲帯と体幹のコンディションをあわせて確認しましょう。"
+var PITCHING_PHYSICAL_COPY = {
+  earlyOpen: {
+    summary: "接地で身体が早く開いている",
+    finding: "べた足時のつま先の開きは {toe} です。接地で足が外側へ開いており、骨盤と胸郭が早く回っているサインです。前足股関節の内旋が足りないと着地で骨盤を止められず、胸の早期開放（Early Open）として肩内旋トルクと肘内側側副靭帯（UCL）への牽引が増えます。",
+    cause: "前足股関節の内旋可動域制限（< 30°）、軸足股関節の外旋・伸展制限、胸椎回旋可動域制限（片側 < 35°）。体幹回旋筋群（腹斜筋群）のブレーキング力低下、前足内転筋・中殿筋の着地減速力不足。",
+    drills: ["前足の90-90股関節ストレッチ", "椅子に座った胸椎オープンブック"]
+  },
+  elbowLow: {
+    summary: "肘が肩のラインより下がっている",
+    finding: "腕の挙上角は {arm} で、肩のラインより肘が下がっています。肩甲骨が上がりきらないまま振ると、肩峰下の衝突と肘の外反ストレスが増えます。",
+    cause: "胸椎伸展の制限、肩関節の水平外転不足、広背筋・大円筋のタイトネス。前鋸筋・僧帽筋下部の出力低下、腱板（棘下筋・小円筋）の機能低下。",
+    drills: ["フォームローラーでの胸椎伸展", "壁を使ったウォールスライド（前鋸筋・僧帽筋下部）"]
+  },
+  kneeFlex: {
+    summary: "接地足のヒザが崩れている",
+    finding: "べた足時の前足ヒザ屈曲は {knee} で、55° を超えています。{kneeOutNote}着地の制動が抜け、骨盤が急に止まらないまま腕に負荷が残ります。",
+    cause: "前足足関節の背屈制限（< 15°）、前足股関節の内旋制限（< 30°）。前足大腿四頭筋のエキセントリック制動力不足、前足中殿筋・外旋筋群のスタビリティ不足。",
+    drills: ["前足のスプリットスクワット（ゆっくり沈む）", "壁を使った足関節の背屈ストレッチ"]
+  },
+  kneeOut: {
+    summary: "接地足のヒザが外側へ逃げている",
+    finding: "べた足時に前足ヒザが外側へ {valgus} 流れています。着地でヒザが割れると、骨盤の急停止が起きず運動連鎖が切れます。",
+    cause: "前足足関節の背屈制限（< 15°）、前足股関節の内旋制限（< 30°）。前足大腿四頭筋のエキセントリック制動力不足、前足中殿筋・外旋筋群のスタビリティ不足。",
+    drills: ["ミニバンドを使った横歩き", "前足片足立ちでの踏ん張りキープ"]
+  },
+  strideShort: {
+    summary: "歩幅が身長の75%に届いていない",
+    finding: "ステップ幅は身長の {stride} です。エリート投手の平均は身長の 80〜85% で、75% 未満は軸足の股関節伸展とトリプルエクステンションが足りず、体幹前傾が減って肘と肩のストレスが増えます。",
+    cause: "軸足股関節の伸展制限（< 15〜20°）、前足ハムストリングスの柔軟性低下、軸足腸腰筋の短縮。軸足臀筋群の股・膝・足関節を伸ばす推進力不足。",
+    drills: ["軸足の腸腰筋ストレッチ", "軸足から伸びるステップスルー"]
+  },
+  trunkShort: {
+    summary: "体幹の前傾が足りない",
+    finding: "測定された体幹前傾の最大は {trunk} で、25° に届いていません。リリースで上体が浮くと、ボールの出どころが遅れ、肩と肘の負荷が残ります。",
+    cause: "前足ハムストリングスの柔軟性低下、胸椎の屈曲・回旋制限。腹直筋・腹斜筋の体幹屈曲パワー不足、前足股関節で体重を受け止めるヒップヒンジの不足。",
+    drills: ["前足のストレートレッグレイズ", "メディシンボールを持ったヒップヒンジ"]
+  },
+  merShort: {
+    summary: "肩のしなり（MER）が足りない",
+    finding: "肩の最大外旋は {mer} で、165° に届いていません。プロ投手の平均は 170〜180° で、肩甲骨の後傾と内転が伴わないとしなりが作れません。",
+    cause: "肩甲上腕関節の外旋可動域制限、大胸筋・小胸筋の短縮、胸椎後弯。菱形筋・僧帽筋中部の内転保持力不足。",
+    drills: ["ドア枠での胸筋ストレッチ", "胸を張った肩甲骨内転のキープ"]
+  },
+  strideGood: {
+    summary: "歩幅は確保できている",
+    finding: "ステップ幅は身長の {stride} です。軸足の股関節伸展から前足へ体重を運べています。",
+    cause: "軸足のトリプルエクステンションと、前足で受け止める準備が機能しています。",
+    drills: ["この歩幅を維持する軸足股関節のケアを継続", "前足の着地位置を毎回そろえる"]
+  },
+  elbowHeight: {
+    summary: "肘は肩のラインまで上がっている",
+    finding: "腕の挙上角は {arm} です。肘が肩のラインより下に残っていません。",
+    cause: "胸椎伸展と、前鋸筋・僧帽筋下部による肩甲骨の上方回旋が伴っています。",
+    drills: ["この肘の高さを維持する胸椎伸展を継続", "肩甲骨周囲のウォームアップを継続"]
+  },
+  trunkGood: {
+    summary: "体幹の前傾は出ている",
+    finding: "体幹前傾の最大は {trunk} です。リリース方向へ上体を倒せています。",
+    cause: "前足股関節で体重を受け止め、体幹屈曲へ返す準備ができています。",
+    drills: ["この前傾を維持するヒップヒンジを継続", "前足ハムストリングスの柔軟性チェックを継続"]
+  },
+  merGood: {
+    summary: "肩のしなりは確保できている",
+    finding: "肩の最大外旋は {mer} です。170° 前後のしなりが作れています。",
+    cause: "肩甲骨の後傾・内転と、胸椎の伸展が外旋に伴っています。",
+    drills: ["この可動域を維持する胸椎伸展を継続", "胸筋の柔軟性チェックを継続"]
+  },
+  kneeGood: {
+    summary: "接地足のヒザは受け止められている",
+    finding: "べた足時の前足ヒザ屈曲は {knee} で、55° を超える崩れはありません。着地の制動が残っています。",
+    cause: "前足の大腿四頭筋と中殿筋が、着地の衝撃を受け止めています。",
+    drills: ["この踏ん張りを維持する片足支持を継続", "足関節背屈の可動域チェックを継続"]
+  },
+  clear: {
+    summary: "優先度の高い可動域・安定性の制限は見当たりません",
+    finding: "今回の優先項目は、不足として扱う範囲には入っていません。{detail}",
+    cause: "接地の早期開放、肘下がり、前足の崩れ、歩幅不足、体幹前傾不足は、この測定値からは特定できません。",
+    drills: ["胸椎回旋と前足股関節内旋のチェックを継続", "前足の片足支持をウォームアップに残す"]
+  },
+  waiting: {
+    summary: "測定待ち",
+    finding: "べた足、ステップ幅、挙上角、体幹前傾が決まると、可動域と安定性の診断を出します。",
+    cause: "まだ診断に使う数値が揃っていません。",
+    drills: []
   }
 };
-
-var PITCHING_TRAINER_RULES = [
-  {
-    id: "mer_hyper_external_rotation",
-    phase: "MER",
-    title: "【肩関節への剪断力リスク】",
-    description: "MER時の外旋角度が大きく（{mer}°）、肩前方関節包および肘内側に高い牽引・外反ストレスがかかりやすい状態です。",
-    reason: "胸椎伸展や肩甲胸郭の安定が不足すると、外旋を肩関節前面で作りすぎる代償が起きます。",
-    exercise: "肩甲胸郭関節の安定性と胸椎伸展の可動域を確保しましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.mer >= 170;
-    }
-  },
-  {
-    id: "mer_limited_external_rotation",
-    phase: "MER",
-    title: "【肩甲帯の外旋可動域】",
-    description: "MER時の外旋角度が小さく（{mer}°）、肩甲上腕リズムでのしなりが不足しています。",
-    reason: "胸椎伸展や肩甲骨後傾の制限を、体幹の早期回旋や肘の過伸展で補う代償が起きやすくなります。",
-    exercise: "胸椎伸展と肩甲胸郭関節の可動性を確認し、外旋を肘で作らないよう評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.mer > 0 && metrics.mer < 150;
-    }
-  },
-  {
-    id: "trunk_flexion_shortage",
-    phase: "Release",
-    title: "【肩肘アライメント注意】",
-    description: "リリース時の体幹前傾が不足しています（{trunkTilt}°）。肘が肩のラインより残りやすく、インピンジメントや肘内側側副靭帯（UCL）への負荷が増大します。",
-    reason: "体幹屈曲の遅れを肩の水平内転や肘下がりで補う代償が疑われます。",
-    exercise: "体幹前傾角の確保と、広背筋・体幹屈曲の連動を促すドリルを推奨します。",
-    severity: "alert",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.trunkTilt > 0 && metrics.trunkTilt < 25;
-    }
-  },
-  {
-    id: "side_twist_shortage",
-    phase: "MER",
-    title: "【体幹と骨盤の分離不足】",
-    description: "体幹の捻転差が小さく（{twist}°）、運動連鎖のタメが早く抜けています。",
-    reason: "骨盤と胸郭のタイミングがずれ、肩肘で速度を作る代償が起きやすくなります。",
-    exercise: "胸椎回旋の可動域と、軸足股関節で骨盤を残すタイミングを再評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.twist > 0 && metrics.twist < 22;
-    }
-  },
-  {
-    id: "lead_leg_brake_loss",
-    phase: "Release",
-    title: "【前足のブレーキ力】",
-    description: "リリースで前膝の屈曲が接地時より深く（接地 {ffKneeFlex}° → リリース {releaseKneeFlex}°）、ブレーキが抜けています。",
-    reason: "床反力を体幹へ返せず、肩肘への牽引で投球を完結させる代償が疑われます。",
-    exercise: "前足股関節・殿筋の遠心性支持と、片脚での安定性を評価してください。",
-    severity: "alert",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.releaseKneeFlex > (metrics.ffKneeFlex || 0) + 10 && metrics.releaseKneeFlex > 0;
-    }
-  },
-  {
-    id: "stride_short",
-    phase: "SFC",
-    title: "【ステップと股関節伸展】",
-    description: "歩幅が短く（身長比 {strideRatio}%）、前方への重心移動が不足しています。",
-    reason: "軸足股関節の伸展が出ず、上肢で球速を補う代償が起きやすくなります。",
-    exercise: "股関節伸展の可動域と、軸足から前足への荷重移動を確認しましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "SIDE" && metrics.strideRatio > 0 && metrics.strideRatio < 72;
-    }
-  },
-  {
-    id: "side_chain_clear",
-    phase: "Release",
-    title: "【良好な運動連鎖】",
-    description: "下肢から体幹、肩甲帯、上肢へとエネルギーが順に伝達されています。",
-    reason: "肩前方や肘内側への過剰な牽引・外反ストレスは目立っていません。",
-    exercise: "この負担の少ない投球連鎖を、登板後の肩甲帯ケアで維持しましょう。",
-    severity: "good",
-    evaluate: function(metrics) {
-      if (metrics.mode !== "SIDE") return false;
-      const trunk = metrics.trunkTilt || 0;
-      return metrics.mer >= 150 && metrics.mer < 170 && (trunk === 0 || trunk >= 25);
-    }
-  },
-  {
-    id: "sfc_pelvis_early_open",
-    phase: "SFC",
-    title: "【骨盤先行開きの代償】",
-    description: "接地時につま先が開き（{toeAngle}°）、骨盤が早期に開いて運動連鎖のタメが抜けています。",
-    reason: "軸足で骨盤を残せないと、肩肘が先行して牽引ストレスが増えます。",
-    exercise: "軸足の股関節外転・外旋保持力および回旋筋群のタイミングを再評価してください。",
-    severity: "alert",
-    evaluate: function(metrics) {
-      return metrics.mode === "FRONT" && metrics.toeAngle > 12;
-    }
-  },
-  {
-    id: "elbow_below_shoulder",
-    phase: "Release",
-    title: "【肩肘アライメント注意】",
-    description: "挙上角度が低く（{armSlot}°）、肘が肩のラインより下がっており、インピンジメントや肘内側側副靭帯（UCL）への負荷が増大しています。",
-    reason: "体幹前傾や肩甲帯の上方回旋が不足し、肘の高さでリリース位置を補う代償が疑われます。",
-    exercise: "体幹前傾角の確保と、広背筋・体幹屈曲の連動を促すドリルを推奨します。",
-    severity: "alert",
-    evaluate: function(metrics) {
-      return metrics.mode === "FRONT" && metrics.armSlot > 0 && metrics.armSlot < 100;
-    }
-  },
-  {
-    id: "lead_knee_valgus",
-    phase: "SFC",
-    title: "【接地脚の膝アライメント】",
-    description: "着地足の膝が内外へ崩れています（{valgus}°）。",
-    reason: "股関節の支持が不足し、膝関節と体幹の側方バランスで接地を支える代償が見られます。",
-    exercise: "殿筋群の安定性と、足部の荷重位置を評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "FRONT" && metrics.valgus > 6;
-    }
-  },
-  {
-    id: "trunk_lateral_excess",
-    phase: "Release",
-    title: "【体幹側屈の過大】",
-    description: "体幹の側屈が大きく（{trunkLateral}°）、投球側へ体が倒れています。",
-    reason: "腰椎への側屈ストレスが増え、肩甲帯の位置が崩れて肘への負荷が変わります。",
-    exercise: "体幹の抗側屈と、反対側股関節での支持をチェックしましょう。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "FRONT" && metrics.trunkLateral > 25;
-    }
-  },
-  {
-    id: "step_offset",
-    phase: "SFC",
-    title: "【踏み出し位置と骨盤】",
-    description: "踏み出しの横ずれが大きく（{inStep}cm）、接地位置が投球線から外れています。",
-    reason: "骨盤の向きが早く変わり、肩肘で方向を修正する代償が起きやすくなります。",
-    exercise: "軸足股関節の向きと、ステップ足の接地位置を再評価してください。",
-    severity: "warning",
-    evaluate: function(metrics) {
-      return metrics.mode === "FRONT" && metrics.inStep > 12;
-    }
-  },
-  {
-    id: "front_chain_clear",
-    phase: "SFC",
-    title: "【良好な運動連鎖】",
-    description: "下肢から体幹、肩甲帯、上肢へとエネルギーが順に伝達されています。",
-    reason: "肩前方や肘内側への過剰な牽引・外反ストレスは目立っていません。",
-    exercise: "この負担の少ない投球連鎖を、登板後の肩甲帯ケアで維持しましょう。",
-    severity: "good",
-    evaluate: function(metrics) {
-      if (metrics.mode !== "FRONT") return false;
-      const slot = metrics.armSlot || 0;
-      const valgus = metrics.valgus || 0;
-      return metrics.toeAngle <= 12 && (slot === 0 || slot >= 100) && valgus <= 6 && (metrics.toeAngle > 0 || slot >= 100);
-    }
-  }
-];

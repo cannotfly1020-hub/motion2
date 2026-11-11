@@ -24,6 +24,29 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
+#view-step4 .btn-ctrl.is-off {
+  background: #e2e8f0;
+  color: #64748b;
+  border-color: #cbd5e1;
+  box-shadow: none;
+}
+
+.ai-status-hud.is-collapsed {
+  right: auto;
+  width: max-content;
+  max-width: calc(100% - 8px);
+  padding: 4px 8px;
+  overflow: hidden;
+}
+
+.ai-status-hud.is-collapsed .hud-body {
+  display: none;
+}
+
+.ai-status-hud.is-collapsed .hud-collapsed-line {
+  display: block;
+}
+
 .frosted-drawer {
   position: fixed;
   left: 0;

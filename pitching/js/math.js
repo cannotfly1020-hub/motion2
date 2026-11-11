@@ -1,66 +1,142 @@
 // 投球バイオメカニクス（角度・速度・フェーズ検出）
-// トレーナーコメントの文章は trainer/pitching_knowledge.js にある。
+// フィジカル診断の文章は trainer/pitching_knowledge.js にある。
 
-function formatTrainerNumber(value) {
-  return (typeof value === 'number' && Number.isFinite(value)) ? String(value) : '--';
+function escapeTrainerHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
-function fillTrainerText(text, metrics) {
-  if (typeof text !== 'string') return '';
-  return text.replace(/\{(\+)?([A-Za-z0-9_]+)\}/g, function(_, sign, key) {
-    const value = metrics[key];
-    if (sign === '+') {
-      if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
-      return (value > 0 ? '+' : '') + value;
-    }
-    return formatTrainerNumber(value);
+function trainerNumber(value) {
+  return (typeof value === 'number' && Number.isFinite(value)) ? value : null;
+}
+
+function pitchingMeasured(metrics, flag, value) {
+  const number = trainerNumber(value);
+  if (number === null || metrics[flag] === false) return null;
+  if (metrics[flag] !== true && number === 0) return null;
+  return number;
+}
+
+function fillPhysicalText(text, tokens) {
+  return String(text || '').replace(/\{([A-Za-z0-9_]+)\}/g, function(_, key) {
+    return tokens[key] == null ? '' : String(tokens[key]);
   });
 }
 
-function formatTrainerRule(rule, metrics) {
-  const rawTitle = rule.title || '評価';
-  const title = rawTitle.charAt(0) === '【' ? rawTitle : '【' + rawTitle + '】';
-  return title + '\n① ' + fillTrainerText(rule.description, metrics) +
-    '\n② ' + fillTrainerText(rule.reason, metrics) +
-    '\n③ ' + fillTrainerText(rule.exercise, metrics);
-}
+function selectPitchingPhysicalFindings(entry) {
+  const copy = (typeof PITCHING_PHYSICAL_COPY !== 'undefined') ? PITCHING_PHYSICAL_COPY : null;
+  const metrics = (entry && entry.metrics) || {};
+  if (!copy) return { alerts: [], goods: [], notes: [] };
 
-function renderTrainerKnowledge(rules, config, entry) {
-  const list = Array.isArray(rules) ? rules : [];
-  const safeEntry = entry || {};
-  const metrics = Object.assign({ mode: safeEntry.mode }, safeEntry.metrics || {});
-  const maxNotes = (config && config.maxNotes) || 2;
-  const findings = [];
+  const toe = pitchingMeasured(metrics, 'toeLocked', metrics.toeAngle);
+  const arm = pitchingMeasured(metrics, 'armCaptured', metrics.armSlot);
+  const knee = pitchingMeasured(metrics, 'ffKneeLocked', metrics.ffKneeFlex);
+  const valgus = pitchingMeasured(metrics, 'valgusLocked', metrics.valgus);
+  const outward = valgus !== null && valgus > 12 && String(metrics.valgusLabel || '').indexOf('割れ') !== -1;
+  const stride = pitchingMeasured(metrics, 'strideCaptured', metrics.strideRatio);
+  const trunk = pitchingMeasured(metrics, 'trunkCaptured', metrics.trunkTilt);
+  const mer = pitchingMeasured(metrics, 'merCaptured', metrics.mer);
+  const tokens = {
+    toe: toe === null ? '--' : (toe + '°'),
+    arm: arm === null ? '--' : (arm + '°'),
+    knee: knee === null ? '--' : (knee + '°'),
+    valgus: valgus === null ? '--' : (valgus + '°'),
+    stride: stride === null ? '--' : (stride + '%'),
+    trunk: trunk === null ? '--' : (trunk + '°'),
+    mer: mer === null ? '--' : (mer + '°'),
+    kneeOutNote: outward ? ('あわせてヒザが外側へ ' + valgus + '° 流れています。') : ''
+  };
+
+  const alerts = [];
   const goods = [];
+  const notes = [];
+  const toeOpen = toe !== null && (toe > 20 || String(metrics.toeLabel || '').indexOf('開き注意') !== -1);
+  if (toeOpen) alerts.push('earlyOpen');
+  else if (toe !== null && toe <= 10) notes.push('べた足のつま先 ' + tokens.toe);
 
-  list.forEach(function(rule) {
-    if (!rule || typeof rule.evaluate !== 'function') return;
-    let matched = false;
-    try {
-      matched = !!rule.evaluate(metrics);
-    } catch (err) {
-      matched = false;
-    }
-    if (!matched) return;
-    const text = formatTrainerRule(rule, metrics);
-    if (rule.severity === 'good') goods.push(text);
-    else findings.push(text);
-  });
+  if (arm !== null && arm < 100) alerts.push('elbowLow');
+  else if (arm !== null && arm >= 100) goods.push('elbowHeight');
 
-  let chosen = findings.slice(0, maxNotes);
-  if (chosen.length === 0 && goods.length > 0) chosen = [goods[0]];
-  if (chosen.length === 0 && config && config.fallback) {
-    chosen = [formatTrainerRule(config.fallback, metrics)];
+  if (knee !== null && knee > 55) alerts.push('kneeFlex');
+  else if (outward) alerts.push('kneeOut');
+  else if (knee !== null && knee >= 15 && knee <= 55) goods.push('kneeGood');
+
+  if (stride !== null && stride < 75) alerts.push('strideShort');
+  else if (stride !== null && stride >= 80) goods.push('strideGood');
+  else if (stride !== null) notes.push('ステップ幅 身長の ' + tokens.stride);
+
+  if (trunk !== null && trunk < 25) alerts.push('trunkShort');
+  else if (trunk !== null && trunk >= 30) goods.push('trunkGood');
+  else if (trunk !== null) notes.push('体幹前傾の最大 ' + tokens.trunk);
+
+  if (mer !== null && mer < 165) alerts.push('merShort');
+  else if (mer !== null && mer >= 170) goods.push('merGood');
+  else if (mer !== null) notes.push('肩の最大外旋 ' + tokens.mer);
+
+  return { alerts: alerts, goods: goods, notes: notes, tokens: tokens, copy: copy };
+}
+
+function materializePitchingCard(id, pack) {
+  const source = pack.copy[id];
+  if (!source) return null;
+  const tokens = Object.assign({}, pack.tokens, { detail: pack.notes.join('、') });
+  return {
+    summary: fillPhysicalText(source.summary, tokens),
+    finding: fillPhysicalText(source.finding, tokens),
+    cause: fillPhysicalText(source.cause, tokens),
+    drills: (source.drills || []).map(function(item) { return fillPhysicalText(item, tokens); })
+  };
+}
+
+function collectPitchingDiagnosisCards(entry) {
+  const pack = selectPitchingPhysicalFindings(entry);
+  if (!pack.copy) return [];
+  let ids = pack.alerts.slice(0, 2);
+  if (ids.length === 0) {
+    const goodIds = pack.goods.filter(function(id) { return pack.copy[id]; });
+    ids = goodIds.slice(0, 2);
   }
+  if (ids.length === 0 && pack.notes.length > 0) ids = ['clear'];
+  if (ids.length === 0) ids = ['waiting'];
+  return ids.map(function(id) { return materializePitchingCard(id, pack); }).filter(Boolean);
+}
 
-  const header = (config && config.header) ? config.header + '\n' : '';
-  return header + chosen.join('\n\n');
+function renderPitchingDiagnosisHtml(cards) {
+  return cards.map(function(card) {
+    const drills = card.drills.length
+      ? '<ul>' + card.drills.map(function(item) { return '<li>' + escapeTrainerHtml(item) + '</li>'; }).join('') + '</ul>'
+      : '';
+    return '<article class="trainer-diagnosis-card">' +
+      '<div class="diagnosis-header">' +
+        '<span class="diagnosis-badge">🏋️ フィジカル・可動域診断</span>' +
+        '<span class="diagnosis-summary">【要点】' + escapeTrainerHtml(card.summary) + '</span>' +
+      '</div>' +
+      '<div class="diagnosis-body">' +
+        '<p class="diagnosis-finding"><strong>🔍 動作の現れ:</strong> ' + escapeTrainerHtml(card.finding) + '</p>' +
+        '<p class="diagnosis-cause"><strong>🎯 疑われる身体要因:</strong> ' + escapeTrainerHtml(card.cause) + '</p>' +
+        (drills ? '<div class="diagnosis-prescription"><strong>💡 おすすめの身体ケア・補強:</strong>' + drills + '</div>' : '') +
+      '</div></article>';
+  }).join('');
+}
+
+function renderPitchingDiagnosisText(cards) {
+  return cards.map(function(card) {
+    const drills = card.drills.map(function(item) { return '・' + item; }).join('\n');
+    return '【🏋️ フィジカル・可動域診断】' + card.summary +
+      '\n動作の現れ: ' + card.finding +
+      '\n疑われる身体要因: ' + card.cause +
+      (drills ? '\nおすすめの身体ケア・補強:\n' + drills : '');
+  }).join('\n\n');
+}
+
+function generatePitchingDiagnosisHtml(entry) {
+  return renderPitchingDiagnosisHtml(collectPitchingDiagnosisCards(entry));
 }
 
 function generatePitchingAICoachAdvice(entry) {
-  const rules = (typeof PITCHING_TRAINER_RULES !== 'undefined') ? PITCHING_TRAINER_RULES : [];
-  const config = (typeof PITCHING_TRAINER_CONFIG !== 'undefined') ? PITCHING_TRAINER_CONFIG : null;
-  return renderTrainerKnowledge(rules, config, entry);
+  return renderPitchingDiagnosisText(collectPitchingDiagnosisCards(entry));
 }
 
 function getSegmentAngle3D(p1, p2) {

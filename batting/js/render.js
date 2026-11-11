@@ -197,14 +197,14 @@ function drawBattingSkeleton(landmarks, ox, oy, bw, bh, isRightBatter) {
   if (typeof paintLiveSkeleton === 'function') paintLiveSkeleton(outputCtx, landmarks, ox, oy, bw, bh);
 }
 
-var isHudCollapsed = false;
+var isHudCollapsed = true;
 
 var hudLayout = {
   x: 12,
   y: 30,
   expandedW: 270,
   expandedH: 158,
-  collapsedW: 195,
+  collapsedW: 112,
   collapsedH: 26,
   radius: 8
 };
@@ -288,11 +288,10 @@ function drawAiDiagnosticsHUD() {
   const status = diag ? diag.status : 'IDLE';
   const latency = diag ? Math.round(diag.latencyMs) : 0;
   const fps = diag ? Math.round(diag.fps) : 0;
-  const statusShort = status === 'RUNNING' ? '正常' : (status === 'ERROR' ? 'エラー' : '待機');
   el.hidden = false;
   el.classList.toggle('is-collapsed', !!isHudCollapsed);
   const collapsed = el.querySelector('[data-k="collapsed"]');
-  collapsed.textContent = '🤖 AI認識: ' + statusShort + '  [' + latency + 'ms]  ▼';
+  collapsed.textContent = '▼ AIステータス';
   let statusText = '一時停止中 (待機)';
   let statusColor = '#ffd60a';
   if (status === 'RUNNING') {

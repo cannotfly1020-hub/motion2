@@ -145,7 +145,7 @@
         <div class="analysis-stage">
           <div class="screen-wrapper" id="main-screen-wrapper">
             <canvas id="output-canvas"></canvas>
-            <div id="ai-status-hud" class="ai-status-hud" hidden></div>
+            <div id="ai-status-hud" class="ai-status-hud is-collapsed" hidden></div>
             <div class="zoom-badge" id="zoom-badge">🔍 1.0x (ピンチ可)</div>
             <div class="angle-mode-badge" id="angle-mode-badge">横向き解析</div>
             <div class="player-tag-badge" id="player-tag-badge">👤 せんしゅ1 (140cm)</div>
@@ -212,9 +212,8 @@
               <div class="card-val" id="c6-val">--</div>
             </div>
         </div>
-            <section class="drawer-advice">
-              <h2>🩺 AIワンポイント</h2>
-              <p id="drawer-advice-text">主要な数値が決まると、ここにワンポイントが出ます。</p>
+            <section class="drawer-advice" id="drawer-advice">
+              <div id="drawer-advice-text">主要な数値が決まると、ここにフィジカル診断が出ます。</div>
             </section>
             <div class="drawer-actions">
               <button class="btn-ctrl btn-save-trigger" id="btn-save-record" type="button">💾 カルテ保存</button>
@@ -223,7 +222,7 @@
               <button class="btn-ctrl btn-secondary" id="btn-re-select" type="button">🔄 動画選択</button>
             </div>
             <div class="drawer-actions drawer-utilities">
-              <button class="btn-ctrl" id="btn-toggle-skeleton" type="button">🦴 骨格</button>
+              <button class="btn-ctrl" id="btn-toggle-skeleton" type="button">🦴 骨格: ON</button>
               <button class="btn-ctrl" id="btn-zoom-reset" type="button">🔍 ズーム</button>
               <button class="btn-ctrl" id="btn-reset-max" type="button">↺ リセット</button>
             </div>

@@ -264,9 +264,7 @@ btnBatLeft.addEventListener('click', () => {
 
 btnToggleSkeleton.addEventListener('click', () => {
   isSkeletonVisible = !isSkeletonVisible;
-  btnToggleSkeleton.textContent = isSkeletonVisible ? "🦴 骨格" : "🦴 非表示";
-  btnToggleSkeleton.style.background = isSkeletonVisible ? "#ffffff" : "linear-gradient(135deg, #10b981, #059669)";
-  btnToggleSkeleton.style.color = isSkeletonVisible ? "#334155" : "#ffffff";
+  if (typeof syncPoseOverlayButtons === 'function') syncPoseOverlayButtons();
   processSingleFrame();
 });
 

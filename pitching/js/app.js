@@ -360,9 +360,7 @@ btnArmLeft.addEventListener('click', () => {
 
 btnToggleSkeleton.addEventListener('click', () => {
   isSkeletonVisible = !isSkeletonVisible;
-  btnToggleSkeleton.textContent = isSkeletonVisible ? "🦴 骨格" : "🦴 非表示";
-  btnToggleSkeleton.style.background = isSkeletonVisible ? "#ffffff" : "linear-gradient(135deg, #38bdf8, #0284c7)";
-  btnToggleSkeleton.style.color = isSkeletonVisible ? "#334155" : "#ffffff";
+  if (typeof syncPoseOverlayButtons === 'function') syncPoseOverlayButtons();
   processSingleFrame();
 });
 
@@ -911,25 +909,40 @@ function getSavedRecords() {
   }
 }
 
+function combinedPitchingEntry(sideRec, frontRec) {
+  if (!sideRec && !frontRec) return null;
+  return {
+    mode: sideRec && frontRec ? 'BOTH' : (sideRec ? 'SIDE' : 'FRONT'),
+    metrics: Object.assign({}, (sideRec && sideRec.metrics) || {}, (frontRec && frontRec.metrics) || {})
+  };
+}
+
 function snapshotAdviceEntry() {
   return {
     mode: selectedAngleMode,
     metrics: selectedAngleMode === 'SIDE' ? {
       stride: records.maxStride,
       strideRatio: Math.round((records.maxStride / userHeightCm) * 100),
+      strideCaptured: records.maxStride > 0,
       mer: records.maxMER,
+      merCaptured: records.maxMER > 0,
       twist: records.maxTwist,
       releaseH: records.maxRelease,
       ffKneeFlex: records.ffKneeFlex !== null ? records.ffKneeFlex : currentCalculatedState.kneeFlexAngle,
+      ffKneeLocked: records.ffKneeFlex !== null,
       releaseKneeFlex: records.releaseKneeFlex !== null ? records.releaseKneeFlex : currentCalculatedState.kneeFlexAngle,
-      trunkTilt: records.maxTrunkTilt
+      trunkTilt: records.maxTrunkTilt,
+      trunkCaptured: records.maxTrunkTilt > 0
     } : {
       toeAngle: records.fcToeAngle !== null ? records.fcToeAngle : 0,
       toeLabel: records.fcToeLabel || "未測定",
+      toeLocked: records.fcToeAngle !== null,
       valgus: records.ffValgusAngle !== null ? records.ffValgusAngle : records.maxValgus,
       valgusLabel: records.ffValgusLabel || "未測定",
+      valgusLocked: records.ffValgusAngle !== null,
       trunkLateral: records.maxTrunkLateral,
       armSlot: records.maxArmSlot,
+      armCaptured: records.maxArmSlot > 0,
       inStep: records.maxInStepCm,
       releaseLateral: records.maxReleaseLateral
     }
@@ -1024,7 +1037,7 @@ function shareRecordToLine(groupKey) {
     text += `・リリース横幅: ${frontRec.metrics.releaseLateral}cm\n\n`;
   }
 
-  text += generatePitchingAICoachAdvice(first) + "\n\n";
+  text += generatePitchingAICoachAdvice(combinedPitchingEntry(sideRec, frontRec) || first) + "\n\n";
 
   text += `👦 【せんしゅのふりかえり】\n`;
   text += `・なげた感覚: ${first.feelGrade || '😆 めっちゃ良かった！'}\n`;
@@ -1110,7 +1123,7 @@ function renderCarteList(isInitialOpen) {
     const card = document.createElement('div');
     card.className = 'history-card';
 
-    const aiAdviceHtml = generatePitchingAICoachAdvice(first).replace(/\n/g, '<br>');
+    const aiAdviceHtml = generatePitchingDiagnosisHtml(combinedPitchingEntry(sideRec, frontRec) || first);
 
     card.innerHTML = `
       <div class="history-card-head">
@@ -1158,10 +1171,7 @@ function renderCarteList(isInitialOpen) {
         </div>
       </div>
 
-      <div class="ai-coach-card">
-        <div class="ai-coach-title">🩺 AIトレーナー（肩肘・運動連鎖チェック）</div>
-        <div class="ai-coach-text">${aiAdviceHtml}</div>
-      </div>
+      <div class="trainer-diagnosis-list">${aiAdviceHtml}</div>
 
       <div class="player-reflection-box">
         <div class="reflection-sec-title">⚾ 今日のなげた感覚は？</div>

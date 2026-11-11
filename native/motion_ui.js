@@ -92,6 +92,31 @@ function noteLegLiftPeak(kneeY) {
   captureGhostLandmarks(1, false);
 }
 
+function syncPoseOverlayButtons() {
+  var ghostBtn = document.getElementById('btn-ghost-toggle');
+  if (ghostBtn) {
+    ghostBtn.textContent = showGhostOverlay ? '👻 残像: ON' : '👻 残像: OFF';
+    ghostBtn.classList.toggle('is-off', !showGhostOverlay);
+  }
+  var skeletonBtn = document.getElementById('btn-toggle-skeleton');
+  if (skeletonBtn) {
+    var skeletonOn = typeof isSkeletonVisible !== 'undefined' && !!isSkeletonVisible;
+    skeletonBtn.textContent = skeletonOn ? '🦴 骨格: ON' : '🦴 骨格: OFF';
+    skeletonBtn.classList.toggle('is-off', !skeletonOn);
+    skeletonBtn.style.background = '';
+    skeletonBtn.style.color = '';
+  }
+}
+
+function resetPoseOverlayVisibility() {
+  showGhostOverlay = true;
+  if (typeof isSkeletonVisible !== 'undefined') isSkeletonVisible = true;
+  syncPoseOverlayButtons();
+  if (typeof redrawPoseOverlay === 'function' && typeof videoElement !== 'undefined' && videoElement && videoElement.videoWidth) {
+    redrawPoseOverlay();
+  }
+}
+
 function clearGhostCache() {
   ghostLandmarksKey1 = null;
   ghostLandmarksKey2 = null;
@@ -100,6 +125,7 @@ function clearGhostCache() {
   ghost1Locked = false;
   ghost2Locked = false;
   if (typeof resetPoseCache === 'function') resetPoseCache();
+  resetPoseOverlayVisibility();
 }
 
 function drawSkeleton(ctx, landmarks, colorStyle, isGhost, ox, oy, bw, bh) {
@@ -141,6 +167,7 @@ function paintGhostSkeletons(ctx, ox, oy, bw, bh) {
 }
 
 function paintLiveSkeleton(ctx, landmarks, ox, oy, bw, bh) {
+  if (typeof isSkeletonVisible !== 'undefined' && !isSkeletonVisible) return;
   drawSkeleton(ctx, landmarks, GHOST_STYLE_LIVE, false, ox, oy, bw, bh);
 }
 
@@ -184,9 +211,11 @@ function refreshDrawerAdvice() {
     el.innerHTML = generateBattingDiagnosisHtml(entry);
     return;
   }
-  var text = '';
-  if (typeof generatePitchingAICoachAdvice === 'function') text = generatePitchingAICoachAdvice(entry);
-  el.textContent = text || '主要な数値が決まると、ここにワンポイントが出ます。';
+  if (typeof generatePitchingDiagnosisHtml === 'function') {
+    el.innerHTML = generatePitchingDiagnosisHtml(entry);
+    return;
+  }
+  el.textContent = '主要な数値が決まると、ここにワンポイントが出ます。';
 }
 
 function setDrawerExpanded(drawerElement, open) {
@@ -282,8 +311,7 @@ function initMotionChrome() {
     ghostBtn._motionBound = true;
     ghostBtn.addEventListener('click', function() {
       showGhostOverlay = !showGhostOverlay;
-      ghostBtn.textContent = showGhostOverlay ? '👻 残像: ON' : '👻 残像: OFF';
-      ghostBtn.classList.toggle('is-off', !showGhostOverlay);
+      syncPoseOverlayButtons();
       redrawPoseOverlay();
     });
   }
@@ -293,6 +321,7 @@ function initMotionChrome() {
     exportBtn.addEventListener('click', exportAnalysisImage);
   }
   updateDrawerKeyBadge();
+  syncPoseOverlayButtons();
 }
 
 if (document.readyState === 'loading') {
