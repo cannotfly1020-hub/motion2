@@ -7,6 +7,7 @@
     "test": "node tests/biomechanics_math.test.js && node tests/pose_memory_guard.test.js",
     "sync:web": "node scripts/sync-web.mjs",
     "sync:ios": "npm run sync:web && npx cap sync ios",
+    "assets:ios": "node scripts/generate-app-icon.mjs && npx @capacitor/assets generate --ios --assetPath resources --iconBackgroundColor '#0f172a' --iconBackgroundColorDark '#0f172a' --splashBackgroundColor '#0f172a' --splashBackgroundColorDark '#0f172a'",
     "open:ios": "npx cap open ios"
   },
   "repository": {
